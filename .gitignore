@@ -1,7 +1,9 @@
 .env
 __pycache__
-*.ipynb
 *.db
 *.env
+# Ignore notebook checkpoints and temporary files
+**/.ipynb_checkpoints/
+*-checkpoint.ipynb
 .coverage
 venv/
