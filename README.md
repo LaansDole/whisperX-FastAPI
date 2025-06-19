@@ -102,6 +102,23 @@ Set default model in `.env` using `WHISPER_MODEL=` (default: tiny)
 
 ## Getting Started
 
+You have several options to get started with the WhisperX API:
+
+### Google Colab (No Local Setup Required)
+
+Run the API on Google Colab's GPU without any local setup:
+
+1. Open the [whisperx_fastapi_colab.ipynb](notebooks/whisperx_fastapi_colab.ipynb) notebook in Google Colab
+2. Follow the step-by-step instructions in the notebook
+3. Access the API through a Cloudflare tunnel URL that will be provided
+
+This option is ideal for:
+- Users without a local GPU
+- Quick testing without setting up a local environment
+- Temporary deployments for development or demonstration
+
+For more details, see the [notebooks README](notebooks/README.md).
+
 ### Local Run
 
 To get started with the API, follow these steps:
