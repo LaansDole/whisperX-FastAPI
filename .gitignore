@@ -7,4 +7,5 @@ __pycache__
 *-checkpoint.ipynb
 .coverage
 venv/
-.vscode/
+.vscode
+.clinerules/
