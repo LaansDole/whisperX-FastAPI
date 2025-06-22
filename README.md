@@ -100,6 +100,42 @@ Set default model in `.env` using `WHISPER_MODEL=` (default: tiny)
   - medium: ~5GB
   - large: ~10GB
 
+### Installing CUDA Libraries
+
+If you encounter errors related to missing CUDA libraries (such as `libcudnn_ops_infer.so.8`), you need to install the NVIDIA cuDNN library. We provide a helper script for this purpose:
+
+```sh
+# Make the script executable
+chmod +x scripts/install_cuda_libs.sh
+
+# Run the installation helper
+./scripts/install_cuda_libs.sh
+```
+
+#### Manual Installation
+
+If the helper script doesn't work for your system:
+
+1. Visit the [NVIDIA cuDNN download page](https://developer.nvidia.com/cudnn)
+2. Create an NVIDIA Developer account if you don't have one
+3. Download the appropriate cuDNN package for your CUDA version
+4. Install following NVIDIA's instructions
+
+#### Alternative: Use CPU Mode
+
+If installing CUDA libraries is not an option, you can run in CPU mode:
+
+```sh
+# Set these environment variables
+export DEVICE=cpu
+export COMPUTE_TYPE=int8
+
+# Then start the application
+uvicorn app.main:app --reload
+```
+
+Note: CPU mode will be significantly slower than GPU acceleration.
+
 ## Getting Started
 
 You have several options to get started with the WhisperX API:
@@ -200,7 +236,11 @@ The API will be accessible at <http://127.0.0.1:8000>.
 > **Note:** The Docker build uses `uv` for installing dependencies, as specified in the Dockerfile.
 > The main entrypoint for the Docker container is via **Gunicorn** (not Uvicorn directly), using the configuration in `app/gunicorn_logging.conf`.
 >
-> **Important:** For GPU support in Docker, you must have **CUDA drivers 12.8+ installed on your host system**.
+> **Important:** For GPU support in Docker, you must have **CUDA drivers 12.8+ installed on your host system** and set up the container with the `--gpus all` flag:
+>
+> ```sh
+> docker run -d --gpus all -p 8000:8000 --env-file .env whisperx-service
+> ```
 
 #### Model cache
 
@@ -227,6 +267,27 @@ The models used by whisperX are stored in `root/.cache`, if you want to avoid do
 
    - Verify your internet connection.
    - Ensure the `HF_TOKEN` is correctly set in the `.env` file.
+   - If you see an error like: `Error: An error happened while trying to locate the file on the Hub and we cannot find the requested files in the local cache`, try these solutions:
+     
+     a) Check your internet connection
+     
+     b) Verify your Hugging Face token has permission to access the models:
+     ```sh
+     # Test your token (replace YOUR_TOKEN with your actual token)
+     curl -X GET https://huggingface.co/api/whoami -H "Authorization: Bearer YOUR_TOKEN"
+     ```
+     
+     c) Try pre-downloading the model before running the service:
+     ```sh
+     # Example for downloading the base model
+     python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='openai/whisper-base')"
+     ```
+     
+     d) Set a custom cache directory with write permissions:
+     ```sh
+     export HF_HOME=/path/with/write/permissions
+     export TRANSFORMERS_CACHE=/path/with/write/permissions
+     ```
 
 4. **GPU Not Detected**
 
@@ -235,6 +296,21 @@ The models used by whisperX are stored in `root/.cache`, if you want to avoid do
 
 5. **Warnings Not Filtered**
    - Ensure the `FILTER_WARNING` environment variable is set to `true` in the `.env` file.
+
+6. **Compatibility Warnings**
+
+   The application may show compatibility warnings related to PyAnnote, PyTorch, or CUDA libraries. Here are common solutions:
+   
+   - **PyAnnote Version Warning**: The Pyannote models were trained with version 0.0.1, but you're using a newer version.
+     - Solution: Consider downgrading to a compatible version: `pip install pyannote.audio==0.0.1`
+   
+   - **PyTorch Version Warning**: The models expect PyTorch 1.x but you're using a newer version.
+     - Solution: For full compatibility, downgrade to PyTorch 1.10.0: `pip install torch==1.10.0+cu102 -f https://download.pytorch.org/whl/torch_stable.html`
+   
+   - **CUDA Library Missing**: Missing CUDA libraries like `libcudnn_ops_infer.so.8`.
+     - Solution: For Docker users, ensure you're using the `--gpus all` flag. For local installations, verify that CUDA and cuDNN are correctly installed.
+
+   > **Note:** The application should still work in most cases despite these warnings, but for optimal performance and stability, following the suggested solutions is recommended.
 
 ### Logs and Debugging
 

@@ -21,6 +21,7 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from ..audio import get_audio_duration, process_audio_file
+from ..compatibility import log_compatibility_warnings
 from ..db import get_db_session
 from ..files import ALLOWED_EXTENSIONS, save_temporary_file, validate_extension
 from ..logger import logger  # Import the logger from the new module
@@ -49,6 +50,9 @@ from ..transcript import filter_aligned_transcription
 from ..whisperx_services import device
 
 service_router = APIRouter()
+
+# Log compatibility warnings on module import
+log_compatibility_warnings()
 
 
 @service_router.post(

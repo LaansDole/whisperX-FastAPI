@@ -14,6 +14,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, UploadFile
 from sqlalchemy.orm import Session
 
 from ..audio import get_audio_duration, process_audio_file
+from ..compatibility import log_compatibility_warnings
 from ..db import get_db_session
 from ..files import ALLOWED_EXTENSIONS, save_temporary_file, validate_extension
 from ..logger import logger  # Import the logger from the new module
@@ -35,6 +36,9 @@ from ..whisperx_services import process_audio_common
 logging.basicConfig(level=logging.INFO)
 
 stt_router = APIRouter()
+
+# Log compatibility warnings on module import
+log_compatibility_warnings()
 
 
 @stt_router.post("/speech-to-text", tags=["Speech-2-Text"])
