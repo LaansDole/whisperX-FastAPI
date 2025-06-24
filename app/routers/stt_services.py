@@ -138,32 +138,40 @@ async def transcribe(
                 start_time=datetime.utcnow(),
                 session=session,
             )
+            
+            # Commit the task creation immediately
+            session.commit()
+            
         except Exception as e:
             logger.error(f"Error adding task to database: {str(e)}")
+            session.rollback()
             raise HTTPException(status_code=500, detail=f"Error creating task: {str(e)}")
 
-        # Add to background tasks with extra protection
+        # Add to background tasks with a new session generator
         try:
+            # Don't pass the session directly - let the background task create its own
             background_tasks.add_task(
-                process_transcribe,
+                process_transcribe_with_new_session,
                 audio,
                 identifier,
                 model_params,
                 asr_options_params,
                 vad_options_params,
-                session,
             )
         except Exception as e:
             logger.error(f"Error scheduling background task: {str(e)}")
             # Update the task status to failed since we couldn't schedule it
             try:
+                from ..tasks import update_task_status_in_db
                 update_task_status_in_db(
                     identifier=identifier,
                     update_data={"status": TaskStatus.failed, "error": f"Failed to schedule task: {str(e)}"},
                     session=session,
                 )
+                session.commit()
             except Exception as inner_e:
                 logger.error(f"Additionally failed to update task status: {str(inner_e)}")
+                session.rollback()
             raise HTTPException(status_code=500, detail=f"Error scheduling task: {str(e)}")
 
         logger.info("Background task scheduled for processing: ID %s", identifier)
@@ -385,3 +393,38 @@ async def combine(
 
     logger.info("Background task scheduled for processing: ID %s", identifier)
     return Response(identifier=identifier, message="Task queued")
+
+def process_transcribe_with_new_session(
+    audio,
+    identifier,
+    model_params: WhisperModelParams,
+    asr_options_params: ASROptions,
+    vad_options_params: VADOptions,
+):
+    """Process transcription with a new database session"""
+    from ..db import get_db_session
+    
+    try:
+        # Create a new session for this background task
+        with get_db_session() as session:
+            process_transcribe(
+                audio,
+                identifier,
+                model_params,
+                asr_options_params,
+                vad_options_params,
+                session,
+            )
+    except Exception as e:
+        logger.error(f"Background task failed: {str(e)}")
+        # Try to update status with a fresh session
+        try:
+            with get_db_session() as fallback_session:
+                from ..tasks import update_task_status_in_db
+                update_task_status_in_db(
+                    identifier=identifier,
+                    update_data={"status": TaskStatus.failed, "error": str(e)},
+                    session=fallback_session,
+                )
+        except Exception as inner_e:
+            logger.error(f"Failed to update task status: {str(inner_e)}")

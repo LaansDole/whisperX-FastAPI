@@ -3,6 +3,7 @@
 import gc
 from datetime import datetime
 
+import psutil
 import torch
 from fastapi import Depends
 from sqlalchemy.orm import Session
@@ -280,6 +281,23 @@ def process_audio_common(
             params.whisper_model_params.threads,
         )
 
+        # Add more aggressive memory management
+        import psutil
+        import os
+        
+        # Check system memory before starting
+        memory_info = psutil.virtual_memory()
+        if memory_info.percent > 85:
+            logger.warning(f"High memory usage detected: {memory_info.percent}%")
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        
+        # Set memory fraction for CUDA to prevent OOM
+        if torch.cuda.is_available():
+            torch.cuda.set_per_process_memory_fraction(0.8)  # Use only 80% of GPU memory
+
+        # Transcription step
         try:
             segments_before_alignment = transcribe_with_whisper(
                 audio=params.audio,
@@ -298,13 +316,14 @@ def process_audio_common(
         except Exception as e:
             logger.error(f"Error during transcription: {str(e)}")
             raise
+        finally:
+            # Force cleanup even if there's an error
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()  # Wait for all operations to complete
 
-        # Force cleanup after transcription
-        gc.collect()
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-            logger.debug(f"GPU memory after transcription: {torch.cuda.memory_allocated() / 1024**2:.2f} MB used")
-
+        # Alignment step
         logger.debug(
             "Alignment parameters - align_model: %s, interpolate_method: %s, return_char_alignments: %s, language_code: %s",
             params.alignment_params.align_model,
@@ -328,13 +347,14 @@ def process_audio_common(
         except Exception as e:
             logger.error(f"Error during alignment: {str(e)}")
             raise
-
-        # Force cleanup after alignment
-        gc.collect()
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-            logger.debug(f"GPU memory after alignment: {torch.cuda.memory_allocated() / 1024**2:.2f} MB used")
-
+        finally:
+            # Cleanup after alignment
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()
+        
+        # Diarization step
         logger.debug(
             "Diarization parameters - device: %s, min_speakers: %s, max_speakers: %s",
             params.whisper_model_params.device,
@@ -352,13 +372,13 @@ def process_audio_common(
         except Exception as e:
             logger.error(f"Error during diarization: {str(e)}")
             raise
-
-        # Force cleanup after diarization
-        gc.collect()
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-            logger.debug(f"GPU memory after diarization: {torch.cuda.memory_allocated() / 1024**2:.2f} MB used")
-
+        finally:
+            # Cleanup after diarization
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()
+                
         logger.debug("Starting to combine transcript with diarization results")
         
         try:
@@ -476,3 +496,10 @@ def process_audio_common(
         transcript = None
         segments_transcript = None
         segments_before_alignment = None
+
+        # Multiple cleanup passes
+        for _ in range(3):
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()

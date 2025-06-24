@@ -3,6 +3,8 @@ import os
 import time
 import requests
 import signal
+import threading
+import sys
 
 # Function to kill any process using a specific port
 def kill_port(port):
@@ -35,41 +37,26 @@ def kill_port(port):
         else:
             print(f"No processes found using port {port}")
             
-    except FileNotFoundError:
-        print("lsof command not found, trying alternative method...")
-        # Alternative method using netstat and kill
-        try:
-            result = subprocess.run(
-                ["netstat", "-tlnp"], 
-                capture_output=True, 
-                text=True
-            )
-            lines = result.stdout.split('\n')
-            for line in lines:
-                if f":{port} " in line and "LISTEN" in line:
-                    parts = line.split()
-                    if len(parts) > 6:
-                        pid_program = parts[6]
-                        if '/' in pid_program:
-                            pid = pid_program.split('/')[0]
-                            try:
-                                print(f"Killing process {pid} using port {port}")
-                                os.kill(int(pid), signal.SIGTERM)
-                                time.sleep(1)
-                                try:
-                                    os.kill(int(pid), signal.SIGKILL)
-                                except ProcessLookupError:
-                                    pass
-                            except (ProcessLookupError, ValueError):
-                                print(f"Process {pid} not found or invalid PID")
-        except Exception as e:
-            print(f"Could not kill processes on port {port}: {e}")
     except Exception as e:
         print(f"Error checking port {port}: {e}")
 
-# Function to start FastAPI server in a background process
+# Function to stream output from a process
+def stream_output(process, prefix=""):
+    """Stream output from a process to stdout in real-time"""
+    for line in iter(process.stdout.readline, b''):
+        if line:
+            sys.stdout.write(f"{prefix} {line.decode('utf-8')}")
+            sys.stdout.flush()
+    
+    if process.stderr:
+        for line in iter(process.stderr.readline, b''):
+            if line:
+                sys.stderr.write(f"{prefix} ERROR: {line.decode('utf-8')}")
+                sys.stderr.flush()
+
+# Function to start FastAPI server in a monitored process
 def start_fastapi_background():
-    print("Attempting to start FastAPI server in background using subprocess...")
+    print("Attempting to start FastAPI server in monitored process...")
     try:
         # Kill any existing processes on port 8000
         kill_port(8000)
@@ -82,30 +69,40 @@ def start_fastapi_background():
         else:
             print("Already in whisperX-FastAPI directory")
             
-        # Define the command to run (using port 8000 instead of 8001)
-        # Use 'exec' to replace the current shell process with uvicorn,
-        # and run in the background with '&'
-        # Ensure the virtual environment is sourced
-        command = "uvicorn app.main:app --host 0.0.0.0 --port 8000 --log-config app/uvicorn_log_conf.yaml --log-level info &"
+        # Define the command to run (using port 8000)
+        command = ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", 
+                   "--log-config", "app/uvicorn_log_conf.yaml", "--log-level", "info"]
 
-        # Start the subprocess
-        # We don't need to capture stdout/stderr if we want it to run truly in background
-        # If we need to debug, we might temporarily remove '&' and check output
-        process = subprocess.Popen(command, shell=True, preexec_fn=os.setsid)
+        # Start the process with output capturing
+        process = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE, 
+            stderr=subprocess.PIPE,
+            preexec_fn=os.setsid,
+            text=True,
+            bufsize=1  # Line buffered
+        )
 
-        print(f"FastAPI background process started with PID: {process.pid}")
+        # Start threads to stream the output without blocking
+        stdout_thread = threading.Thread(target=stream_output, args=(process, "SERVER:"))
+        stdout_thread.daemon = True
+        stdout_thread.start()
+
+        print(f"FastAPI process started with PID: {process.pid}")
         return process
 
     except Exception as e:
-        print(f"Error starting FastAPI background process: {e}")
+        print(f"Error starting FastAPI process: {e}")
         return None
 
 # Start the background process
 fastapi_process = start_fastapi_background()
 
 # Give the server a moment to start
+print("Waiting 20 seconds for the server to start...")
 time.sleep(20)
 
+global server_url
 # Now check if the server is reachable
 server_url = "http://0.0.0.0:8000"
 print(f"Attempting to connect to FastAPI server at {server_url}...")
@@ -127,3 +124,22 @@ except Exception as e:
 
 # Store the process globally if needed for later shutdown
 globals()['fastapi_background_process'] = fastapi_process
+
+# Keep the script running to continue streaming server output
+print("\nServer is running. Press Ctrl+C to stop.")
+try:
+    # Wait for the server process to complete or user to interrupt
+    while fastapi_process.poll() is None:
+        time.sleep(1)
+    
+    # If we get here, the server has stopped
+    exit_code = fastapi_process.returncode
+    print(f"\nServer process has exited with code {exit_code}")
+    
+except KeyboardInterrupt:
+    print("\nShutting down server...")
+    try:
+        os.killpg(os.getpgid(fastapi_process.pid), signal.SIGTERM)
+        print("Server stopped.")
+    except Exception as e:
+        print(f"Error stopping server: {e}")
