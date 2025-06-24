@@ -25,6 +25,7 @@ from .transcript import filter_aligned_transcription
 LANG = Config.LANG
 HF_TOKEN = Config.HF_TOKEN
 WHISPER_MODEL = Config.WHISPER_MODEL
+WHISPER_MODEL_PATH = Config.WHISPER_MODEL_PATH
 device = Config.DEVICE
 compute_type = Config.COMPUTE_TYPE
 
@@ -73,9 +74,10 @@ def transcribe_with_whisper(
         torch.set_num_threads(threads)
         faster_whisper_threads = threads
 
+    model_name = WHISPER_MODEL_PATH if WHISPER_MODEL_PATH else model.value
     logger.debug(
         "Loading model with config - model: %s, device: %s, compute_type: %s, threads: %d, task: %s, language: %s",
-        model.value,
+        model_name,
         device,
         compute_type,
         faster_whisper_threads,
@@ -84,7 +86,7 @@ def transcribe_with_whisper(
     )
     try:
         model = load_model(
-            model.value,
+            model_name,
             device,
             device_index=device_index,
             compute_type=compute_type,

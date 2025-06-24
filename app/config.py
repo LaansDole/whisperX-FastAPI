@@ -1,7 +1,6 @@
 """Configuration module for the WhisperX FastAPI application."""
 
 import os
-
 import torch
 from dotenv import load_dotenv
 
@@ -15,6 +14,7 @@ class Config:
     LANG = os.getenv("DEFAULT_LANG", "en")
     HF_TOKEN = os.getenv("HF_TOKEN")
     WHISPER_MODEL = os.getenv("WHISPER_MODEL")
+    WHISPER_MODEL_PATH = os.getenv("WHISPER_MODEL_PATH")
     DEVICE = os.getenv("DEVICE", "cuda" if torch.cuda.is_available() else "cpu")
     COMPUTE_TYPE = os.getenv(
         "COMPUTE_TYPE", "float16" if torch.cuda.is_available() else "int8"
