@@ -82,21 +82,33 @@ def transcribe_with_whisper(
         task,
         language,
     )
-    model = load_model(
-        model.value,
-        device,
-        device_index=device_index,
-        compute_type=compute_type,
-        asr_options=asr_options,
-        vad_options=vad_options,
-        language=language,
-        task=task,
-        threads=faster_whisper_threads,
-    )
-    logger.debug("Transcription model loaded successfully")
-    result = model.transcribe(
-        audio=audio, batch_size=batch_size, chunk_size=chunk_size, language=language
-    )
+    try:
+        model = load_model(
+            model.value,
+            device,
+            device_index=device_index,
+            compute_type=compute_type,
+            asr_options=asr_options,
+            vad_options=vad_options,
+            language=language,
+            task=task,
+            threads=faster_whisper_threads,
+        )
+        logger.debug("Transcription model loaded successfully")
+        result = model.transcribe(
+            audio=audio, batch_size=batch_size, chunk_size=chunk_size, language=language
+        )
+    except Exception as e:
+        logger.error(f"Error during transcription model loading or inference: {e}")
+        if "401" in str(e) or "authorization" in str(e).lower():
+            raise RuntimeError(
+                "Hugging Face authentication failed. Please ensure your HF_TOKEN is correct and has permissions for the Whisper model."
+            )
+        if "Could not find the requested files" in str(e):
+            raise RuntimeError(
+                "Could not download the Whisper model. This might be due to a network issue or because you have not accepted the model's terms of service on the Hugging Face Hub."
+            )
+        raise e
 
     # Log GPU memory before cleanup
     if torch.cuda.is_available():
@@ -131,14 +143,34 @@ def diarize(audio, device: str = device, min_speakers=None, max_speakers=None):
     """
     logger.debug("Starting diarization with device: %s", device)
 
+    if not HF_TOKEN:
+        raise ValueError(
+            "Hugging Face token is not set. Please set the HF_TOKEN environment variable."
+            "You can get a token from https://huggingface.co/settings/tokens"
+            "Also, you need to agree to the terms of service for the pyannote/speaker-diarization-3.1 model on the Hugging Face Hub."
+        )
+
     # Log GPU memory before loading model
     if torch.cuda.is_available():
         logger.debug(
             f"GPU memory before loading model - used: {torch.cuda.memory_allocated() / 1024**2:.2f} MB, available: {torch.cuda.get_device_properties(0).total_memory / 1024**2:.2f} MB"
         )
 
-    model = DiarizationPipeline(use_auth_token=HF_TOKEN, device=device)
-    result = model(audio=audio, min_speakers=min_speakers, max_speakers=max_speakers)
+    try:
+        model = DiarizationPipeline(use_auth_token=HF_TOKEN, device=device)
+        result = model(audio=audio, min_speakers=min_speakers, max_speakers=max_speakers)
+    except Exception as e:
+        logger.error(f"Error during diarization model loading or inference: {e}")
+        if "401" in str(e) or "authorization" in str(e).lower():
+            raise RuntimeError(
+                "Hugging Face authentication failed. Please ensure your HF_TOKEN is correct and has permissions for 'pyannote/speaker-diarization-3.1'. See README for troubleshooting."
+            )
+        if "Could not find the requested files" in str(e):
+            raise RuntimeError(
+                "Could not download the diarization model. This might be due to a network issue or because you have not accepted the model's terms of service on the Hugging Face Hub for 'pyannote/speaker-diarization-3.1'. See README for troubleshooting."
+            )
+        raise e
+
 
     # Log GPU memory before cleanup
     if torch.cuda.is_available():

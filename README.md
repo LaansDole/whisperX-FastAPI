@@ -299,13 +299,7 @@ The models used by whisperX are stored in `root/.cache`, if you want to avoid do
 
 6. **Compatibility Warnings**
 
-   The application may show compatibility warnings related to PyAnnote, PyTorch, or CUDA libraries. Here are common solutions:
-   
-   - **PyAnnote Version Warning**: The Pyannote models were trained with version 0.0.1, but you're using a newer version.
-     - Solution: Consider downgrading to a compatible version: `pip install pyannote.audio==0.0.1`
-   
-   - **PyTorch Version Warning**: The models expect PyTorch 1.x but you're using a newer version.
-     - Solution: For full compatibility, downgrade to PyTorch 1.10.0: `pip install torch==1.10.0+cu102 -f https://download.pytorch.org/whl/torch_stable.html`
+   The application may show compatibility warnings related to PyAnnote, PyTorch, or CUDA libraries. Here is a common solution:
    
    - **CUDA Library Missing**: Missing CUDA libraries like `libcudnn_ops_infer.so.8`.
      - Solution: For Docker users, ensure you're using the `--gpus all` flag. For local installations, verify that CUDA and cuDNN are correctly installed.
