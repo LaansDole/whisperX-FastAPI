@@ -82,40 +82,100 @@ async def transcribe(
     Returns:
         Response: Confirmation message of task queuing.
     """
-    logger.info("Received transcription request for file: %s", file.filename)
+    try:
+        logger.info("Received transcription request for file: %s", file.filename)
 
-    validate_extension(file.filename, ALLOWED_EXTENSIONS)
+        validate_extension(file.filename, ALLOWED_EXTENSIONS)
 
-    temp_file = save_temporary_file(file.file, file.filename)
-    audio = process_audio_file(temp_file)
+        # Save file with error handling
+        try:
+            temp_file = save_temporary_file(file.file, file.filename)
+        except Exception as e:
+            logger.error(f"Error saving file: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error saving file: {str(e)}")
 
-    identifier = add_task_to_db(
-        status=TaskStatus.processing,
-        file_name=file.filename,
-        audio_duration=get_audio_duration(audio),
-        language=model_params.language,
-        task_type=TaskType.transcription,
-        task_params={
-            **model_params.model_dump(),
-            "asr_options": asr_options_params.model_dump(),
-            "vad_options": vad_options_params.model_dump(),
-        },
-        start_time=datetime.utcnow(),
-        session=session,
-    )
+        # Process audio with error handling
+        try:
+            audio = process_audio_file(temp_file)
+        except Exception as e:
+            logger.error(f"Error processing audio file: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error processing audio file: {str(e)}")
 
-    background_tasks.add_task(
-        process_transcribe,
-        audio,
-        identifier,
-        model_params,
-        asr_options_params,
-        vad_options_params,
-        session,
-    )
+        # Get audio duration with error handling
+        try:
+            audio_duration = get_audio_duration(audio)
+        except Exception as e:
+            logger.error(f"Error getting audio duration: {str(e)}")
+            # Use a default duration if we can't determine it
+            audio_duration = 0
 
-    logger.info("Background task scheduled for processing: ID %s", identifier)
-    return Response(identifier=identifier, message="Task queued")
+        # Validate language code if provided
+        language = model_params.language
+        if language:
+            try:
+                from ..services import validate_language_code
+                validate_language_code(language)
+            except HTTPException:
+                # Fall back to English if the provided language is invalid
+                logger.warning(f"Invalid language code: {language}, falling back to English")
+                language = "en"
+            except Exception as e:
+                logger.error(f"Error validating language code: {str(e)}")
+
+        # Add task to DB with error handling
+        try:
+            identifier = add_task_to_db(
+                status=TaskStatus.processing,
+                file_name=file.filename,
+                audio_duration=audio_duration,
+                language=language,
+                task_type=TaskType.transcription,
+                task_params={
+                    **model_params.model_dump(),
+                    "asr_options": asr_options_params.model_dump(),
+                    "vad_options": vad_options_params.model_dump(),
+                },
+                start_time=datetime.utcnow(),
+                session=session,
+            )
+        except Exception as e:
+            logger.error(f"Error adding task to database: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error creating task: {str(e)}")
+
+        # Add to background tasks with extra protection
+        try:
+            background_tasks.add_task(
+                process_transcribe,
+                audio,
+                identifier,
+                model_params,
+                asr_options_params,
+                vad_options_params,
+                session,
+            )
+        except Exception as e:
+            logger.error(f"Error scheduling background task: {str(e)}")
+            # Update the task status to failed since we couldn't schedule it
+            try:
+                update_task_status_in_db(
+                    identifier=identifier,
+                    update_data={"status": TaskStatus.failed, "error": f"Failed to schedule task: {str(e)}"},
+                    session=session,
+                )
+            except Exception as inner_e:
+                logger.error(f"Additionally failed to update task status: {str(inner_e)}")
+            raise HTTPException(status_code=500, detail=f"Error scheduling task: {str(e)}")
+
+        logger.info("Background task scheduled for processing: ID %s", identifier)
+        return Response(identifier=identifier, message="Task queued")
+    
+    except HTTPException:
+        # Re-raise HTTP exceptions as they already have appropriate status codes
+        raise
+    except Exception as e:
+        # Catch any other exceptions and return a 500 error
+        logger.error(f"Unexpected error in transcribe endpoint: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 
 
 @service_router.post(

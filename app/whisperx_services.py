@@ -258,6 +258,15 @@ def process_audio_common(
             params.identifier,
         )
 
+        # Create a local reference to the session that won't be closed during processing
+        local_session = session
+        
+        # Explicitly free memory before starting any processing
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            logger.debug(f"Initial GPU memory state: {torch.cuda.memory_allocated() / 1024**2:.2f} MB used")
+
         logger.debug(
             "Transcription parameters - task: %s, language: %s, batch_size: %d, chunk_size: %d, model: %s, device: %s, device_index: %d, compute_type: %s, threads: %d",
             params.whisper_model_params.task,
@@ -271,20 +280,30 @@ def process_audio_common(
             params.whisper_model_params.threads,
         )
 
-        segments_before_alignment = transcribe_with_whisper(
-            audio=params.audio,
-            task=params.whisper_model_params.task.value,
-            asr_options=params.asr_options,
-            vad_options=params.vad_options,
-            language=params.whisper_model_params.language,
-            batch_size=params.whisper_model_params.batch_size,
-            chunk_size=params.whisper_model_params.chunk_size,
-            model=params.whisper_model_params.model,
-            device=params.whisper_model_params.device,
-            device_index=params.whisper_model_params.device_index,
-            compute_type=params.whisper_model_params.compute_type,
-            threads=params.whisper_model_params.threads,
-        )
+        try:
+            segments_before_alignment = transcribe_with_whisper(
+                audio=params.audio,
+                task=params.whisper_model_params.task.value,
+                asr_options=params.asr_options,
+                vad_options=params.vad_options,
+                language=params.whisper_model_params.language,
+                batch_size=params.whisper_model_params.batch_size,
+                chunk_size=params.whisper_model_params.chunk_size,
+                model=params.whisper_model_params.model,
+                device=params.whisper_model_params.device,
+                device_index=params.whisper_model_params.device_index,
+                compute_type=params.whisper_model_params.compute_type,
+                threads=params.whisper_model_params.threads,
+            )
+        except Exception as e:
+            logger.error(f"Error during transcription: {str(e)}")
+            raise
+
+        # Force cleanup after transcription
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            logger.debug(f"GPU memory after transcription: {torch.cuda.memory_allocated() / 1024**2:.2f} MB used")
 
         logger.debug(
             "Alignment parameters - align_model: %s, interpolate_method: %s, return_char_alignments: %s, language_code: %s",
@@ -293,17 +312,28 @@ def process_audio_common(
             params.alignment_params.return_char_alignments,
             segments_before_alignment["language"],
         )
-        segments_transcript = align_whisper_output(
-            transcript=segments_before_alignment["segments"],
-            audio=params.audio,
-            language_code=segments_before_alignment["language"],
-            align_model=params.alignment_params.align_model,
-            interpolate_method=params.alignment_params.interpolate_method,
-            return_char_alignments=params.alignment_params.return_char_alignments,
-        )
-        transcript = AlignedTranscription(**segments_transcript)
-        # removing words within each segment that have missing start, end, or score values
-        transcript = filter_aligned_transcription(transcript).model_dump()
+        
+        try:
+            segments_transcript = align_whisper_output(
+                transcript=segments_before_alignment["segments"],
+                audio=params.audio,
+                language_code=segments_before_alignment["language"],
+                align_model=params.alignment_params.align_model,
+                interpolate_method=params.alignment_params.interpolate_method,
+                return_char_alignments=params.alignment_params.return_char_alignments,
+            )
+            transcript = AlignedTranscription(**segments_transcript)
+            # removing words within each segment that have missing start, end, or score values
+            transcript = filter_aligned_transcription(transcript).model_dump()
+        except Exception as e:
+            logger.error(f"Error during alignment: {str(e)}")
+            raise
+
+        # Force cleanup after alignment
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            logger.debug(f"GPU memory after alignment: {torch.cuda.memory_allocated() / 1024**2:.2f} MB used")
 
         logger.debug(
             "Diarization parameters - device: %s, min_speakers: %s, max_speakers: %s",
@@ -311,20 +341,39 @@ def process_audio_common(
             params.diarization_params.min_speakers,
             params.diarization_params.max_speakers,
         )
-        diarization_segments = diarize(
-            params.audio,
-            device=params.whisper_model_params.device,
-            min_speakers=params.diarization_params.min_speakers,
-            max_speakers=params.diarization_params.max_speakers,
-        )
+        
+        try:
+            diarization_segments = diarize(
+                params.audio,
+                device=params.whisper_model_params.device,
+                min_speakers=params.diarization_params.min_speakers,
+                max_speakers=params.diarization_params.max_speakers,
+            )
+        except Exception as e:
+            logger.error(f"Error during diarization: {str(e)}")
+            raise
+
+        # Force cleanup after diarization
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            logger.debug(f"GPU memory after diarization: {torch.cuda.memory_allocated() / 1024**2:.2f} MB used")
 
         logger.debug("Starting to combine transcript with diarization results")
-        result = assign_word_speakers(diarization_segments, transcript)
+        
+        try:
+            result = assign_word_speakers(diarization_segments, transcript)
 
-        for segment in result["segments"]:
-            del segment["words"]
+            # Remove unnecessary data to reduce memory usage
+            for segment in result["segments"]:
+                if "words" in segment:
+                    del segment["words"]
 
-        del result["word_segments"]
+            if "word_segments" in result:
+                del result["word_segments"]
+        except Exception as e:
+            logger.error(f"Error during speaker assignment: {str(e)}")
+            raise
 
         logger.debug("Completed combining transcript with diarization results")
 
@@ -336,37 +385,94 @@ def process_audio_common(
             duration,
         )
 
-        update_task_status_in_db(
-            identifier=params.identifier,
-            update_data={
-                "status": TaskStatus.completed,
-                "result": result,
-                "duration": duration,
-                "start_time": start_time,
-                "end_time": end_time,
-            },
-            session=session,
-        )
+        # Make sure we've cleared as much memory as possible before updating DB
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            logger.debug(f"Final GPU memory state: {torch.cuda.memory_allocated() / 1024**2:.2f} MB used")
+
+        try:
+            update_task_status_in_db(
+                identifier=params.identifier,
+                update_data={
+                    "status": TaskStatus.completed,
+                    "result": result,
+                    "duration": duration,
+                    "start_time": start_time,
+                    "end_time": end_time,
+                },
+                session=local_session,
+            )
+        except Exception as e:
+            logger.error(f"Error updating task status in database: {str(e)}")
+            # Try one last time with a new session
+            try:
+                from .db import get_db_session
+                with get_db_session() as fallback_session:
+                    update_task_status_in_db(
+                        identifier=params.identifier,
+                        update_data={
+                            "status": TaskStatus.completed,
+                            "result": result,
+                            "duration": duration,
+                            "start_time": start_time,
+                            "end_time": end_time,
+                        },
+                        session=fallback_session,
+                    )
+                    logger.info("Successfully updated task with fallback session")
+            except Exception as inner_e:
+                logger.critical(f"Critical database error: {str(inner_e)}")
+            
     except (RuntimeError, ValueError, KeyError) as e:
         logger.error(
             "Speech-to-text processing failed for identifier: %s. Error: %s",
             params.identifier,
             str(e),
         )
-        update_task_status_in_db(
-            identifier=params.identifier,
-            update_data={
-                "status": TaskStatus.failed,
-                "error": str(e),
-            },
-            session=session,
-        )
+        try:
+            update_task_status_in_db(
+                identifier=params.identifier,
+                update_data={
+                    "status": TaskStatus.failed,
+                    "error": str(e),
+                },
+                session=session,
+            )
+        except Exception as db_error:
+            logger.error(f"Failed to update task status in DB: {str(db_error)}")
     except MemoryError as e:
         logger.error(
             f"Task failed for identifier {params.identifier} due to out of memory. Error: {str(e)}"
         )
-        update_task_status_in_db(
-            identifier=params.identifier,
-            update_data={"status": TaskStatus.failed, "error": str(e)},
-            session=session,
-        )
+        try:
+            update_task_status_in_db(
+                identifier=params.identifier,
+                update_data={"status": TaskStatus.failed, "error": f"Memory error: {str(e)}"},
+                session=session,
+            )
+        except Exception as db_error:
+            logger.error(f"Failed to update task status in DB: {str(db_error)}")
+    except Exception as e:
+        logger.error(f"Unexpected error for identifier {params.identifier}: {str(e)}")
+        try:
+            update_task_status_in_db(
+                identifier=params.identifier,
+                update_data={"status": TaskStatus.failed, "error": f"Unexpected error: {str(e)}"},
+                session=session,
+            )
+        except Exception as db_error:
+            logger.error(f"Failed to update task status in DB: {str(db_error)}")
+    finally:
+        # Final cleanup
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        
+        # Clear references to potentially large objects
+        params.audio = None
+        result = None
+        diarization_segments = None
+        transcript = None
+        segments_transcript = None
+        segments_before_alignment = None
