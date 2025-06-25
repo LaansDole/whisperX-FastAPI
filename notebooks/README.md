@@ -4,21 +4,17 @@ This directory contains notebooks for running and using the WhisperX FastAPI pro
 
 ## whisperx_fastapi_colab.ipynb
 
-This notebook allows you to run the WhisperX FastAPI project on Google Colab to leverage their GPU resources. It provides a complete environment for running the API service and exposing it through a Cloudflare tunnel for external access.
+This notebook allows you to run the WhisperX FastAPI project on Google Colab to leverage their GPU resources.
 
 ### Features
 
 - Automatically sets up the complete WhisperX FastAPI environment on Google Colab
 - Uses Colab's GPU for fast speech-to-text processing
-- Exposes the API through a Cloudflare tunnel for external access
-- Includes examples for uploading and processing audio files
-- Provides task status checking and monitoring capabilities
 
 ### Requirements
 
 - A Google account with access to Google Colab
 - A Hugging Face account with an API token
-- Internet connection for the Cloudflare tunnel
 
 ### How to Use
 
@@ -38,18 +34,10 @@ This notebook allows you to run the WhisperX FastAPI project on Google Colab to 
    - The notebook will install all necessary dependencies
    - It will clone the repository and set up the environment
    - You'll be prompted to enter your Hugging Face token
-   - The FastAPI service will be started and exposed through a Cloudflare tunnel
-
-4. Access the API:
-   - The notebook will display a clickable link to the API documentation
-   - You can use the API from any device with internet access
-   - Example code for uploading and processing audio is included in the notebook
-
-5. When done, use the shutdown cells to properly terminate the services and clean up resources.
+   - The FastAPI service will be started
 
 ### Troubleshooting
 
-- If the Cloudflare tunnel fails to establish, try running the cell again
 - If the API is unresponsive, check the GPU usage and consider restarting the runtime
 - For errors related to Hugging Face token, verify that your token has the necessary permissions
 

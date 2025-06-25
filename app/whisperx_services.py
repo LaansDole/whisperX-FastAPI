@@ -25,7 +25,7 @@ from .transcript import filter_aligned_transcription
 LANG = Config.LANG
 HF_TOKEN = Config.HF_TOKEN
 WHISPER_MODEL = Config.WHISPER_MODEL
-WHISPER_MODEL_PATH = Config.WHISPER_MODEL_PATH
+DIARIZATION_MODEL_PATH = Config.DIARIZATION_MODEL_PATH
 device = Config.DEVICE
 compute_type = Config.COMPUTE_TYPE
 
@@ -74,10 +74,9 @@ def transcribe_with_whisper(
         torch.set_num_threads(threads)
         faster_whisper_threads = threads
 
-    model_name = WHISPER_MODEL_PATH if WHISPER_MODEL_PATH else model.value
     logger.debug(
         "Loading model with config - model: %s, device: %s, compute_type: %s, threads: %d, task: %s, language: %s",
-        model_name,
+        model.value,
         device,
         compute_type,
         faster_whisper_threads,
@@ -159,19 +158,35 @@ def diarize(audio, device: str = device, min_speakers=None, max_speakers=None):
         )
 
     try:
+        # Attempt to load from Hugging Face Hub first
         model = DiarizationPipeline(use_auth_token=HF_TOKEN, device=device)
         result = model(audio=audio, min_speakers=min_speakers, max_speakers=max_speakers)
     except Exception as e:
-        logger.error(f"Error during diarization model loading or inference: {e}")
-        if "401" in str(e) or "authorization" in str(e).lower():
-            raise RuntimeError(
-                "Hugging Face authentication failed. Please ensure your HF_TOKEN is correct and has permissions for 'pyannote/speaker-diarization-3.1'. See README for troubleshooting."
-            )
-        if "Could not find the requested files" in str(e):
-            raise RuntimeError(
-                "Could not download the diarization model. This might be due to a network issue or because you have not accepted the model's terms of service on the Hugging Face Hub for 'pyannote/speaker-diarization-3.1'. See README for troubleshooting."
-            )
-        raise e
+        logger.error(f"Error during diarization model loading from Hugging Face Hub: {e}")
+        
+        # If download fails, try loading from the local path if provided
+        if DIARIZATION_MODEL_PATH:
+            logger.info(f"Attempting to load diarization model from local path: {DIARIZATION_MODEL_PATH}")
+            try:
+                model = DiarizationPipeline(model_name=DIARIZATION_MODEL_PATH, use_auth_token=HF_TOKEN, device=device)
+                result = model(audio=audio, min_speakers=min_speakers, max_speakers=max_speakers)
+            except Exception as local_e:
+                logger.error(f"Failed to load diarization model from local path: {local_e}")
+                raise RuntimeError(
+                    "Failed to load diarization model from both Hugging Face Hub and the local path. "
+                    "Please check your internet connection, HF_TOKEN, and the local model path."
+                ) from local_e
+        else:
+            # If no local path is provided, re-raise the original error with a more informative message
+            if "401" in str(e) or "authorization" in str(e).lower():
+                raise RuntimeError(
+                    "Hugging Face authentication failed. Please ensure your HF_TOKEN is correct and has permissions for 'pyannote/speaker-diarization-3.1'. See README for troubleshooting."
+                ) from e
+            if "Could not find the requested files" in str(e):
+                raise RuntimeError(
+                    "Could not download the diarization model. This might be due to a network issue or because you have not accepted the model's terms of service on the Hugging Face Hub for 'pyannote/speaker-diarization-3.1'. See README for troubleshooting."
+                ) from e
+            raise e
 
 
     # Log GPU memory before cleanup

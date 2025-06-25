@@ -146,7 +146,6 @@ Run the API on Google Colab's GPU without any local setup:
 
 1. Open the [whisperx_fastapi_colab.ipynb](notebooks/whisperx_fastapi_colab.ipynb) notebook in Google Colab
 2. Follow the step-by-step instructions in the notebook
-3. Access the API through a Cloudflare tunnel URL that will be provided
 
 This option is ideal for:
 - Users without a local GPU
@@ -280,13 +279,7 @@ The models used by whisperX are stored in `root/.cache`, if you want to avoid do
      c) Try pre-downloading the model before running the service:
      ```sh
      # Example for downloading the base model
-     python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='openai/whisper-base')"
-     ```
-     
-     d) Set a custom cache directory with write permissions:
-     ```sh
-     export HF_HOME=/path/with/write/permissions
-     export TRANSFORMERS_CACHE=/path/with/write/permissions
+     python scripts/download_diarization_model.py
      ```
 
 4. **GPU Not Detected**
@@ -296,15 +289,6 @@ The models used by whisperX are stored in `root/.cache`, if you want to avoid do
 
 5. **Warnings Not Filtered**
    - Ensure the `FILTER_WARNING` environment variable is set to `true` in the `.env` file.
-
-6. **Compatibility Warnings**
-
-   The application may show compatibility warnings related to PyAnnote, PyTorch, or CUDA libraries. Here is a common solution:
-   
-   - **CUDA Library Missing**: Missing CUDA libraries like `libcudnn_ops_infer.so.8`.
-     - Solution: For Docker users, ensure you're using the `--gpus all` flag. For local installations, verify that CUDA and cuDNN are correctly installed.
-
-   > **Note:** The application should still work in most cases despite these warnings, but for optimal performance and stability, following the suggested solutions is recommended.
 
 ### Logs and Debugging
 
