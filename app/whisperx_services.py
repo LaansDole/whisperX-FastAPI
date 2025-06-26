@@ -85,7 +85,7 @@ def transcribe_with_whisper(
     )
     try:
         model = load_model(
-            model_name,
+            model.value,
             device,
             device_index=device_index,
             compute_type=compute_type,
