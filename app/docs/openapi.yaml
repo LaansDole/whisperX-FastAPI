@@ -11,8 +11,8 @@ info:
     \ Align the transcript to the audio/video file.\n    3. Diarize: Diarize an audio/video\
     \ file into speakers.\n    4. Combine Transcript and Diarization: Combine the\
     \ transcript and diarization results.\n\n    ## Supported file extensions:\n \
-    \   AUDIO_EXTENSIONS = {'.wma', '.mp3', '.aac', '.ogg', '.m4a', '.wav', '.oga',\
-    \ '.awb', '.amr'}\n\n    VIDEO_EXTENSIONS = {'.mkv', '.mp4', '.mov', '.wmv', '.avi'}\n\
+    \   AUDIO_EXTENSIONS = {'.mp3', '.aac', '.wav', '.ogg', '.m4a', '.amr', '.wma',\
+    \ '.oga', '.awb'}\n\n    VIDEO_EXTENSIONS = {'.mkv', '.wmv', '.mp4', '.mov', '.avi'}\n\
     \n    "
   version: 0.0.1
 paths:

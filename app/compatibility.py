@@ -15,6 +15,9 @@ from typing import Dict, List, Optional, Tuple
 
 from .logger import logger
 
+# Global flag to track if warnings have been logged
+_warnings_logged = False
+
 # Dictionary of known compatibility issues and their solutions
 COMPATIBILITY_ISSUES = {
     "pyannote_version": {
@@ -164,10 +167,19 @@ def generate_fallback_to_cpu_instructions() -> str:
 
 def log_compatibility_warnings():
     """Log compatibility warnings if issues are found."""
+    global _warnings_logged
+    
+    # Only log warnings once per application run
+    if _warnings_logged:
+        return
+        
     issues = check_compatibility()
     
     if not issues:
         return
+    
+    # Mark warnings as logged
+    _warnings_logged = True
     
     logger.warning("=" * 80)
     logger.warning("COMPATIBILITY WARNINGS DETECTED")
@@ -182,20 +194,3 @@ def log_compatibility_warnings():
             logger.warning("ALTERNATIVE: %s", generate_fallback_to_cpu_instructions())
     
     logger.warning("=" * 80)
-    
-    # If running in development mode, also print to stderr
-    if os.environ.get("DEV", "true").lower() == "true":
-        print("\n" + "=" * 80, file=sys.stderr)
-        print("COMPATIBILITY WARNINGS DETECTED", file=sys.stderr)
-        print("=" * 80, file=sys.stderr)
-        
-        for issue_type, details in issues.items():
-            print(details["message"], file=sys.stderr)
-            print(f"SOLUTION: {details['solution']}", file=sys.stderr)
-            
-            # Add special handling for CUDA library issues
-            if issue_type == "cudnn_missing":
-                print("ALTERNATIVE:", file=sys.stderr)
-                print(generate_fallback_to_cpu_instructions(), file=sys.stderr)
-        
-        print("=" * 80 + "\n", file=sys.stderr)

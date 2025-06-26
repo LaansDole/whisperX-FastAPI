@@ -194,7 +194,7 @@ LOG_LEVEL=<<LOG LEVEL>>
 6. Run the FastAPI application:
 
 ```sh
-uvicorn app.main:app --reload --log-config uvicorn_log_conf.yaml --log-level $LOG_LEVEL
+uvicorn app.main:app --reload --log-config app/uvicorn_log_conf.yaml --log-level info
 ```
 
 The API will be accessible at <http://127.0.0.1:8000>.
