@@ -8,15 +8,6 @@ Swagger UI is available at `/docs` for all the services, dump of OpenAPI definit
 
 See the [WhisperX Documentation](https://github.com/m-bain/whisperX) for details on whisperX functions.
 
-### Language and Whisper model settings
-
-- in `.env` you can define default Language `DEFAULT_LANG`, if not defined **en** is used (you can also set it in the request)
-- `.env` contains definition of Whisper model using `WHISPER_MODEL` (you can also set it in the request)
-- `.env` contains definition of logging level using `LOG_LEVEL`, if not defined **DEBUG** is used in development and **INFO** in production
-- `.env` contains definition of environment using `ENVIRONMENT`, if not defined **production** is used
-- `.env` contains a boolean `DEV` to indicate if the environment is development, if not defined **true** is used
-- `.env` contains a boolean `FILTER_WARNING` to enable or disable filtering of specific warnings, if not defined **true** is used
-
 ### Supported File Formats
 
 #### Audio Files
@@ -315,10 +306,6 @@ The API provides built-in health check endpoints that can be used for monitoring
    - Checks connectivity to the database
    - Returns HTTP 200 if all dependencies are available
    - Returns HTTP 503 if there's an issue with dependencies (e.g., database connection)
-
-### Support
-
-For further assistance, please open an issue on the [GitHub repository](https://github.com/pavelzbornik/whisperX-FastAPI/issues).
 
 ## Related
 
