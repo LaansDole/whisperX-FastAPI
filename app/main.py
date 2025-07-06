@@ -16,7 +16,7 @@ from .config import Config  # noqa: E402
 from .db import engine  # noqa: E402
 from .docs import generate_db_schema, save_openapi_json  # noqa: E402
 from .models import Base  # noqa: E402
-from .routers import stt, stt_services, task  # noqa: E402
+from .routers import stt, stt_services, task, rag  # noqa: E402
 
 # Load environment variables from .env
 load_dotenv()
@@ -59,6 +59,14 @@ tags_metadata = [
     },
 ]
 
+if Config.RAG_CHATBOT_ENABLED:
+    tags_metadata.append(
+        {
+            "name": "RAG Chatbot",
+            "description": "Interact with the RAG chatbot.",
+        }
+    )
+
 
 app = FastAPI(
     title="whisperX REST service",
@@ -95,6 +103,9 @@ app = FastAPI(
 app.include_router(stt.stt_router)
 app.include_router(task.task_router)
 app.include_router(stt_services.service_router)
+
+if Config.RAG_CHATBOT_ENABLED:
+    app.include_router(rag.rag_router)
 
 
 @app.get("/", include_in_schema=False)

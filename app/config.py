@@ -23,6 +23,7 @@ class Config:
     LOG_LEVEL = os.getenv(
         "LOG_LEVEL", "DEBUG" if ENVIRONMENT == "development" else "INFO"
     ).upper()
+    RAG_CHATBOT_ENABLED = os.getenv("RAG_CHATBOT_ENABLED", "false").lower() == "true"
 
     AUDIO_EXTENSIONS = {
         ".mp3",
