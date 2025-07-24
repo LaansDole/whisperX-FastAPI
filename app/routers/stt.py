@@ -6,31 +6,26 @@ It includes endpoints for processing uploaded audio files and audio files from U
 
 import logging
 import os
-from datetime import datetime
 from tempfile import NamedTemporaryFile
+import uuid
 
 import requests
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, UploadFile
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
-from ..audio import get_audio_duration, process_audio_file
 from ..compatibility import log_compatibility_warnings
-from ..db import get_db_session
 from ..files import ALLOWED_EXTENSIONS, save_temporary_file, validate_extension
-from ..logger import logger  # Import the logger from the new module
+from ..logger import logger
 from ..schemas import (
     AlignmentParams,
     ASROptions,
     DiarizationParams,
     Response,
-    SpeechToTextProcessingParams,
-    TaskStatus,
-    TaskType,
     VADOptions,
     WhisperModelParams,
 )
-from ..tasks import add_task_to_db
-from ..whisperx_services import process_audio_common
+from ..temporal_manager import temporal_manager
+from ..temporal_workflows import WhisperXWorkflow
+from ..temporal_config import config
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -43,30 +38,15 @@ log_compatibility_warnings()
 
 @stt_router.post("/speech-to-text", tags=["Speech-2-Text"])
 async def speech_to_text(
-    background_tasks: BackgroundTasks,
     model_params: WhisperModelParams = Depends(),
     align_params: AlignmentParams = Depends(),
     diarize_params: DiarizationParams = Depends(),
     asr_options_params: ASROptions = Depends(),
     vad_options_params: VADOptions = Depends(),
     file: UploadFile = File(...),
-    session: Session = Depends(get_db_session),
 ) -> Response:
     """
     Process an uploaded audio file for speech-to-text conversion.
-
-    Args:
-        background_tasks (BackgroundTasks): Background tasks dependency.
-        model_params (WhisperModelParams): Whisper model parameters.
-        align_params (AlignmentParams): Alignment parameters.
-        diarize_params (DiarizationParams): Diarization parameters.
-        asr_options_params (ASROptions): ASR options parameters.
-        vad_options_params (VADOptions): VAD options parameters.
-        file (UploadFile): Uploaded audio file.
-        session (Session): Database session dependency.
-
-    Returns:
-        Response: Confirmation message of task queuing.
     """
     logger.info("Received file upload request: %s", file.filename)
 
@@ -75,70 +55,40 @@ async def speech_to_text(
     temp_file = save_temporary_file(file.file, file.filename)
     logger.info("%s saved as temporary file: %s", file.filename, temp_file)
 
-    audio = process_audio_file(temp_file)
-    audio_duration = get_audio_duration(audio)
-    logger.info("Audio file %s length: %s seconds", file.filename, audio_duration)
+    params = {
+        "whisper_model_params": model_params.model_dump(),
+        "alignment_params": align_params.model_dump(),
+        "diarization_params": diarize_params.model_dump(),
+        "asr_options": asr_options_params.model_dump(),
+        "vad_options": vad_options_params.model_dump(),
+    }
 
-    identifier = add_task_to_db(
-        status=TaskStatus.processing,
-        file_name=file.filename,
-        audio_duration=get_audio_duration(audio),
-        language=model_params.language,
-        task_type=TaskType.full_process,
-        task_params={
-            **model_params.model_dump(),
-            **align_params.model_dump(),
-            "asr_options": asr_options_params.model_dump(),
-            "vad_options": vad_options_params.model_dump(),
-            **diarize_params.model_dump(),
-        },
-        start_time=datetime.utcnow(),
-        session=session,
+    client = await temporal_manager.get_client()
+    if not client:
+        raise HTTPException(status_code=503, detail="Temporal service not available")
+    workflow_id = f"whisperx-workflow-{uuid.uuid4()}"
+    handle = await client.start_workflow(
+        WhisperXWorkflow.run,
+        args=[temp_file, params],
+        id=workflow_id,
+        task_queue=config.TEMPORAL_TASK_QUEUE,
     )
-    logger.info("Task added to database: ID %s", identifier)
+    logger.info("Workflow started: ID %s", handle.id)
 
-    audio_params = SpeechToTextProcessingParams(
-        audio=audio,
-        identifier=identifier,
-        vad_options=vad_options_params,
-        asr_options=asr_options_params,
-        whisper_model_params=model_params,
-        alignment_params=align_params,
-        diarization_params=diarize_params,
-    )
-
-    background_tasks.add_task(process_audio_common, audio_params, session)
-    logger.info("Background task scheduled for processing: ID %s", identifier)
-
-    return Response(identifier=identifier, message="Task queued")
+    return Response(identifier=handle.id, message="Workflow started")
 
 
 @stt_router.post("/speech-to-text-url", tags=["Speech-2-Text"])
 async def speech_to_text_url(
-    background_tasks: BackgroundTasks,
     model_params: WhisperModelParams = Depends(),
     align_params: AlignmentParams = Depends(),
     diarize_params: DiarizationParams = Depends(),
     asr_options_params: ASROptions = Depends(),
     vad_options_params: VADOptions = Depends(),
     url: str = Form(...),
-    session: Session = Depends(get_db_session),
 ) -> Response:
     """
     Process an audio file from a URL for speech-to-text conversion.
-
-    Args:
-        background_tasks (BackgroundTasks): Background tasks dependency.
-        model_params (WhisperModelParams): Whisper model parameters.
-        align_params (AlignmentParams): Alignment parameters.
-        diarize_params (DiarizationParams): Diarization parameters.
-        asr_options_params (ASROptions): ASR options parameters.
-        vad_options_params (VADOptions): VAD options parameters.
-        url (str): URL of the audio file.
-        session (Session): Database session dependency.
-
-    Returns:
-        Response: Confirmation message of task queuing.
     """
     logger.info("Received URL for processing: %s", url)
 
@@ -165,39 +115,24 @@ async def speech_to_text_url(
     logger.info("File downloaded and saved temporarily: %s", temp_audio_file.name)
     validate_extension(temp_audio_file.name, ALLOWED_EXTENSIONS)
 
-    audio = process_audio_file(temp_audio_file.name)
-    logger.info("Audio file processed: duration %s seconds", get_audio_duration(audio))
+    params = {
+        "whisper_model_params": model_params.model_dump(),
+        "alignment_params": align_params.model_dump(),
+        "diarization_params": diarize_params.model_dump(),
+        "asr_options": asr_options_params.model_dump(),
+        "vad_options": vad_options_params.model_dump(),
+    }
 
-    identifier = add_task_to_db(
-        status=TaskStatus.processing,
-        file_name=temp_audio_file.name,
-        audio_duration=get_audio_duration(audio),
-        language=model_params.language,
-        task_type=TaskType.full_process,
-        task_params={
-            **model_params.model_dump(),
-            **align_params.model_dump(),
-            "asr_options": asr_options_params.model_dump(),
-            "vad_options": vad_options_params.model_dump(),
-            **diarize_params.model_dump(),
-        },
-        url=url,
-        start_time=datetime.utcnow(),
-        session=session,
+    client = await temporal_manager.get_client()
+    if not client:
+        raise HTTPException(status_code=503, detail="Temporal service not available")
+    workflow_id = f"whisperx-workflow-{uuid.uuid4()}"
+    handle = await client.start_workflow(
+        WhisperXWorkflow.run,
+        args=[temp_audio_file.name, params],
+        id=workflow_id,
+        task_queue=config.TEMPORAL_TASK_QUEUE,
     )
-    logger.info("Task added to database: ID %s", identifier)
+    logger.info("Workflow started: ID %s", handle.id)
 
-    audio_params = SpeechToTextProcessingParams(
-        audio=audio,
-        identifier=identifier,
-        vad_options=vad_options_params,
-        asr_options=asr_options_params,
-        whisper_model_params=model_params,
-        alignment_params=align_params,
-        diarization_params=diarize_params,
-    )
-
-    background_tasks.add_task(process_audio_common, audio_params, session)
-    logger.info("Background task scheduled for processing: ID %s", identifier)
-
-    return Response(identifier=identifier, message="Task queued")
+    return Response(identifier=handle.id, message="Workflow started")

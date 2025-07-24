@@ -1,0 +1,41 @@
+services:
+  sut:
+    build:
+      context: ..
+      dockerfile: docker/dockerfile
+    image: whisperx-service
+    container_name: whisperx-sut
+    env_file:
+      - ../.env
+    volumes:
+      - "whisperx-models-cache:/root/.cache"
+      - "whisperx-app-volume:/tmp"
+    depends_on:
+      - temporal
+  tests:
+    build:
+      context: ..
+      dockerfile: docker/dockerfile
+    image: whisperx-service
+    container_name: whisperx-tests
+    env_file:
+      - ../.env
+    volumes:
+      - "whisperx-models-cache:/root/.cache"
+      - "whisperx-app-volume:/tmp"
+    depends_on:
+      - sut
+    command: ["pytest", "tests/test_temporal.py"]
+  temporal:
+    image: temporalio/auto-setup:1.21.0
+    container_name: temporal
+    ports:
+      - "7233:7233"
+      - "8233:8233"
+    environment:
+      - DB=sqlite3
+      - DB_PORT=9090
+      - DYNAMIC_CONFIG_FILE_PATH=config/dynamic_config.yaml
+volumes:
+  whisperx-models-cache:
+  whisperx-app-volume:

@@ -1,0 +1,43 @@
+services:
+  whisperx-api:
+    build:
+      context: ..
+      dockerfile: docker/dockerfile
+    image: whisperx-service
+    container_name: whisperx-api
+    env_file:
+      - ../.env
+    ports:
+      - "8000:8000"
+    volumes:
+      - "whisperx-models-cache:/root/.cache"
+      - "whisperx-app-volume:/tmp"
+    depends_on:
+      - temporal
+  whisperx-worker:
+    build:
+      context: ..
+      dockerfile: docker/dockerfile
+    image: whisperx-service
+    container_name: whisperx-worker
+    env_file:
+      - ../.env
+    volumes:
+      - "whisperx-models-cache:/root/.cache"
+      - "whisperx-app-volume:/tmp"
+    depends_on:
+      - temporal
+    entrypoint: ["python", "-m", "app.temporal_worker"]
+  temporal:
+    image: temporalio/auto-setup:1.21.0
+    container_name: temporal
+    ports:
+      - "7233:7233"
+      - "8233:8233"
+    environment:
+      - DB=sqlite3
+      - DB_PORT=9090
+      - DYNAMIC_CONFIG_FILE_PATH=config/dynamic_config.yaml
+volumes:
+  whisperx-models-cache:
+  whisperx-app-volume:

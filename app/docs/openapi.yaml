@@ -11,8 +11,8 @@ info:
     \ Align the transcript to the audio/video file.\n    3. Diarize: Diarize an audio/video\
     \ file into speakers.\n    4. Combine Transcript and Diarization: Combine the\
     \ transcript and diarization results.\n\n    ## Supported file extensions:\n \
-    \   AUDIO_EXTENSIONS = {'.awb', '.oga', '.wav', '.m4a', '.aac', '.wma', '.mp3',\
-    \ '.amr', '.ogg'}\n\n    VIDEO_EXTENSIONS = {'.mp4', '.mkv', '.avi', '.mov', '.wmv'}\n\
+    \   AUDIO_EXTENSIONS = {'.awb', '.amr', '.aac', '.m4a', '.mp3', '.wav', '.ogg',\
+    \ '.wma', '.oga'}\n\n    VIDEO_EXTENSIONS = {'.mp4', '.wmv', '.mkv', '.mov', '.avi'}\n\
     \n    "
   version: 0.0.1
 paths:
@@ -21,15 +21,7 @@ paths:
       tags:
       - Speech-2-Text
       summary: Speech To Text
-      description: "Process an uploaded audio file for speech-to-text conversion.\n\
-        \nArgs:\n    background_tasks (BackgroundTasks): Background tasks dependency.\n\
-        \    model_params (WhisperModelParams): Whisper model parameters.\n    align_params\
-        \ (AlignmentParams): Alignment parameters.\n    diarize_params (DiarizationParams):\
-        \ Diarization parameters.\n    asr_options_params (ASROptions): ASR options\
-        \ parameters.\n    vad_options_params (VADOptions): VAD options parameters.\n\
-        \    file (UploadFile): Uploaded audio file.\n    session (Session): Database\
-        \ session dependency.\n\nReturns:\n    Response: Confirmation message of task\
-        \ queuing."
+      description: Process an uploaded audio file for speech-to-text conversion.
       operationId: speech_to_text_speech_to_text_post
       parameters:
       - name: language
@@ -158,7 +150,7 @@ paths:
         schema:
           $ref: '#/components/schemas/WhisperModel'
           description: Name of the Whisper model to use
-          default: tiny
+          default: small
         description: Name of the Whisper model to use
       - name: device
         in: query
@@ -440,14 +432,7 @@ paths:
       tags:
       - Speech-2-Text
       summary: Speech To Text Url
-      description: "Process an audio file from a URL for speech-to-text conversion.\n\
-        \nArgs:\n    background_tasks (BackgroundTasks): Background tasks dependency.\n\
-        \    model_params (WhisperModelParams): Whisper model parameters.\n    align_params\
-        \ (AlignmentParams): Alignment parameters.\n    diarize_params (DiarizationParams):\
-        \ Diarization parameters.\n    asr_options_params (ASROptions): ASR options\
-        \ parameters.\n    vad_options_params (VADOptions): VAD options parameters.\n\
-        \    url (str): URL of the audio file.\n    session (Session): Database session\
-        \ dependency.\n\nReturns:\n    Response: Confirmation message of task queuing."
+      description: Process an audio file from a URL for speech-to-text conversion.
       operationId: speech_to_text_url_speech_to_text_url_post
       parameters:
       - name: language
@@ -576,7 +561,7 @@ paths:
         schema:
           $ref: '#/components/schemas/WhisperModel'
           description: Name of the Whisper model to use
-          default: tiny
+          default: small
         description: Name of the Whisper model to use
       - name: device
         in: query
@@ -853,94 +838,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
-  /task/all:
-    get:
-      tags:
-      - Tasks Management
-      summary: Get All Tasks Status
-      description: "Retrieve the status of all tasks.\n\nArgs:\n    session (Session):\
-        \ Database session dependency.\n\nReturns:\n    ResultTasks: The status of\
-        \ all tasks."
-      operationId: get_all_tasks_status_task_all_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ResultTasks'
-  /task/{identifier}:
-    get:
-      tags:
-      - Tasks Management
-      summary: Get Transcription Status
-      description: "Retrieve the status of a specific task by its identifier.\n\n\
-        Args:\n    identifier (str): The identifier of the task.\n    session (Session):\
-        \ Database session dependency.\n\nReturns:\n    Result: The status of the\
-        \ task.\n\nRaises:\n    HTTPException: If the identifier is not found."
-      operationId: get_transcription_status_task__identifier__get
-      parameters:
-      - name: identifier
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Identifier
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Result'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /task/{identifier}/delete:
-    delete:
-      tags:
-      - Tasks Management
-      summary: Delete Task
-      description: "Delete a specific task by its identifier.\n\nArgs:\n    identifier\
-        \ (str): The identifier of the task.\n    session (Session): Database session\
-        \ dependency.\n\nReturns:\n    Response: Confirmation message of task deletion.\n\
-        \nRaises:\n    HTTPException: If the task is not found."
-      operationId: delete_task_task__identifier__delete_delete
-      parameters:
-      - name: identifier
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Identifier
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Response'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
   /service/transcribe:
     post:
       tags:
       - Speech-2-Text services
       summary: 1. Transcribe
-      description: "Transcribe an uploaded audio file.\n\nArgs:\n    background_tasks\
-        \ (BackgroundTasks): Background tasks dependency.\n    model_params (WhisperModelParams):\
-        \ Whisper model parameters.\n    asr_options_params (ASROptions): ASR options\
-        \ parameters.\n    vad_options_params (VADOptions): VAD options parameters.\n\
-        \    file (UploadFile): Uploaded audio file.\n    session (Session): Database\
-        \ session dependency.\n\nReturns:\n    Response: Confirmation message of task\
-        \ queuing."
+      description: Transcribe an uploaded audio file.
       operationId: 1__Transcribe_service_transcribe_post
       parameters:
       - name: language
@@ -1069,7 +972,7 @@ paths:
         schema:
           $ref: '#/components/schemas/WhisperModel'
           description: Name of the Whisper model to use
-          default: tiny
+          default: small
         description: Name of the Whisper model to use
       - name: device
         in: query
@@ -1302,12 +1205,7 @@ paths:
       tags:
       - Speech-2-Text services
       summary: 2. Align Transcript
-      description: "Align a transcript with an audio file.\n\nArgs:\n    background_tasks\
-        \ (BackgroundTasks): Background tasks dependency.\n    transcript (UploadFile):\
-        \ Uploaded transcript file.\n    file (UploadFile): Uploaded audio file.\n\
-        \    device (Device): Device for PyTorch inference.\n    align_params (AlignmentParams):\
-        \ Alignment parameters.\n    session (Session): Database session dependency.\n\
-        \nReturns:\n    Response: Confirmation message of task queuing."
+      description: Align a transcript with an audio file.
       operationId: 2__Align_Transcript_service_align_post
       parameters:
       - name: device
@@ -1371,12 +1269,7 @@ paths:
       tags:
       - Speech-2-Text services
       summary: 3. Diarize
-      description: "Perform diarization on an uploaded audio file.\n\nArgs:\n    background_tasks\
-        \ (BackgroundTasks): Background tasks dependency.\n    file (UploadFile):\
-        \ Uploaded audio file.\n    session (Session): Database session dependency.\n\
-        \    device (Device): Device for PyTorch inference.\n    diarize_params (DiarizationParams):\
-        \ Diarization parameters.\n\nReturns:\n    Response: Confirmation message\
-        \ of task queuing."
+      description: Perform diarization on an uploaded audio file.
       operationId: 3__Diarize_service_diarize_post
       parameters:
       - name: device
@@ -1431,12 +1324,7 @@ paths:
       tags:
       - Speech-2-Text services
       summary: 4. Combine Transcript And Diarization Result
-      description: "Combine a transcript with diarization results.\n\nArgs:\n    background_tasks\
-        \ (BackgroundTasks): Background tasks dependency.\n    aligned_transcript\
-        \ (UploadFile): Uploaded aligned transcript file.\n    diarization_result\
-        \ (UploadFile): Uploaded diarization result file.\n    session (Session):\
-        \ Database session dependency.\n\nReturns:\n    Response: Confirmation message\
-        \ of task queuing."
+      description: Combine a transcript with diarization results.
       operationId: 4__Combine_Transcript_and_Diarization_result_service_combine_post
       requestBody:
         content:
@@ -1451,6 +1339,89 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Response'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /temporal/workflow:
+    post:
+      tags:
+      - Temporal
+      summary: Start Workflow
+      operationId: start_workflow_temporal_workflow_post
+      parameters:
+      - name: audio_path
+        in: query
+        required: true
+        schema:
+          type: string
+          title: Audio Path
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              title: Params
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /temporal/workflow/{workflow_id}:
+    get:
+      tags:
+      - Temporal
+      summary: Get Workflow Status
+      operationId: get_workflow_status_temporal_workflow__workflow_id__get
+      parameters:
+      - name: workflow_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workflow Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /temporal/workflow/{workflow_id}/result:
+    get:
+      tags:
+      - Temporal
+      summary: Get Workflow Result
+      operationId: get_workflow_result_temporal_workflow__workflow_id__result_get
+      parameters:
+      - name: workflow_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workflow Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
         '422':
           description: Validation Error
           content:
@@ -1498,8 +1469,7 @@ paths:
       summary: Readiness check
       description: 'Check if the application is ready to accept requests.
 
-
-        Verifies dependencies like the database are connected and ready.
+        Verifies dependencies like the Temporal server are connected and ready.
 
         Returns HTTP 200 if all systems are operational, HTTP 503 if any dependency
 
@@ -1617,64 +1587,6 @@ components:
       - ignore
       title: InterpolateMethod
       description: Enum for interpolation methods.
-    Metadata:
-      properties:
-        task_type:
-          type: string
-          title: Task Type
-        task_params:
-          anyOf:
-          - additionalProperties: true
-            type: object
-          - type: 'null'
-          title: Task Params
-        language:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Language
-        file_name:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: File Name
-        url:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Url
-        duration:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Duration
-        audio_duration:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Audio Duration
-        start_time:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Start Time
-        end_time:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: End Time
-      type: object
-      required:
-      - task_type
-      - task_params
-      - language
-      - file_name
-      - url
-      - duration
-      title: Metadata
-      description: Metadata model for task information.
     Response:
       properties:
         identifier:
@@ -1689,41 +1601,6 @@ components:
       - message
       title: Response
       description: Response model for API responses.
-    Result:
-      properties:
-        status:
-          type: string
-          title: Status
-        result:
-          title: Result
-        metadata:
-          $ref: '#/components/schemas/Metadata'
-        error:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Error
-      type: object
-      required:
-      - status
-      - result
-      - metadata
-      - error
-      title: Result
-      description: Model for a result with status, result data, metadata, and optional
-        error.
-    ResultTasks:
-      properties:
-        tasks:
-          items:
-            $ref: '#/components/schemas/TaskSimple'
-          type: array
-          title: Tasks
-      type: object
-      required:
-      - tasks
-      title: ResultTasks
-      description: Model for a list of simple tasks.
     TaskEnum:
       type: string
       enum:
@@ -1731,71 +1608,6 @@ components:
       - translate
       title: TaskEnum
       description: Enum for task types.
-    TaskSimple:
-      properties:
-        identifier:
-          type: string
-          title: Identifier
-        status:
-          type: string
-          title: Status
-        task_type:
-          type: string
-          title: Task Type
-        language:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Language
-        file_name:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: File Name
-        error:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Error
-        url:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Url
-        duration:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Duration
-        audio_duration:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Audio Duration
-        start_time:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Start Time
-        end_time:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: End Time
-      type: object
-      required:
-      - identifier
-      - status
-      - task_type
-      - language
-      - file_name
-      - error
-      - url
-      - duration
-      title: TaskSimple
-      description: Simple task model with basic task information.
     ValidationError:
       properties:
         loc:

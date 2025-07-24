@@ -10,3 +10,5 @@ venv/
 .vscode
 .clinerules/
 app/docs/*
+GEMINI.md
+.temporal.pid

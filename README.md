@@ -39,25 +39,19 @@ See the [WhisperX Documentation](https://github.com/m-bain/whisperX) for details
 
 4. Task Management:
 
-   - Get all tasks (`/task/all`)
-   - Get task status (`/task/{identifier}`)
+   - Get workflow status (`/temporal/workflow/{workflow_id}`)
+   - Get workflow result (`/temporal/workflow/{workflow_id}/result`)
 
 5. Health Check Endpoints:
    - Basic health check (`/health`): Simple service status check
    - Liveness probe (`/health/live`): Verifies if application is running
-   - Readiness probe (`/health/ready`): Checks if application is ready to accept requests (includes database connectivity check)
+   - Readiness probe (`/health/ready`): Checks if application is ready to accept requests (includes temporal server connectivity check)
 
 ### Task management and result storage
 
 ![Service chart](app/docs/service_chart.svg)
 
-Status and result of each tasks are stored in db using ORM Sqlalchemy, db connection is defined by environment variable `DB_URL` if value is not specified `db.py` sets default db as `sqlite:///records.db`
-
-See documentation for driver definition at [Sqlalchemy Engine configuration](https://docs.sqlalchemy.org/en/20/core/engines.html) if you want to connect other type of db than Sqlite.
-
-#### Database schema
-
-Structure of the of the db is described in [DB Schema](app/docs/db_schema.md)
+Status and result of each tasks are managed by Temporal. The Temporal server is defined by the environment variable `TEMPORAL_SERVER_URL`.
 
 ### Compute Settings
 
@@ -127,16 +121,69 @@ uvicorn app.main:app --reload
 
 Note: CPU mode will be significantly slower than GPU acceleration.
 
-## Getting Started
+## Getting Started with Docker (Recommended)
 
-You have several options to get started with the WhisperX API:
+This is the recommended way to run the WhisperX API, as it provides a consistent and isolated environment.
+
+### 1. Create `.env` File
+
+First, set up your environment by running the following command. This will create a `.env` file from the example, if it doesn't already exist.
+
+```sh
+make setup
+```
+
+Next, open the `.env` file and fill in your details, especially your Hugging Face token.
+
+- `HF_TOKEN`: Your Hugging Face token for model access.
+- `WHISPER_MODEL`: The default Whisper model to use (e.g., `tiny`, `base`, `large-v3`).
+- `TEMPORAL_SERVER_URL`: Set this to `temporal:7233` to connect to the Temporal container.
+
+### 2. Run with Docker Compose
+
+Choose the appropriate command based on your hardware (CPU or GPU).
+
+#### For CPU-Only Environment
+
+This setup is ideal for users without a dedicated NVIDIA GPU.
+
+```sh
+make run-cpu
+```
+
+#### For GPU-Accelerated Environment
+
+If you have an NVIDIA GPU with CUDA drivers installed, use this command for significantly faster performance.
+
+```sh
+make run-gpu
+```
+
+### 3. Accessing the Services
+
+Once the containers are running, you can access the following services:
+
+-   **API Docs (Swagger UI)**: [http://localhost:8000/docs](http://localhost:8000/docs)
+-   **Temporal Web UI**: [http://localhost:8233](http://localhost:8233)
+
+### 4. Stopping the Services
+
+To stop the Docker containers, run:
+
+```sh
+make stop
+```
+
+---
+
+## Alternative Environments
 
 ### Google Colab (No Local Setup Required)
 
 Run the API on Google Colab's GPU without any local setup:
 
-1. Open the [whisperx_fastapi_colab.ipynb](notebooks/whisperx_fastapi_colab.ipynb) notebook in Google Colab
-2. Follow the step-by-step instructions in the notebook
+1. Open the [whisperx_fastapi_colab.ipynb](notebooks/whisperx_fastapi_colab.ipynb) notebook in Google Colab.
+2. Follow the step-by-step instructions in the notebook.
 
 This option is ideal for:
 - Users without a local GPU
@@ -145,81 +192,54 @@ This option is ideal for:
 
 For more details, see the [notebooks README](notebooks/README.md).
 
-### Local Run
+### Local Run (Advanced)
 
-To get started with the API, follow these steps:
+This method is for advanced users who want to run the application directly on their host machine.
 
-1. Create virtual environment
-2. Install pytorch [See for more details](https://pytorch.org/)
-3. Install the required dependencies (choose one):
-
+1. **Create a virtual environment** and activate it.
+2. **Install PyTorch**: Follow the official instructions at [pytorch.org](https://pytorch.org/).
+3. **Install dependencies**:
    ```sh
-   # For production dependencies only
-   pip install -r requirements/prod.txt
+   # For production dependencies
+   make install-prod
 
-   # For development dependencies (includes production + testing, linting, etc.)
-   pip install -r requirements/dev.txt
+   # For development dependencies
+   make install-dev
+   ```
+4. **Configure Logging**: Ensure `uvicorn_log_conf.yaml` and `gunicorn_logging.conf` are correctly placed in the `app` directory.
+5. **Create `.env` file**: Run `make setup` and set `TEMPORAL_SERVER_URL` to `localhost:7233`.
+6. **Run the application**:
+
+   #### Running Temporal Locally (Without Docker)
+   To run temporal server locally without docker, you need to install the `temporal` CLI.
+
+   **Installation:**
+
+   **macOS (Homebrew):**
+   ```sh
+   brew install temporal
    ```
 
-> **Note:** The above steps use `pip` for local development. For Docker builds, package management is handled by [`uv`](https://github.com/astral-sh/uv) as specified in the [dockerfile](dockerfile) for improved performance and reliability.
+   **Linux & macOS (manual):**
+   Download and install the latest version for your system from the [official GitHub releases page](https://github.com/temporalio/cli/releases). You will need to move the `temporal` binary to a directory in your `PATH` (e.g., `/usr/local/bin`).
 
-### Logging Configuration
+   Once installed, you can run a local temporal server.
+   ```sh
+   # Start the local temporal server
+   make run-temporal-local
 
-The application uses two logging configuration files:
+   # Stop the local temporal server
+   make stop-temporal-local
+   ```
 
-- `uvicorn_log_conf.yaml`: Used by Uvicorn for logging configuration.
-- `gunicorn_logging.conf`: Used by Gunicorn for logging configuration (located in the root of the `app` directory).
+   Now you can start the FastAPI server and the Temporal worker.
+   ```sh
+   # Start the FastAPI server
+   make run-local
 
-Ensure these files are correctly configured and placed in the `app` directory.
-
-5. Create `.env` file
-
-define your Whisper Model and token for Huggingface
-
-```sh
-HF_TOKEN=<<YOUR HUGGINGFACE TOKEN>>
-WHISPER_MODEL=<<WHISPER MODEL SIZE>>
-LOG_LEVEL=<<LOG LEVEL>>
-```
-
-6. Run the FastAPI application:
-
-```sh
-uvicorn app.main:app --reload --log-config app/uvicorn_log_conf.yaml --log-level info
-```
-
-The API will be accessible at <http://127.0.0.1:8000>.
-
-### Docker Build
-
-1. Create `.env` file
-
-define your Whisper Model and token for Huggingface
-
-```sh
-HF_TOKEN=<<YOUR HUGGINGFACE TOKEN>>
-WHISPER_MODEL=<<WHISPER MODEL SIZE>>
-LOG_LEVEL=<<LOG LEVEL>>
-```
-
-2. Build Image
-
-using `docker-compose.yaml`
-
-```sh
-#build and start the image using compose file
-docker-compose up
-```
-
-alternative approach
-
-```sh
-#build image
-docker build -t whisperx-service .
-
-# Run Container
-docker run -d --gpus all -p 8000:8000 --env-file .env whisperx-service
-```
+   # In a separate terminal, start the Temporal worker
+   make run-worker-local
+   ```
 
 The API will be accessible at <http://127.0.0.1:8000>.
 
@@ -234,7 +254,7 @@ The API will be accessible at <http://127.0.0.1:8000>.
 
 #### Model cache
 
-The models used by whisperX are stored in `root/.cache`, if you want to avoid downloanding the models each time the container is starting you can store the cache in persistent storage. `docker-compose.yaml` defines a volume `whisperx-models-cache` to store this cache.
+The models used by whisperX are stored in `root/.cache`, if you want to avoid downloanding the models each time the container is starting you can store the cache in persistent storage. `docker-compose.gpu.yml` defines a volume `whisperx-models-cache` to store this cache.
 
 - faster-whisper cache: `root/.cache/huggingface/hub`
 - pyannotate and other models cache: `root/.cache/torch`
@@ -248,10 +268,10 @@ The models used by whisperX are stored in `root/.cache`, if you want to avoid do
    - Ensure your `.env` file is correctly formatted and placed in the root directory.
    - Verify that all required environment variables are defined.
 
-2. **Database Connection Issues**
+2. **Temporal Server Connection Issues**
 
-   - Check the `DB_URL` environment variable for correctness.
-   - Ensure the database server is running and accessible.
+   - Check the `TEMPORAL_SERVER_URL` environment variable for correctness.
+   - Ensure the Temporal server is running and accessible.
 
 3. **Model Download Failures**
 
@@ -303,9 +323,9 @@ The API provides built-in health check endpoints that can be used for monitoring
 
 3. **Readiness Probe** (`/health/ready`)
    - Tests if the application is fully ready to accept requests
-   - Checks connectivity to the database
+   - Checks connectivity to the Temporal server
    - Returns HTTP 200 if all dependencies are available
-   - Returns HTTP 503 if there's an issue with dependencies (e.g., database connection)
+   - Returns HTTP 503 if there's an issue with dependencies (e.g., temporal server connection)
 
 ## Related
 
