@@ -3,7 +3,7 @@ import asyncio
 from temporalio.worker import Worker
 from .temporal_manager import temporal_manager
 from .temporal_workflows import WhisperXWorkflow
-from .temporal_activities import (
+from .activities import (
     transcribe_activity,
     align_activity,
     diarize_activity,

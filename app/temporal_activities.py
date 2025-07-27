@@ -13,6 +13,9 @@ from app.schemas import (
     AlignmentParams,
     DiarizationParams,
 )
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 @activity.defn
 async def transcribe_activity(
@@ -22,6 +25,7 @@ async def transcribe_activity(
     vad_options: dict,
 ) -> dict:
     """Activity to transcribe audio."""
+    logging.info(f"Starting transcription for: {audio_path}")
     from app.audio import process_audio_file
 
     audio = process_audio_file(audio_path)
@@ -43,6 +47,7 @@ async def transcribe_activity(
         compute_type=model_params_obj.compute_type,
         threads=model_params_obj.threads,
     )
+    logging.info(f"Transcription finished for: {audio_path}")
     return result
 
 @activity.defn
@@ -50,6 +55,7 @@ async def align_activity(
     transcript: dict, audio_path: str, align_params: dict
 ) -> dict:
     """Activity to align transcript."""
+    logging.info(f"Starting alignment for: {audio_path}")
     from app.audio import process_audio_file
 
     audio = process_audio_file(audio_path)
@@ -63,11 +69,13 @@ async def align_activity(
         interpolate_method=align_params_obj.interpolate_method,
         return_char_alignments=align_params_obj.return_char_alignments,
     )
+    logging.info(f"Alignment finished for: {audio_path}")
     return result
 
 @activity.defn
 async def diarize_activity(audio_path: str, diarize_params: dict) -> dict:
     """Activity to diarize audio."""
+    logging.info(f"Starting diarization for: {audio_path}")
     from app.audio import process_audio_file
 
     audio = process_audio_file(audio_path)
@@ -78,6 +86,7 @@ async def diarize_activity(audio_path: str, diarize_params: dict) -> dict:
         min_speakers=diarize_params_obj.min_speakers,
         max_speakers=diarize_params_obj.max_speakers,
     )
+    logging.info(f"Diarization finished for: {audio_path}")
     return result.to_dict(orient="records")
 
 @activity.defn
@@ -85,5 +94,7 @@ async def assign_speakers_activity(
     diarization_segments: dict, transcript: dict
 ) -> dict:
     """Activity to assign speakers."""
+    logging.info("Starting speaker assignment.")
     result = whisperx.assign_word_speakers(diarization_segments, transcript)
+    logging.info("Speaker assignment finished.")
     return result

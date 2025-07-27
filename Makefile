@@ -1,4 +1,4 @@
-.PHONY: help setup install-prod install-dev run-cpu run-gpu stop run-local run-worker-local run-temporal-local stop-temporal-local
+.PHONY: help setup install-prod install-dev run-cpu run-gpu stop run-local run-worker run-worker-local run-temporal-local stop-temporal-local
 
 help:
 	@echo "Usage: make [target]"
@@ -11,8 +11,9 @@ help:
 	@echo "  run-gpu              - Run the application in a GPU-accelerated environment with Docker"
 	@echo "  stop                 - Stop the Docker containers"
 	@echo "  run-local            - Run the FastAPI server locally"
+	@echo "  run-worker           - Start Temporal server (if needed) and run worker"
 	@echo "  run-worker-local     - Run the Temporal worker locally"
-	@echo "  run-temporal-local   - Run the Temporal server locally"
+	@echo "  run-temporal-local   - Start the Temporal server locally (if not running)"
 	@echo "  stop-temporal-local  - Stop the local Temporal server"
 
 setup:
@@ -42,19 +43,29 @@ stop:
 run-local:
 	uvicorn app.main:app --reload --log-config app/uvicorn_log_conf.yaml --log-level info
 
+run-worker: run-temporal-local run-worker-local
+
 run-worker-local:
 	python -m app.temporal_worker
 
 run-temporal-local:
 	@echo "Starting local Temporal server..."
-	@temporal server start-dev > /tmp/temporal.log 2>&1 & echo $! > .temporal.pid
-	@echo "Temporal server started with PID $(cat .temporal.pid)"
+	@if ! lsof -Pi :7233 -sTCP:LISTEN -t >/dev/null 2>&1; then \
+		echo "Temporal server not running, starting it..."; \
+		temporal server start-dev & \
+		echo "Temporal server started in background"; \
+		sleep 5; \
+	else \
+		echo "Temporal server already running on port 7233"; \
+	fi
 
 stop-temporal-local:
-	@if [ -f .temporal.pid ]; then \
-		echo "Stopping local Temporal server..."; \
-		kill $(cat .temporal.pid) && rm .temporal.pid; \
-		echo "Temporal server stopped."; \
+	@echo "Stopping local Temporal server..."
+	@if lsof -Pi :7233 -sTCP:LISTEN -t >/dev/null 2>&1; then \
+		echo "Found Temporal server running on port 7233, stopping it..."; \
+		pkill -f "temporal server start-dev" || true; \
+		sleep 2; \
+		echo "Temporal server stopped"; \
 	else \
-		echo "Temporal server not running or .temporal.pid not found."; \
+		echo "Temporal server is not running on port 7233"; \
 	fi
