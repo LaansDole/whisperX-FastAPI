@@ -8,4 +8,5 @@ python-multipart==0.0.20
 tqdm==4.67.1
 uvicorn==0.34.3
 whisperx==3.3.4
-psutil
+temporalio==1.6.0
+psutil==5.9.8

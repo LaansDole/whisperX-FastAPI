@@ -39,4 +39,4 @@ class Config:
     VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".wmv", ".mkv"}
     ALLOWED_EXTENSIONS = AUDIO_EXTENSIONS | VIDEO_EXTENSIONS
 
-    DB_URL = os.getenv("DB_URL", "sqlite:///records.db")
+    

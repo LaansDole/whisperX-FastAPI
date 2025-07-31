@@ -1,0 +1,6 @@
+services:
+  temporal:
+    image: temporalio/server:1.21.0
+    ports:
+      - "7233:7233"
+    command: ["start-dev", "--db-type", "memory"]

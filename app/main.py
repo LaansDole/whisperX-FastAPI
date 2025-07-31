@@ -10,33 +10,28 @@ from contextlib import asynccontextmanager  # noqa: E402
 from dotenv import load_dotenv  # noqa: E402
 from fastapi import FastAPI, status  # noqa: E402
 from fastapi.responses import JSONResponse, RedirectResponse  # noqa: E402
-from sqlalchemy import text  # noqa: E402
 
 from .config import Config  # noqa: E402
-from .db import engine  # noqa: E402
-from .docs import generate_db_schema, save_openapi_json  # noqa: E402
-from .models import Base  # noqa: E402
-from .routers import stt, stt_services, task, rag  # noqa: E402
+from .docs import save_openapi_json  # noqa: E402
+from .routers import stt, stt_services, rag, temporal_tasks  # noqa: E402
+from .temporal_manager import temporal_manager
+from .trace_middleware import TraceMiddleware  # noqa: E402
 
 # Load environment variables from .env
 load_dotenv()
-
-Base.metadata.create_all(bind=engine)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
     Lifespan context manager for the FastAPI application.
-
     This function is used to perform startup and shutdown tasks for the FastAPI application.
-    It saves the OpenAPI JSON and generates the database schema.
-
+    It saves the OpenAPI JSON and connects to the Temporal server.
     Args:
         app (FastAPI): The FastAPI application instance.
     """
+    await temporal_manager.get_client()
     save_openapi_json(app)
-    generate_db_schema(Base.metadata.tables.values())
     yield
 
 
@@ -99,10 +94,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Add trace middleware
+app.add_middleware(TraceMiddleware)
+
 # Include routers
 app.include_router(stt.stt_router)
-app.include_router(task.task_router)
 app.include_router(stt_services.service_router)
+app.include_router(temporal_tasks.temporal_router)
+
 
 if Config.RAG_CHATBOT_ENABLED:
     app.include_router(rag.rag_router)
@@ -147,21 +146,18 @@ async def liveness_check():
 @app.get("/health/ready", tags=["Health"], summary="Readiness check")
 async def readiness_check():
     """Check if the application is ready to accept requests.
-
-    Verifies dependencies like the database are connected and ready.
+    Verifies dependencies like the Temporal server are connected and ready.
     Returns HTTP 200 if all systems are operational, HTTP 503 if any dependency
     has failed.
     """
     try:
-        # Check database connection
-        with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-
+        # Check temporal connection
+        await temporal_manager.get_client()
         return JSONResponse(
             status_code=status.HTTP_200_OK,
             content={
                 "status": "ok",
-                "database": "connected",
+                "temporal": "connected",
                 "message": "Application is ready to accept requests",
             },
         )
@@ -170,7 +166,7 @@ async def readiness_check():
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             content={
                 "status": "error",
-                "database": "disconnected",
+                "temporal": "disconnected",
                 "message": f"Application is not ready: {str(e)}",
             },
         )

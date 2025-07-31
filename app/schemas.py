@@ -350,6 +350,12 @@ class AlignmentParams(BaseModel):
             description="Return character-level alignments in the output json file",
         )
     )
+    device: Device = Field(
+        Query(
+            default="cuda",
+            description="Device to use for PyTorch inference",
+        )
+    )
 
 
 class DiarizationParams(BaseModel):
@@ -360,6 +366,12 @@ class DiarizationParams(BaseModel):
     )
     max_speakers: Optional[int] = Field(
         Query(None, description="Maximum number of speakers to in audio file")
+    )
+    device: Device = Field(
+        Query(
+            default="cuda",
+            description="Device to use for PyTorch inference",
+        )
     )
 
 
