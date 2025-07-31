@@ -1,10 +1,141 @@
 # whisperX REST API
 
-The whisperX API is a tool for enhancing and analyzing audio content. This API provides a suite of services for processing audio and video files, including transcription, alignment, diarization, and combining transcript with diarization results.
+The whisperX API is a production-ready tool for enhancing and analyzing audio content using advanced speech processing technologies. This API provides a comprehensive suite of services for processing audio and video files, including transcription, alignment, diarization, and combining transcript with diarization results.
+
+## System Architecture
+
+The whisperX-FastAPI system is built with a modern, scalable architecture that leverages Temporal for workflow orchestration and provides robust error handling and monitoring capabilities.
+
+```mermaid
+graph TB
+    %% Client Layer
+    Client[Client Applications]
+    WebUI[Web UI - Swagger/OpenAPI]
+    
+    %% API Gateway Layer
+    subgraph "FastAPI Application"
+        Router[API Routers]
+        STT[Speech-to-Text Routes]
+        Services[Individual Services]
+        Tasks[Task Management]
+        RAG[RAG Chatbot - Optional]
+        Health[Health Endpoints]
+        Middleware[Trace Middleware]
+    end
+    
+    %% Core Processing Layer
+    subgraph "WhisperX Processing Engine"
+        ModelManager[Model Manager]
+        WhisperXService[WhisperX Services]
+        AudioProcessor[Audio Processor]
+        Transcriber[Transcriber]
+        Aligner[Aligner]
+        Diarizer[Diarizer]
+        Combiner[Result Combiner]
+    end
+    
+    %% Workflow Orchestration Layer
+    subgraph "Temporal Workflow System"
+        TemporalClient[Temporal Client]
+        WorkflowEngine[Workflow Engine]
+        Activities[Activity Workers]
+        RetryPolicies[Retry Policies]
+        Monitoring[Workflow Monitoring]
+    end
+    
+    %% Storage and Model Layer
+    subgraph "Storage & Models"
+        ModelCache[Model Cache<br/>~/.cache/huggingface]
+        TorchCache[PyTorch Cache<br/>~/.cache/torch]
+        FileStorage[Temporary File Storage]
+        HuggingFace[Hugging Face Hub]
+    end
+    
+    %% Infrastructure Layer
+    subgraph "Infrastructure"
+        Docker[Docker Containers]
+        GPU[GPU Support<br/>CUDA 12.8+]
+        CPU[CPU Fallback]
+        Logging[Structured Logging]
+        HealthChecks[Health Monitoring]
+    end
+    
+    %% Connections
+    Client --> Router
+    WebUI --> Router
+    Router --> STT
+    Router --> Services
+    Router --> Tasks
+    Router --> RAG
+    Router --> Health
+    Router --> Middleware
+    
+    STT --> TemporalClient
+    Services --> WhisperXService
+    Tasks --> TemporalClient
+    
+    TemporalClient --> WorkflowEngine
+    WorkflowEngine --> Activities
+    Activities --> RetryPolicies
+    Activities --> WhisperXService
+    
+    WhisperXService --> ModelManager
+    WhisperXService --> AudioProcessor
+    AudioProcessor --> Transcriber
+    AudioProcessor --> Aligner
+    AudioProcessor --> Diarizer
+    AudioProcessor --> Combiner
+    
+    ModelManager --> ModelCache
+    ModelManager --> TorchCache
+    ModelManager --> HuggingFace
+    
+    WhisperXService --> FileStorage
+    Activities --> Monitoring
+    
+    %% Infrastructure connections
+    Docker -.-> GPU
+    Docker -.-> CPU
+    Router --> Logging
+    Health --> HealthChecks
+    
+    %% Styling
+    classDef clientLayer fill:#e1f5fe
+    classDef apiLayer fill:#f3e5f5
+    classDef processingLayer fill:#e8f5e8
+    classDef workflowLayer fill:#fff3e0
+    classDef storageLayer fill:#fce4ec
+    classDef infraLayer fill:#f1f8e9
+    
+    class Client,WebUI clientLayer
+    class Router,STT,Services,Tasks,RAG,Health,Middleware apiLayer
+    class ModelManager,WhisperXService,AudioProcessor,Transcriber,Aligner,Diarizer,Combiner processingLayer
+    class TemporalClient,WorkflowEngine,Activities,RetryPolicies,Monitoring workflowLayer
+    class ModelCache,TorchCache,FileStorage,HuggingFace storageLayer
+    class Docker,GPU,CPU,Logging,HealthChecks infraLayer
+```
+
+## Key Features
+
+### 🎯 Core Capabilities
+- **Advanced Speech Processing**: Transcription, alignment, speaker diarization, and result combination
+- **Multi-Model Support**: Support for various Whisper model sizes and custom models
+- **Flexible Input**: Process audio/video files or URLs
+- **GPU Acceleration**: CUDA-optimized with CPU fallback support
+
+### 🔄 Workflow Orchestration
+- **Temporal Integration**: Robust workflow management with automatic retries
+- **Async Processing**: Non-blocking task execution for large files
+- **Advanced Retry Policies**: Context-aware retry strategies for different operation types
+- **Workflow Monitoring**: Real-time progress tracking and status monitoring
+
+### 🛡️ Production-Ready Features
+- **Health Monitoring**: Comprehensive health checks (liveness, readiness, dependencies)
+- **Structured Logging**: Detailed logging with configurable levels
+- **Error Handling**: Graceful error recovery and meaningful error messages
+- **Resource Management**: Efficient GPU memory management and model caching
 
 ## Documentation
-
-Swagger UI is available at `/docs` for all the services, dump of OpenAPI definition is available in folder `app/docs` as well. You can explore it directly in [Swagger Editor](https://editor.swagger.io/?url=https://raw.githubusercontent.com/pavelzbornik/whisperX-FastAPI/main/app/docs/openapi.yaml)
 
 See the [WhisperX Documentation](https://github.com/m-bain/whisperX) for details on whisperX functions.
 
@@ -20,38 +151,30 @@ See the [WhisperX Documentation](https://github.com/m-bain/whisperX) for details
 
 ### Available Services
 
-1. Speech-to-Text (`/speech-to-text`)
+1. **Speech-to-Text (`/speech-to-text`)**
 
-   - Upload audio/video files for transcription
+   - Upload audio/video files for comprehensive transcription with diarization
    - Supports multiple languages and Whisper models
+   - Returns structured results with speaker identification
 
-2. Speech-to-Text URL (`/speech-to-text-url`)
+2. **Speech-to-Text URL (`/speech-to-text-url`)**
 
    - Transcribe audio/video from URLs
    - Same features as direct upload
+   - Supports various streaming protocols
 
-3. Individual Services:
+3. **Individual Services:**
 
-   - Transcribe (`/service/transcribe`): Convert speech to text
-   - Align (`/service/align`): Align transcript with audio
-   - Diarize (`/service/diarize`): Speaker diarization
-   - Combine (`/service/combine`): Merge transcript with diarization
+   - **Transcribe (`/service/transcribe`)**: Convert speech to text using WhisperX
+   - **Align (`/service/align`)**: Align transcript with audio for precise timing
+   - **Diarize (`/service/diarize`)**: Speaker diarization and identification
+   - **Combine (`/service/combine`)**: Merge transcript with diarization results
 
-4. Task Management:
+4. **Task Management:**
 
-   - Get workflow status (`/temporal/workflow/{workflow_id}`)
-   - Get workflow result (`/temporal/workflow/{workflow_id}/result`)
-
-5. Health Check Endpoints:
-   - Basic health check (`/health`): Simple service status check
-   - Liveness probe (`/health/live`): Verifies if application is running
-   - Readiness probe (`/health/ready`): Checks if application is ready to accept requests (includes temporal server connectivity check)
-
-### Task management and result storage
-
-![Service chart](app/docs/service_chart.svg)
-
-Status and result of each tasks are managed by Temporal. The Temporal server is defined by the environment variable `TEMPORAL_SERVER_URL`.
+   - **Get workflow status (`/temporal/workflow/{workflow_id}`)**: Monitor task progress
+   - **Get workflow result (`/temporal/workflow/{workflow_id}/result`)**: Retrieve completed results
+   - **Workflow monitoring**: Real-time progress tracking via Temporal
 
 ### Compute Settings
 
@@ -63,27 +186,59 @@ Configure compute options in `.env`:
 
 ### Available Models
 
-WhisperX supports these model sizes:
+WhisperX supports a comprehensive range of model sizes and specialized variants:
 
-- `tiny`, `tiny.en`
-- `base`, `base.en`
-- `small`, `small.en`
-- `medium`, `medium.en`
-- `large`, `large-v1`, `large-v2`, `large-v3`, `large-v3-turbo`
-- Distilled models: `distil-large-v2`, `distil-medium.en`, `distil-small.en`, `distil-large-v3`
-- Custom models: [`nyrahealth/faster_CrisperWhisper`](https://github.com/nyrahealth/CrisperWhisper)
+#### Standard Models
+- **Tiny**: `tiny`, `tiny.en` (~39MB, fastest)
+- **Base**: `base`, `base.en` (~74MB, balanced)
+- **Small**: `small`, `small.en` (~244MB, good accuracy)
+- **Medium**: `medium`, `medium.en` (~769MB, better accuracy)
+- **Large**: `large`, `large-v1`, `large-v2`, `large-v3`, `large-v3-turbo` (~1550MB, best accuracy)
 
-Set default model in `.env` using `WHISPER_MODEL=` (default: tiny)
+#### Distilled Models (Faster Inference)
+- `distil-large-v2`, `distil-medium.en`, `distil-small.en`, `distil-large-v3`
+
+#### Specialized Models
+- **CrisperWhisper**: [`nyrahealth/faster_CrisperWhisper`](https://github.com/nyrahealth/CrisperWhisper) - Optimized for medical transcription
+
+#### Model Configuration
+- Set default model in `.env` using `WHISPER_MODEL=` (default: `small`)
+- Models are automatically downloaded and cached on first use
+- GPU models support `float16` and `float32` precision
+- CPU models require `int8` quantization for optimal performance
 
 ## System Requirements
 
-- NVIDIA GPU with CUDA 12.8+ support
-- At least 8GB RAM (16GB+ recommended for large models)
-- Storage space for models (varies by model size):
-  - tiny/base: ~1GB
-  - small: ~2GB
-  - medium: ~5GB
-  - large: ~10GB
+### Hardware Requirements
+
+#### GPU Configuration (Recommended)
+- **NVIDIA GPU**: CUDA 12.8+ compatible graphics card
+- **GPU Memory**: Minimum 4GB VRAM (8GB+ recommended for large models)
+- **System RAM**: 8GB minimum (16GB+ recommended for large models)
+- **Storage**: SSD recommended for faster model loading
+
+#### CPU Configuration (Fallback)
+- **CPU**: Multi-core processor (4+ cores recommended)
+- **System RAM**: 16GB minimum (32GB+ for large models)
+- **Storage**: Additional space for CPU-optimized models
+
+### Storage Requirements
+
+Model storage requirements (downloaded once and cached):
+
+| Model Size | Disk Space | GPU Memory | CPU Memory |
+|------------|-----------|------------|------------|
+| tiny/base  | ~1GB      | ~1GB       | ~2GB       |
+| small      | ~2GB      | ~2GB       | ~4GB       |
+| medium     | ~5GB      | ~5GB       | ~10GB      |
+| large      | ~10GB     | ~10GB      | ~20GB      |
+
+### Software Requirements
+
+- **Docker**: For containerized deployment (recommended)
+- **Python 3.8+**: For local development
+- **CUDA Drivers**: Version 12.8+ for GPU acceleration
+- **Git**: For cloning the repository
 
 ### Installing CUDA Libraries
 
@@ -97,15 +252,6 @@ chmod +x scripts/install_cuda_libs.sh
 ./scripts/install_cuda_libs.sh
 ```
 
-#### Manual Installation
-
-If the helper script doesn't work for your system:
-
-1. Visit the [NVIDIA cuDNN download page](https://developer.nvidia.com/cudnn)
-2. Create an NVIDIA Developer account if you don't have one
-3. Download the appropriate cuDNN package for your CUDA version
-4. Install following NVIDIA's instructions
-
 #### Alternative: Use CPU Mode
 
 If installing CUDA libraries is not an option, you can run in CPU mode:
@@ -118,63 +264,7 @@ export COMPUTE_TYPE=int8
 # Then start the application
 uvicorn app.main:app --reload
 ```
-
 Note: CPU mode will be significantly slower than GPU acceleration.
-
-## Getting Started with Docker (Recommended)
-
-This is the recommended way to run the WhisperX API, as it provides a consistent and isolated environment.
-
-### 1. Create `.env` File
-
-First, set up your environment by running the following command. This will create a `.env` file from the example, if it doesn't already exist.
-
-```sh
-make setup
-```
-
-Next, open the `.env` file and fill in your details, especially your Hugging Face token.
-
-- `HF_TOKEN`: Your Hugging Face token for model access.
-- `WHISPER_MODEL`: The default Whisper model to use (e.g., `tiny`, `base`, `large-v3`).
-- `TEMPORAL_SERVER_URL`: Set this to `temporal:7233` to connect to the Temporal container.
-
-### 2. Run with Docker Compose
-
-Choose the appropriate command based on your hardware (CPU or GPU).
-
-#### For CPU-Only Environment
-
-This setup is ideal for users without a dedicated NVIDIA GPU.
-
-```sh
-make run-cpu
-```
-
-#### For GPU-Accelerated Environment
-
-If you have an NVIDIA GPU with CUDA drivers installed, use this command for significantly faster performance.
-
-```sh
-make run-gpu
-```
-
-### 3. Accessing the Services
-
-Once the containers are running, you can access the following services:
-
--   **API Docs (Swagger UI)**: [http://localhost:8000/docs](http://localhost:8000/docs)
--   **Temporal Web UI**: [http://localhost:8233](http://localhost:8233)
-
-### 4. Stopping the Services
-
-To stop the Docker containers, run:
-
-```sh
-make stop
-```
-
----
 
 ## Alternative Environments
 
@@ -243,21 +333,39 @@ This method is for advanced users who want to run the application directly on th
 
 The API will be accessible at <http://127.0.0.1:8000>.
 
-> **Note:** The Docker build uses `uv` for installing dependencies, as specified in the Dockerfile.
-> The main entrypoint for the Docker container is via **Gunicorn** (not Uvicorn directly), using the configuration in `app/gunicorn_logging.conf`.
->
-> **Important:** For GPU support in Docker, you must have **CUDA drivers 12.8+ installed on your host system** and set up the container with the `--gpus all` flag:
->
-> ```sh
-> docker run -d --gpus all -p 8000:8000 --env-file .env whisperx-service
-> ```
-
 #### Model cache
 
 The models used by whisperX are stored in `root/.cache`, if you want to avoid downloanding the models each time the container is starting you can store the cache in persistent storage. `docker-compose.gpu.yml` defines a volume `whisperx-models-cache` to store this cache.
 
 - faster-whisper cache: `root/.cache/huggingface/hub`
 - pyannotate and other models cache: `root/.cache/torch`
+
+## Temporal Workflow System
+
+The application uses Temporal for robust workflow orchestration, providing enterprise-grade reliability and scalability.
+
+#### Configuration Options
+
+Key environment variables for Temporal configuration:
+
+```bash
+# Temporal server connection
+TEMPORAL_SERVER_URL=localhost:7233
+TEMPORAL_NAMESPACE=default
+TEMPORAL_TASK_QUEUE=whisperx-task-queue
+
+# Retry policy settings
+TEMPORAL_MAX_ATTEMPTS=3
+TEMPORAL_INITIAL_INTERVAL=5
+TEMPORAL_BACKOFF_COEFFICIENT=2.0
+TEMPORAL_MAX_INTERVAL=300
+
+# Activity timeouts (in minutes)
+TRANSCRIPTION_TIMEOUT=30
+ALIGNMENT_TIMEOUT=10
+DIARIZATION_TIMEOUT=10
+SPEAKER_ASSIGNMENT_TIMEOUT=5
+```
 
 ## Troubleshooting
 
@@ -292,40 +400,16 @@ The models used by whisperX are stored in `root/.cache`, if you want to avoid do
      # Example for downloading the base model
      python scripts/download_diarization_model.py
      ```
-
-4. **GPU Not Detected**
-
-   - Ensure NVIDIA drivers and CUDA are correctly installed.
-   - Verify that Docker is configured to use the GPU (`nvidia-docker`).
-
-5. **Warnings Not Filtered**
+4. **Warnings Not Filtered**
    - Ensure the `FILTER_WARNING` environment variable is set to `true` in the `.env` file.
 
-### Logs and Debugging
 
-- Check the logs for detailed error messages.
-- Use the `LOG_LEVEL` environment variable to set the appropriate logging level (`DEBUG`, `INFO`, `WARNING`, `ERROR`).
+#### Workflow Monitoring
 
-### Monitoring and Health Checks
-
-The API provides built-in health check endpoints that can be used for monitoring and orchestration:
-
-1. **Basic Health Check** (`/health`)
-
-   - Returns a simple status check with HTTP 200 if the service is running
-   - Useful for basic availability monitoring
-
-2. **Liveness Probe** (`/health/live`)
-
-   - Includes a timestamp with status information
-   - Designed for Kubernetes liveness probes or similar orchestration systems
-   - Returns HTTP 200 if the application is running
-
-3. **Readiness Probe** (`/health/ready`)
-   - Tests if the application is fully ready to accept requests
-   - Checks connectivity to the Temporal server
-   - Returns HTTP 200 if all dependencies are available
-   - Returns HTTP 503 if there's an issue with dependencies (e.g., temporal server connection)
+- **Temporal Web UI**: Access at `http://localhost:8233` for workflow visualization
+- **Workflow Status API**: Track individual workflow progress via REST endpoints
+- **Performance Metrics**: Built-in monitoring of processing times and success rates
+- **Error Analytics**: Detailed error tracking and retry attempt logging
 
 ## Related
 

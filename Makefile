@@ -30,16 +30,6 @@ install-prod:
 install-dev:
 	pip install -r requirements/dev.txt
 
-run-cpu:
-	docker-compose -f docker/docker-compose.cpu.yml up --build
-
-run-gpu:
-	docker-compose -f docker/docker-compose.gpu.yml -f docker/docker-compose.temporal.yml up --build
-
-stop:
-	docker-compose -f docker/docker-compose.cpu.yml down
-	docker-compose -f docker/docker-compose.gpu.yml -f docker/docker-compose.temporal.yml down
-
 run-local:
 	uvicorn app.main:app --reload --log-config app/uvicorn_log_conf.yaml --log-level info
 
