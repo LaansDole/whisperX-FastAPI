@@ -1,4 +1,4 @@
-.PHONY: help setup install-prod install-dev run-cpu run-gpu stop run-local run-worker run-worker-local run-temporal-local stop-temporal-local
+.PHONY: help setup install-prod install-dev run-cpu run-gpu stop run run-local run-worker run-worker-local run-temporal-local stop-temporal-local
 
 help:
 	@echo "Usage: make [target]"
@@ -30,13 +30,15 @@ install-prod:
 install-dev:
 	pip install -r requirements/dev.txt
 
+run: run-worker run-local
+
 run-local:
 	uvicorn app.main:app --reload --log-config app/uvicorn_log_conf.yaml --log-level info
 
 run-worker: run-temporal-local run-worker-local
 
 run-worker-local:
-	python -m app.temporal_worker
+	python -m app.temporal_worker &
 
 run-temporal-local:
 	@echo "Starting local Temporal server..."
