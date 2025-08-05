@@ -129,12 +129,6 @@ graph TB
 - **Advanced Retry Policies**: Context-aware retry strategies for different operation types
 - **Workflow Monitoring**: Real-time progress tracking and status monitoring
 
-### 🛡️ Production-Ready Features
-- **Health Monitoring**: Comprehensive health checks (liveness, readiness, dependencies)
-- **Structured Logging**: Detailed logging with configurable levels
-- **Error Handling**: Graceful error recovery and meaningful error messages
-- **Resource Management**: Efficient GPU memory management and model caching
-
 ## Documentation
 
 See the [WhisperX Documentation](https://github.com/m-bain/whisperX) for details on whisperX functions.
@@ -148,33 +142,6 @@ See the [WhisperX Documentation](https://github.com/m-bain/whisperX) for details
 #### Video Files
 
 - `.wmv`, `.mkv`, `.avi`, `.mov`, `.mp4`
-
-### Available Services
-
-1. **Speech-to-Text (`/speech-to-text`)**
-
-   - Upload audio/video files for comprehensive transcription with diarization
-   - Supports multiple languages and Whisper models
-   - Returns structured results with speaker identification
-
-2. **Speech-to-Text URL (`/speech-to-text-url`)**
-
-   - Transcribe audio/video from URLs
-   - Same features as direct upload
-   - Supports various streaming protocols
-
-3. **Individual Services:**
-
-   - **Transcribe (`/service/transcribe`)**: Convert speech to text using WhisperX
-   - **Align (`/service/align`)**: Align transcript with audio for precise timing
-   - **Diarize (`/service/diarize`)**: Speaker diarization and identification
-   - **Combine (`/service/combine`)**: Merge transcript with diarization results
-
-4. **Task Management:**
-
-   - **Get workflow status (`/temporal/workflow/{workflow_id}`)**: Monitor task progress
-   - **Get workflow result (`/temporal/workflow/{workflow_id}/result`)**: Retrieve completed results
-   - **Workflow monitoring**: Real-time progress tracking via Temporal
 
 ### Compute Settings
 
@@ -266,7 +233,7 @@ uvicorn app.main:app --reload
 ```
 Note: CPU mode will be significantly slower than GPU acceleration.
 
-## Alternative Environments
+## Usage
 
 ### Google Colab (No Local Setup Required)
 
