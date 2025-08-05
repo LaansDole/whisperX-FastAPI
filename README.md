@@ -287,8 +287,9 @@ For more details, see the [notebooks README](notebooks/README.md).
 This method is for advanced users who want to run the application directly on their host machine.
 
 1. **Create a virtual environment** and activate it.
-2. **Install PyTorch**: Follow the official instructions at [pytorch.org](https://pytorch.org/).
-3. **Install dependencies**:
+2. **Install uv**: Follow the official instructions at [astral.sh/uv](https://astral.sh/uv).
+3. **Install PyTorch**: Follow the official instructions at [pytorch.org](https://pytorch.org/).
+4. **Install dependencies**:
    ```sh
    # For production dependencies
    make install-prod
@@ -296,9 +297,9 @@ This method is for advanced users who want to run the application directly on th
    # For development dependencies
    make install-dev
    ```
-4. **Configure Logging**: Ensure `uvicorn_log_conf.yaml` and `gunicorn_logging.conf` are correctly placed in the `app` directory.
-5. **Create `.env` file**: Run `make setup` and set `TEMPORAL_SERVER_URL` to `localhost:7233`.
-6. **Run the application**:
+5. **Configure Logging**: Ensure `uvicorn_log_conf.yaml` and `gunicorn_logging.conf` are correctly placed in the `app` directory.
+6. **Create `.env` file**: Run `make setup` and set `TEMPORAL_SERVER_URL` to `localhost:7233`.
+7. **Run the application**:
 
    #### Running Temporal Locally (Without Docker)
    To run temporal server locally without docker, you need to install the `temporal` CLI.

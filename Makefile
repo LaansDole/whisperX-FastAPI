@@ -25,10 +25,10 @@ setup:
 	fi
 
 install-prod:
-	pip install -r requirements/prod.txt
+	uv pip install .
 
 install-dev:
-	pip install -r requirements/dev.txt
+	uv pip install .[dev]
 
 run: run-worker run-local
 
