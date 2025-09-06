@@ -1,28 +1,4 @@
-.PHONY: help setup install-prod install-dev run-cpu run-gpu stop run run-local run-worker run-worker-local run-temporal-local stop-temporal-local
-
-help:
-	@echo "Usage: make [target]"
-	@echo ""
-	@echo "Targets:"
-	@echo "  setup                - Copy .env.example to .env"
-	@echo "  install-prod         - Install production dependencies"
-	@echo "  install-dev          - Install development dependencies"
-	@echo "  run-cpu              - Run the application in a CPU-only environment with Docker"
-	@echo "  run-gpu              - Run the application in a GPU-accelerated environment with Docker"
-	@echo "  stop                 - Stop the Docker containers"
-	@echo "  run-local            - Run the FastAPI server locally"
-	@echo "  run-worker           - Start Temporal server (if needed) and run worker"
-	@echo "  run-worker-local     - Run the Temporal worker locally"
-	@echo "  run-temporal-local   - Start the Temporal server locally (if not running)"
-	@echo "  stop-temporal-local  - Stop the local Temporal server"
-
-setup:
-	@if [ ! -f .env ]; then \
-		cp .env.example .env; \
-		echo ".env file created. Please fill in your details."; \
-	else \
-		echo ".env file already exists."; \
-	fi
+.PHONY: run-cpu run-gpu stop run run-local run-worker run-worker-local run-temporal-local stop-temporal-local
 
 install-prod:
 	uv pip install .

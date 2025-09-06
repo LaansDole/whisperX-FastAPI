@@ -115,143 +115,9 @@ graph TB
     class Docker,GPU,CPU,Logging,HealthChecks infraLayer
 ```
 
-## Key Features
-
-### 🎯 Core Capabilities
-- **Advanced Speech Processing**: Transcription, alignment, speaker diarization, and result combination
-- **Multi-Model Support**: Support for various Whisper model sizes and custom models
-- **Flexible Input**: Process audio/video files or URLs
-- **GPU Acceleration**: CUDA-optimized with CPU fallback support
-
-### 🔄 Workflow Orchestration
-- **Temporal Integration**: Robust workflow management with automatic retries
-- **Async Processing**: Non-blocking task execution for large files
-- **Advanced Retry Policies**: Context-aware retry strategies for different operation types
-- **Workflow Monitoring**: Real-time progress tracking and status monitoring
-
-## Documentation
-
-See the [WhisperX Documentation](https://github.com/m-bain/whisperX) for details on whisperX functions.
-
-### Supported File Formats
-
-#### Audio Files
-
-- `.oga`, `.m4a`, `.aac`, `.wav`, `.amr`, `.wma`, `.awb`, `.mp3`, `.ogg`
-
-#### Video Files
-
-- `.wmv`, `.mkv`, `.avi`, `.mov`, `.mp4`
-
-### Compute Settings
-
-Configure compute options in `.env`:
-
-- `DEVICE`: Device for inference (`cuda` or `cpu`, default: `cuda`)
-- `COMPUTE_TYPE`: Computation type (`float16`, `float32`, `int8`, default: `float16`)
-  > Note: When using CPU, `COMPUTE_TYPE` must be set to `int8`
-
-### Available Models
-
-WhisperX supports a comprehensive range of model sizes and specialized variants:
-
-#### Standard Models
-- **Tiny**: `tiny`, `tiny.en` (~39MB, fastest)
-- **Base**: `base`, `base.en` (~74MB, balanced)
-- **Small**: `small`, `small.en` (~244MB, good accuracy)
-- **Medium**: `medium`, `medium.en` (~769MB, better accuracy)
-- **Large**: `large`, `large-v1`, `large-v2`, `large-v3`, `large-v3-turbo` (~1550MB, best accuracy)
-
-#### Distilled Models (Faster Inference)
-- `distil-large-v2`, `distil-medium.en`, `distil-small.en`, `distil-large-v3`
-
-#### Specialized Models
-- **CrisperWhisper**: [`nyrahealth/faster_CrisperWhisper`](https://github.com/nyrahealth/CrisperWhisper) - Optimized for medical transcription
-
-#### Model Configuration
-- Set default model in `.env` using `WHISPER_MODEL=` (default: `small`)
-- Models are automatically downloaded and cached on first use
-- GPU models support `float16` and `float32` precision
-- CPU models require `int8` quantization for optimal performance
-
-## System Requirements
-
-### Hardware Requirements
-
-#### GPU Configuration (Recommended)
-- **NVIDIA GPU**: CUDA 12.8+ compatible graphics card
-- **GPU Memory**: Minimum 4GB VRAM (8GB+ recommended for large models)
-- **System RAM**: 8GB minimum (16GB+ recommended for large models)
-- **Storage**: SSD recommended for faster model loading
-
-#### CPU Configuration (Fallback)
-- **CPU**: Multi-core processor (4+ cores recommended)
-- **System RAM**: 16GB minimum (32GB+ for large models)
-- **Storage**: Additional space for CPU-optimized models
-
-### Storage Requirements
-
-Model storage requirements (downloaded once and cached):
-
-| Model Size | Disk Space | GPU Memory | CPU Memory |
-|------------|-----------|------------|------------|
-| tiny/base  | ~1GB      | ~1GB       | ~2GB       |
-| small      | ~2GB      | ~2GB       | ~4GB       |
-| medium     | ~5GB      | ~5GB       | ~10GB      |
-| large      | ~10GB     | ~10GB      | ~20GB      |
-
-### Software Requirements
-
-- **Docker**: For containerized deployment (recommended)
-- **Python 3.8+**: For local development
-- **CUDA Drivers**: Version 12.8+ for GPU acceleration
-- **Git**: For cloning the repository
-
-### Installing CUDA Libraries
-
-If you encounter errors related to missing CUDA libraries (such as `libcudnn_ops_infer.so.8`), you need to install the NVIDIA cuDNN library. We provide a helper script for this purpose:
-
-```sh
-# Make the script executable
-chmod +x scripts/install_cuda_libs.sh
-
-# Run the installation helper
-./scripts/install_cuda_libs.sh
-```
-
-#### Alternative: Use CPU Mode
-
-If installing CUDA libraries is not an option, you can run in CPU mode:
-
-```sh
-# Set these environment variables
-export DEVICE=cpu
-export COMPUTE_TYPE=int8
-
-# Then start the application
-uvicorn app.main:app --reload
-```
-Note: CPU mode will be significantly slower than GPU acceleration.
-
 ## Usage
 
-### Google Colab (No Local Setup Required)
-
-Run the API on Google Colab's GPU without any local setup:
-
-1. Open the [whisperx_fastapi_colab.ipynb](notebooks/whisperx_fastapi_colab.ipynb) notebook in Google Colab.
-2. Follow the step-by-step instructions in the notebook.
-
-This option is ideal for:
-- Users without a local GPU
-- Quick testing without setting up a local environment
-- Temporary deployments for development or demonstration
-
-For more details, see the [notebooks README](notebooks/README.md).
-
-### Local Run (Advanced)
-
-This method is for advanced users who want to run the application directly on their host machine.
+### Local Run
 
 1. **Create a virtual environment** and activate it.
 2. **Install uv**: Follow the official instructions at [astral.sh/uv](https://astral.sh/uv).
@@ -264,21 +130,13 @@ This method is for advanced users who want to run the application directly on th
    # For development dependencies
    make install-dev
    ```
-5. **Configure Logging**: Ensure `uvicorn_log_conf.yaml` and `gunicorn_logging.conf` are correctly placed in the `app` directory.
-6. **Create `.env` file**: Run `make setup` and set `TEMPORAL_SERVER_URL` to `localhost:7233`.
-7. **Run the application**:
+5. **Create `.env` file**
+    ```sh
+    cp .env.example .env
+    ```
+6. **Run the application: FastAPI + Temporal**:
 
-   #### Running Temporal Locally (Without Docker)
    To run temporal server locally without docker, you need to install the `temporal` CLI.
-
-   **Installation:**
-
-   **macOS (Homebrew):**
-   ```sh
-   brew install temporal
-   ```
-
-   **Linux & macOS (manual):**
    Download and install the latest version for your system from the [official GitHub releases page](https://github.com/temporalio/cli/releases). You will need to move the `temporal` binary to a directory in your `PATH` (e.g., `/usr/local/bin`).
 
    Once installed, you can run a local temporal server.
@@ -308,48 +166,48 @@ The models used by whisperX are stored in `root/.cache`, if you want to avoid do
 - faster-whisper cache: `root/.cache/huggingface/hub`
 - pyannotate and other models cache: `root/.cache/torch`
 
-## Temporal Workflow System
+## Documentation
 
-The application uses Temporal for robust workflow orchestration, providing enterprise-grade reliability and scalability.
+See the [WhisperX Documentation](https://github.com/m-bain/whisperX) for details on whisperX functions.
 
-#### Configuration Options
+### Supported File Formats
 
-Key environment variables for Temporal configuration:
+#### Audio Files
 
-```bash
-# Temporal server connection
-TEMPORAL_SERVER_URL=localhost:7233
-TEMPORAL_NAMESPACE=default
-TEMPORAL_TASK_QUEUE=whisperx-task-queue
+- `.oga`, `.m4a`, `.aac`, `.wav`, `.amr`, `.wma`, `.awb`, `.mp3`, `.ogg`
 
-# Retry policy settings
-TEMPORAL_MAX_ATTEMPTS=3
-TEMPORAL_INITIAL_INTERVAL=5
-TEMPORAL_BACKOFF_COEFFICIENT=2.0
-TEMPORAL_MAX_INTERVAL=300
+#### Video Files
 
-# Activity timeouts (in minutes)
-TRANSCRIPTION_TIMEOUT=30
-ALIGNMENT_TIMEOUT=10
-DIARIZATION_TIMEOUT=10
-SPEAKER_ASSIGNMENT_TIMEOUT=5
-```
+- `.wmv`, `.mkv`, `.avi`, `.mov`, `.mp4`
+
+### Available Models
+
+WhisperX supports a comprehensive range of model sizes and specialized variants:
+
+#### Standard Models
+- **Tiny**: `tiny`, `tiny.en` (~39MB, fastest)
+- **Base**: `base`, `base.en` (~74MB, balanced)
+- **Small**: `small`, `small.en` (~244MB, good accuracy)
+- **Medium**: `medium`, `medium.en` (~769MB, better accuracy)
+- **Large**: `large`, `large-v1`, `large-v2`, `large-v3`, `large-v3-turbo` (~1550MB, best accuracy)
+
+#### Distilled Models (Faster Inference)
+- `distil-large-v2`, `distil-medium.en`, `distil-small.en`, `distil-large-v3`
+
+#### Specialized Models
+- **CrisperWhisper**: [`nyrahealth/faster_CrisperWhisper`](https://github.com/nyrahealth/CrisperWhisper) - Optimized for medical transcription
+
+#### Model Configuration
+- Set default model in `.env` using `WHISPER_MODEL=` (default: `small`)
+- Models are automatically downloaded and cached on first use
+- GPU models support `float16` and `float32` precision
+- CPU models require `int8` quantization for optimal performance
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Environment Variables Not Loaded**
-
-   - Ensure your `.env` file is correctly formatted and placed in the root directory.
-   - Verify that all required environment variables are defined.
-
-2. **Temporal Server Connection Issues**
-
-   - Check the `TEMPORAL_SERVER_URL` environment variable for correctness.
-   - Ensure the Temporal server is running and accessible.
-
-3. **Model Download Failures**
+1. **Model Download Failures**
 
    - Verify your internet connection.
    - Ensure the `HF_TOKEN` is correctly set in the `.env` file.
@@ -368,9 +226,9 @@ SPEAKER_ASSIGNMENT_TIMEOUT=5
      # Example for downloading the base model
      python scripts/download_diarization_model.py
      ```
-4. **Warnings Not Filtered**
-   - Ensure the `FILTER_WARNING` environment variable is set to `true` in the `.env` file.
 
+2. **Warnings Not Filtered**
+   - Ensure the `FILTER_WARNING` environment variable is set to `true` in the `.env` file.
 
 #### Workflow Monitoring
 
