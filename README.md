@@ -119,17 +119,17 @@ graph TB
 
 ### Local Run
 
-1. **Create a virtual environment** and activate it.
-2. **Install uv**: Follow the official instructions at [astral.sh/uv](https://astral.sh/uv).
-3. **Install PyTorch**: Follow the official instructions at [pytorch.org](https://pytorch.org/).
-4. **Install dependencies**:
+1. **Install uv**: Follow the official instructions at [astral.sh/uv](https://astral.sh/uv).
+2. **Install dependencies**: uv automatically creates and manages the virtual environment
    ```sh
-   # For production dependencies
-   make install-prod
+   # Install all dependencies (production + development)
+   uv sync
 
-   # For development dependencies
-   make install-dev
+   # Install only production dependencies
+   uv sync --no-dev
    ```
+   
+   > **Note**: uv will automatically create a virtual environment and install all dependencies including PyTorch based on the `pyproject.toml` configuration.
 5. **Create `.env` file**
     ```sh
     cp .env.example .env

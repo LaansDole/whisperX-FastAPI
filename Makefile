@@ -1,10 +1,10 @@
 .PHONY: run-cpu run-gpu stop run run-local run-worker run-worker-local run-temporal-local stop-temporal-local
 
 install-prod:
-	uv pip install .
+	uv sync --no-dev
 
 install-dev:
-	uv pip install .[dev]
+	uv sync
 
 run: run-worker run-local
 
