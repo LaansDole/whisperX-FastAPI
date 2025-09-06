@@ -3,8 +3,14 @@
 install-prod:
 	uv sync --no-dev
 
+install-prod-gpu:
+	uv sync --no-dev --extra gpu
+
 install-dev:
 	uv sync
+
+install-dev-gpu:
+	uv sync --extra gpu
 
 run: run-worker run-local
 

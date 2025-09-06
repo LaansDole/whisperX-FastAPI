@@ -121,15 +121,37 @@ graph TB
 
 1. **Install uv**: Follow the official instructions at [astral.sh/uv](https://astral.sh/uv).
 2. **Install dependencies**: uv automatically creates and manages the virtual environment
+   
+   **For CPU-only setup (macOS/Linux without NVIDIA GPU):**
    ```sh
-   # Install all dependencies (production + development)
+   # Install all dependencies (production + development) - CPU only
    uv sync
 
-   # Install only production dependencies
+   # Install only production dependencies - CPU only
    uv sync --no-dev
    ```
    
-   > **Note**: uv will automatically create a virtual environment and install all dependencies including PyTorch based on the `pyproject.toml` configuration.
+   **For GPU setup (Linux with NVIDIA GPU):**
+   ```sh
+   # Install all dependencies including NVIDIA CUDA support
+   uv sync --extra gpu
+
+   # Install only production dependencies with GPU support
+   uv sync --no-dev --extra gpu
+   ```
+   
+   **Using Makefile shortcuts:**
+   ```sh
+   # CPU setup
+   make install-dev        # Development dependencies (CPU)
+   make install-prod       # Production dependencies (CPU)
+   
+   # GPU setup
+   make install-dev-gpu    # Development dependencies (GPU)
+   make install-prod-gpu   # Production dependencies (GPU)
+   ```
+   
+   > **Note**: uv will automatically create a virtual environment and install all dependencies including PyTorch based on your platform and configuration.
 5. **Create `.env` file**
     ```sh
     cp .env.example .env
