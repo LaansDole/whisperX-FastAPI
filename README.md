@@ -117,6 +117,28 @@ graph TB
 
 ## Usage
 
+### Docker Setup (Recommended)
+
+For the fastest and most consistent setup, use Docker Compose:
+
+```bash
+# 1. Copy and configure environment
+cp .env.example .env
+# Edit .env with your HF_TOKEN and other settings
+
+# 2. Start all services (CPU version)
+docker-compose up -d
+
+# 3. Or start with GPU support (requires NVIDIA Container Toolkit)
+docker-compose -f docker-compose.gpu.yaml up -d
+
+# 4. Access the API
+# API Documentation: http://localhost:8000/docs
+# Temporal Web UI: http://localhost:8233
+```
+
+📖 **See [DOCKER.md](docs/DOCKER.md) for comprehensive Docker setup guide**
+
 ### Local Run
 
 1. **Install uv**: Follow the official instructions at [astral.sh/uv](https://astral.sh/uv).
@@ -139,19 +161,7 @@ graph TB
    # Install only production dependencies with GPU support
    uv sync --no-dev --extra gpu
    ```
-   
-   **Using Makefile shortcuts:**
-   ```sh
-   # CPU setup
-   make install-dev        # Development dependencies (CPU)
-   make install-prod       # Production dependencies (CPU)
-   
-   # GPU setup
-   make install-dev-gpu    # Development dependencies (GPU)
-   make install-prod-gpu   # Production dependencies (GPU)
-   ```
-   
-   > **Note**: uv will automatically create a virtual environment and install all dependencies including PyTorch based on your platform and configuration.
+
 5. **Create `.env` file**
     ```sh
     cp .env.example .env

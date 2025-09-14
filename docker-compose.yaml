@@ -1,0 +1,131 @@
+version: '3.8'
+
+services:
+  # Temporal Server
+  temporal:
+    image: temporalio/auto-setup:1.24
+    ports:
+      - "7233:7233"
+      - "8233:8233"  # Web UI
+    environment:
+      - DB=default
+    volumes:
+      - temporal-data:/etc/temporal/server/data
+    networks:
+      - whisperx-network
+    healthcheck:
+      test: ["CMD", "tctl", "--address", "temporal:7233", "cluster", "health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
+  # WhisperX FastAPI Application
+  whisperx-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - INSTALL_GPU=false  # Set to true for GPU support
+    ports:
+      - "8000:8000"
+    environment:
+      # Copy from .env or set directly
+      - HF_TOKEN=${HF_TOKEN:-}
+      - WHISPER_MODEL=${WHISPER_MODEL:-small}
+      - DEFAULT_LANG=${DEFAULT_LANG:-en}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - FILTER_WARNING=${FILTER_WARNING:-true}
+      - DEVICE=${DEVICE:-cpu}
+      - COMPUTE_TYPE=${COMPUTE_TYPE:-int8}
+      - DIARIZATION_MODEL_PATH=${DIARIZATION_MODEL_PATH:-}
+      # Temporal Configuration
+      - TEMPORAL_SERVER_URL=temporal:7233
+      - TEMPORAL_NAMESPACE=${TEMPORAL_NAMESPACE:-default}
+      - TEMPORAL_TASK_QUEUE=${TEMPORAL_TASK_QUEUE:-whisperx-task-queue}
+      # Retry Policy Configuration
+      - TEMPORAL_MAX_ATTEMPTS=${TEMPORAL_MAX_ATTEMPTS:-3}
+      - TEMPORAL_INITIAL_INTERVAL=${TEMPORAL_INITIAL_INTERVAL:-5}
+      - TEMPORAL_BACKOFF_COEFFICIENT=${TEMPORAL_BACKOFF_COEFFICIENT:-2.0}
+      - TEMPORAL_MAX_INTERVAL=${TEMPORAL_MAX_INTERVAL:-300}
+      # Activity Timeout Configuration (in minutes)
+      - TRANSCRIPTION_TIMEOUT=${TRANSCRIPTION_TIMEOUT:-30}
+      - ALIGNMENT_TIMEOUT=${ALIGNMENT_TIMEOUT:-10}
+      - DIARIZATION_TIMEOUT=${DIARIZATION_TIMEOUT:-10}
+      - SPEAKER_ASSIGNMENT_TIMEOUT=${SPEAKER_ASSIGNMENT_TIMEOUT:-5}
+    volumes:
+      # Persist model cache to avoid re-downloading
+      - whisperx-huggingface-cache:/root/.cache/huggingface
+      - whisperx-torch-cache:/root/.cache/torch
+      # Mount for file uploads (optional)
+      - ./uploads:/tmp/uploads
+    depends_on:
+      temporal:
+        condition: service_healthy
+    networks:
+      - whisperx-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Temporal Worker
+  whisperx-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - INSTALL_GPU=false  # Set to true for GPU support
+    environment:
+      # Copy same environment as API
+      - HF_TOKEN=${HF_TOKEN:-}
+      - WHISPER_MODEL=${WHISPER_MODEL:-small}
+      - DEFAULT_LANG=${DEFAULT_LANG:-en}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - FILTER_WARNING=${FILTER_WARNING:-true}
+      - DEVICE=${DEVICE:-cpu}
+      - COMPUTE_TYPE=${COMPUTE_TYPE:-int8}
+      - DIARIZATION_MODEL_PATH=${DIARIZATION_MODEL_PATH:-}
+      # Temporal Configuration
+      - TEMPORAL_SERVER_URL=temporal:7233
+      - TEMPORAL_NAMESPACE=${TEMPORAL_NAMESPACE:-default}
+      - TEMPORAL_TASK_QUEUE=${TEMPORAL_TASK_QUEUE:-whisperx-task-queue}
+      # Retry Policy Configuration
+      - TEMPORAL_MAX_ATTEMPTS=${TEMPORAL_MAX_ATTEMPTS:-3}
+      - TEMPORAL_INITIAL_INTERVAL=${TEMPORAL_INITIAL_INTERVAL:-5}
+      - TEMPORAL_BACKOFF_COEFFICIENT=${TEMPORAL_BACKOFF_COEFFICIENT:-2.0}
+      - TEMPORAL_MAX_INTERVAL=${TEMPORAL_MAX_INTERVAL:-300}
+      # Activity Timeout Configuration (in minutes)
+      - TRANSCRIPTION_TIMEOUT=${TRANSCRIPTION_TIMEOUT:-30}
+      - ALIGNMENT_TIMEOUT=${ALIGNMENT_TIMEOUT:-10}
+      - DIARIZATION_TIMEOUT=${DIARIZATION_TIMEOUT:-10}
+      - SPEAKER_ASSIGNMENT_TIMEOUT=${SPEAKER_ASSIGNMENT_TIMEOUT:-5}
+    volumes:
+      # Share model cache with API service
+      - whisperx-huggingface-cache:/root/.cache/huggingface
+      - whisperx-torch-cache:/root/.cache/torch
+      # Mount for file processing (optional)
+      - ./uploads:/tmp/uploads
+    command: ["python", "-m", "app.temporal_worker"]
+    depends_on:
+      temporal:
+        condition: service_healthy
+    networks:
+      - whisperx-network
+    restart: unless-stopped
+    deploy:
+      replicas: 1  # Increase for more worker instances
+
+networks:
+  whisperx-network:
+    driver: bridge
+
+volumes:
+  temporal-data:
+  whisperx-huggingface-cache:
+  whisperx-torch-cache:
