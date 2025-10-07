@@ -213,6 +213,7 @@ app/docs/*
 GEMINI.md
 .temporal.pid
 .serena
+.roo/
 
 # Temporal db
 records.db
