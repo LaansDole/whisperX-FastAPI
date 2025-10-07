@@ -1,5 +1,5 @@
 # Multi-stage build for WhisperX-FastAPI
-FROM python:3.11-slim as base
+FROM python:3.11-slim AS base
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
@@ -15,17 +15,14 @@ RUN apt-get update && apt-get install -y \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Install uv for faster dependency management
 RUN pip install uv
 
-# Set working directory
 WORKDIR /app
-
-# Copy dependency files
-COPY pyproject.toml uv.lock ./
 
 # Build argument to control GPU installation
 ARG INSTALL_GPU=false
+
+COPY pyproject.toml uv.lock ./
 
 # Install dependencies based on GPU flag
 RUN if [ "$INSTALL_GPU" = "true" ]; then \

@@ -3,14 +3,18 @@ version: '3.8'
 services:
   # Temporal Server (same as CPU version)
   temporal:
-    image: temporalio/auto-setup:1.24
+    image: temporalio/auto-setup:latest
     ports:
       - "7233:7233"
       - "8233:8233"  # Web UI
     environment:
-      - DB=default
-    volumes:
-      - temporal-data:/etc/temporal/server/data
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=temporal
+      - POSTGRES_SEEDS=postgres
+    depends_on:
+      - postgres
     networks:
       - whisperx-network
     healthcheck:
@@ -19,6 +23,21 @@ services:
       timeout: 10s
       retries: 5
       start_period: 90s
+
+  postgres:
+    image: postgres:13
+    environment:
+      - POSTGRES_PASSWORD=temporal
+      - POSTGRES_USER=temporal
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - whisperx-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # WhisperX FastAPI Application with GPU
   whisperx-api:
@@ -118,7 +137,7 @@ services:
       - whisperx-torch-cache:/root/.cache/torch
       # Mount for file processing (optional)
       - ./uploads:/tmp/uploads
-    command: ["python", "-m", "app.temporal_worker"]
+    command: ["uv", "run", "python", "-m", "app.temporal_worker"]
     depends_on:
       temporal:
         condition: service_healthy
@@ -140,5 +159,6 @@ networks:
 
 volumes:
   temporal-data:
+  postgres-data:
   whisperx-huggingface-cache:
   whisperx-torch-cache:
