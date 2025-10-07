@@ -285,24 +285,3 @@ mkdir -p ./uploads
 2. **Network Security**: Use reverse proxy (nginx) for production
 3. **Container Security**: Run with non-root user in production
 4. **API Security**: Implement authentication/authorization as needed
-
-## Migration from Makefile Setup
-
-If you were previously using the Makefile setup:
-
-```bash
-# Old way
-make run-temporal-local
-make run-local
-make run-worker-local
-
-# New Docker way
-docker-compose up -d
-```
-
-The Docker setup provides:
-- ✅ Automatic dependency management
-- ✅ Consistent environment across machines
-- ✅ Persistent model cache
-- ✅ Easy scaling and monitoring
-- ✅ Production-ready configuration
