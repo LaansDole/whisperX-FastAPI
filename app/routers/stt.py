@@ -24,7 +24,7 @@ from ..schemas import (
     WhisperModelParams,
 )
 from ..temporal_manager import temporal_manager
-from ..temporal_workflows import WhisperXWorkflow
+from ..temporal_workflows import WhisperXWorkflow, WhisperXOptimizedWorkflow
 from ..temporal_config import config
 
 # Configure logging
@@ -136,3 +136,66 @@ async def speech_to_text_url(
     logger.info("Workflow started: ID %s", handle.id)
 
     return Response(identifier=handle.id, message="Workflow started")
+
+
+@stt_router.post("/speech-to-text-optimized", tags=["Speech-2-Text"])
+async def speech_to_text_optimized(
+    language: str = Form(..., description="Target language code (e.g., 'en', 'zh', 'ja')"),
+    task: str = Form(default="transcribe", description="Task: 'transcribe' or 'translate'"),
+    device: str = Form(default="cuda", description="Device: 'cuda' or 'cpu'"),
+    batch_size: int = Form(default=8, description="Batch size for processing"),
+    threads: int = Form(default=0, description="Number of CPU threads"),
+    align_params: AlignmentParams = Depends(),
+    diarize_params: DiarizationParams = Depends(),
+    asr_options_params: ASROptions = Depends(),
+    vad_options_params: VADOptions = Depends(),
+    file: UploadFile = File(...),
+    override_model: str = Form(default=None, description="Override auto-selected model"),
+) -> Response:
+    """
+    Process audio with language-optimized model selection.
+    
+    This endpoint automatically selects the optimal Whisper model for the specified language
+    based on AudioBench performance data, along with optimal compute settings and diarization parameters.
+    """
+    logger.info("Received optimized file upload request: %s for language: %s", file.filename, language)
+
+    validate_extension(file.filename, ALLOWED_EXTENSIONS)
+
+    temp_file = save_temporary_file(file.file, file.filename)
+    logger.info("%s saved as temporary file: %s", file.filename, temp_file)
+
+    # Build params with optimized model selection
+    params = {
+        "whisper_model_params": {
+            "language": language,
+            "task": task,
+            "model": override_model,  # Will be overridden by optimization if None
+            "device": device,
+            "batch_size": batch_size,
+            "threads": threads,
+            "compute_type": None,  # Will be auto-selected
+            "device_index": 0,
+            "chunk_size": 20,
+        },
+        "alignment_params": align_params.model_dump(),
+        "diarization_params": diarize_params.model_dump(),
+        "asr_options": asr_options_params.model_dump(),
+        "vad_options": vad_options_params.model_dump(),
+        "optimization_enabled": True,
+        "override_model": override_model,
+    }
+
+    client = await temporal_manager.get_client()
+    if not client:
+        raise HTTPException(status_code=503, detail="Temporal service not available")
+    workflow_id = f"whisperx-optimized-workflow-{uuid.uuid4()}"
+    handle = await client.start_workflow(
+        WhisperXOptimizedWorkflow.run,
+        args=[temp_file, params],
+        id=workflow_id,
+        task_queue=config.TEMPORAL_TASK_QUEUE,
+    )
+    logger.info("Optimized workflow started: ID %s", handle.id)
+
+    return Response(identifier=handle.id, message="Optimized workflow started")

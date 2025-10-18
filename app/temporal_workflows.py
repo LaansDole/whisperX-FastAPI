@@ -96,3 +96,109 @@ class WhisperXWorkflow:
         except Exception as e:
             logging.error(f"Unexpected error in workflow for {audio_path}: {e}")
             raise e
+
+
+@workflow.defn
+class WhisperXOptimizedWorkflow:
+    @workflow.run
+    async def run(self, audio_path: str, params: dict) -> dict:
+        TemporalMetrics.log_workflow_progress("started", audio_path)
+
+        try:
+            # Optimized transcription step with automatic model selection
+            transcription_result = await workflow.execute_activity(
+                "transcribe_optimized_activity",
+                args=[
+                    audio_path,
+                    params["whisper_model_params"],
+                    params["asr_options"],
+                    params["vad_options"],
+                ],
+                start_to_close_timeout=timedelta(minutes=TemporalConfig.TRANSCRIPTION_TIMEOUT_MINUTES),
+                retry_policy=RetryPolicy(
+                    initial_interval=timedelta(seconds=10),
+                    backoff_coefficient=2.0,
+                    maximum_attempts=3,
+                ),
+            )
+            TemporalMetrics.log_workflow_progress("transcription_complete", audio_path)
+
+            # Alignment step with optimized language handling
+            if params["alignment_params"]["return_char_alignments"] or params["alignment_params"]["return_word_alignments"]:
+                alignment_result = await workflow.execute_activity(
+                    "align_activity",
+                    args=[
+                        audio_path,
+                        transcription_result,
+                        params["whisper_model_params"]["language"],
+                        params["alignment_params"],
+                    ],
+                    start_to_close_timeout=timedelta(minutes=TemporalConfig.ALIGNMENT_TIMEOUT_MINUTES),
+                    retry_policy=RetryPolicy(
+                        initial_interval=timedelta(seconds=5),
+                        backoff_coefficient=2.0,
+                        maximum_attempts=3,
+                    ),
+                )
+                TemporalMetrics.log_workflow_progress("alignment_complete", audio_path)
+            else:
+                alignment_result = None
+
+            # Optimized diarization step with language-specific configuration
+            if params["diarization_params"]["num_speakers"] > 0 or params["diarization_params"]["enable_automated_diarization"]:
+                diarization_result = await workflow.execute_activity(
+                    "diarize_optimized_activity",
+                    args=[
+                        audio_path,
+                        params["diarization_params"],
+                        params["whisper_model_params"]["language"],
+                    ],
+                    start_to_close_timeout=timedelta(minutes=TemporalConfig.DIARIZATION_TIMEOUT_MINUTES),
+                    retry_policy=RetryPolicy(
+                        initial_interval=timedelta(seconds=10),
+                        backoff_coefficient=2.0,
+                        maximum_attempts=3,
+                    ),
+                )
+                TemporalMetrics.log_workflow_progress("diarization_complete", audio_path)
+            else:
+                diarization_result = None
+
+            # Speaker assignment with optimized configuration
+            if alignment_result and diarization_result:
+                final_result = await workflow.execute_activity(
+                    "assign_speakers_activity",
+                    args=[alignment_result, diarization_result],
+                    start_to_close_timeout=timedelta(minutes=TemporalConfig.SPEAKER_ASSIGNMENT_TIMEOUT_MINUTES),
+                    retry_policy=RetryPolicy(
+                        initial_interval=timedelta(seconds=5),
+                        backoff_coefficient=2.0,
+                        maximum_attempts=3,
+                    ),
+                )
+                TemporalMetrics.log_workflow_progress("speaker_assignment_complete", audio_path)
+            else:
+                final_result = alignment_result or transcription_result
+
+            # Add optimization metadata to result
+            if isinstance(final_result, dict):
+                final_result["optimization_info"] = {
+                    "workflow_type": "optimized",
+                    "language": params["whisper_model_params"]["language"],
+                    "model_override": params.get("override_model"),
+                    "optimization_enabled": params.get("optimization_enabled", True),
+                }
+
+            TemporalMetrics.log_workflow_progress("completed", audio_path)
+            return final_result
+            
+        except ActivityError as e:
+            logging.error(f"Activity failed in optimized workflow for {audio_path}: {e}")
+            if isinstance(e.cause, ApplicationError) and e.cause.non_retryable:
+                logging.error(f"Non-retryable error encountered: {e.cause}")
+                raise e
+            else:
+                raise e
+        except Exception as e:
+            logging.error(f"Unexpected error in optimized workflow for {audio_path}: {e}")
+            raise e
