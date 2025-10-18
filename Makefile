@@ -1,4 +1,24 @@
-.PHONY: run-cpu run-gpu stop run run-local run-worker run-worker-local run-temporal-local stop-temporal-local
+.PHONY: help install-prod install-prod-gpu install-dev install-dev-gpu \
+	dev server worker start-temporal \
+	start-temporal stop-temporal
+
+# Default target - show help
+help:
+	@echo "Available targets:"
+	@echo "  install-prod         - Install production dependencies (CPU only)"
+	@echo "  install-prod-gpu     - Install production dependencies with GPU support"
+	@echo "  install-dev          - Install development dependencies (CPU only)"
+	@echo "  install-dev-gpu      - Install development dependencies with GPU support"
+	@echo "  dev                  - Start worker + FastAPI server (full app)"
+	@echo "  server            - Start FastAPI server only"
+	@echo "  worker           - Start Temporal server + worker"
+	@echo "  start-temporal     - Start Temporal worker only"
+	@echo "  start-temporal   - Start local Temporal server"
+	@echo "  stop-temporal  - Stop local Temporal server"
+
+# ============================================================================
+# Installation targets
+# ============================================================================
 
 install-prod:
 	uv sync --no-dev
@@ -12,34 +32,52 @@ install-dev:
 install-dev-gpu:
 	uv sync --extra gpu
 
-run: run-worker run-local
+# ============================================================================
+# Run targets
+# ============================================================================
 
-run-local:
-	uvicorn app.main:app --reload --log-config app/uvicorn_log_conf.yaml --log-level info
+# Start full application (Temporal worker + FastAPI server)
+dev:
+	@echo "Starting full application..."
+	$(MAKE) worker
+	@echo "Waiting for worker to initialize..."
+	uv run python scripts/wait_for_worker.py
+	$(MAKE) server
+	@echo "✓ Full application started"
 
-run-worker: run-temporal-local run-worker-local
+# Start FastAPI server only
+server:
+	uv run python -m start_server
+	@echo "✓ FastAPI server started"
 
-run-worker-local:
-	python -m app.temporal_worker &
+# Start Temporal server + worker
+worker: stop-temporal start-temporal
+	uv run python -m app.temporal_worker &
+	@echo "✓ Temporal worker started"
 
-run-temporal-local:
-	@echo "Starting local Temporal server..."
+# ============================================================================
+# Temporal server management
+# ============================================================================
+
+# Start local Temporal server if not already devning
+start-temporal:
+	@echo "Checking Temporal server status..."
 	@if ! lsof -Pi :7233 -sTCP:LISTEN -t >/dev/null 2>&1; then \
-		echo "Temporal server not running, starting it..."; \
+		echo "Starting Temporal server..."; \
 		temporal server start-dev & \
-		echo "Temporal server started in background"; \
 		sleep 5; \
+		echo "✓ Temporal server started on port 7233"; \
 	else \
-		echo "Temporal server already running on port 7233"; \
+		echo "✓ Temporal server already devning on port 7233"; \
 	fi
 
-stop-temporal-local:
-	@echo "Stopping local Temporal server..."
+# Stop local Temporal server
+stop-temporal:
+	@echo "Stopping Temporal server..."
 	@if lsof -Pi :7233 -sTCP:LISTEN -t >/dev/null 2>&1; then \
-		echo "Found Temporal server running on port 7233, stopping it..."; \
-		pkill -f "temporal server start-dev" || true; \
+		pkill -f "temporal_worker" || true; \
 		sleep 2; \
-		echo "Temporal server stopped"; \
+		echo "✓ Temporal server stopped"; \
 	else \
-		echo "Temporal server is not running on port 7233"; \
+		echo "✓ Temporal server is not devning"; \
 	fi

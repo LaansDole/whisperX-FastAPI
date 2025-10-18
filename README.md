@@ -174,19 +174,19 @@ docker-compose -f docker-compose.gpu.yaml up -d
    Once installed, you can run a local temporal server.
    ```sh
    # Start the local temporal server
-   make run-temporal-local
+   make start-temporal
 
    # Stop the local temporal server
-   make stop-temporal-local
+   make stop-temporal
    ```
 
    Now you can start the FastAPI server and the Temporal worker.
    ```sh
    # Start the FastAPI server
-   make run-local
+   make server
 
    # In a separate terminal, start the Temporal worker
-   make run-worker-local
+   make start-temporal
    ```
 
 The API will be accessible at <http://127.0.0.1:8000>.
