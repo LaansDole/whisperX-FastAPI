@@ -19,6 +19,11 @@ from .config import Config
 from .logger import logger  # Import the logger from the new module
 from .schemas import AlignedTranscription, SpeechToTextProcessingParams
 from .transcript import filter_aligned_transcription
+from .language_optimization import (
+    get_best_model_for_language,
+    get_optimal_compute_type,
+    get_diarization_config_for_language
+)
 
 LANG = Config.LANG
 HF_TOKEN = Config.HF_TOKEN
@@ -283,6 +288,161 @@ def align_whisper_output(
         )
 
     logger.debug("Completed alignment")
+    return result
+
+
+def transcribe_with_optimized_model(
+    audio,
+    language: str,
+    task: str = "transcribe",
+    device: str = "cuda",
+    device_index: int = 0,
+    asr_options: dict = None,
+    vad_options: dict = None,
+    batch_size: int = 8,
+    threads: int = 0,
+    override_model: str = None,
+) -> dict:
+    """
+    Transcribe audio using the optimal model for the specified language.
+    
+    This function automatically selects the best Whisper model for the given language
+    based on AudioBench performance data, along with optimal compute settings.
+    
+    Args:
+        audio: Audio data for transcription
+        language: Target language code (e.g., 'en', 'zh', 'ja')
+        task: Transcription task ('transcribe' or 'translate')
+        device: Device for inference ('cuda' or 'cpu')
+        device_index: GPU device index
+        asr_options: ASR configuration options
+        vad_options: VAD configuration options
+        batch_size: Batch size for processing
+        threads: Number of CPU threads
+        override_model: Force use of specific model instead of optimal one
+        
+    Returns:
+        dict: Transcription results with metadata about model selection
+    """
+    from .schemas import WhisperModel
+    
+    # Get optimal model for language (unless overridden)
+    if override_model:
+        optimal_model = WhisperModel(override_model)
+        logger.info(f"Using overridden model: {optimal_model.value}")
+    else:
+        optimal_model = get_best_model_for_language(language)
+        logger.info(f"Auto-selected optimal model {optimal_model.value} for language '{language}'")
+    
+    # Get optimal compute type for language
+    optimal_compute_type = get_optimal_compute_type(language, device)
+    logger.info(f"Using compute type '{optimal_compute_type}' for language '{language}' on device '{device}'")
+    
+    # Log model selection reasoning
+    logger.info(
+        f"Language optimization: language='{language}' -> model='{optimal_model.value}', "
+        f"compute_type='{optimal_compute_type}'"
+    )
+    
+    # Use the existing transcribe function with optimal parameters
+    result = transcribe_with_whisper(
+        audio=audio,
+        model=optimal_model,
+        device=device,
+        device_index=device_index,
+        compute_type=optimal_compute_type,
+        asr_options=asr_options,
+        vad_options=vad_options,
+        batch_size=batch_size,
+        threads=threads,
+        language=language,
+        task=task,
+    )
+    
+    # Add optimization metadata
+    result["optimization_metadata"] = {
+        "selected_model": optimal_model.value,
+        "language": language,
+        "compute_type": optimal_compute_type,
+        "optimization_applied": override_model is None,
+        "device": device
+    }
+    
+    return result
+
+
+def diarize_with_optimized_config(
+    audio,
+    language: str,
+    diarization_model_path: str = None,
+    use_auth_token: bool = False,
+    device: str = "cuda",
+    hf_token: str = None,
+    override_min_speakers: int = None,
+    override_max_speakers: int = None,
+) -> dict:
+    """
+    Perform diarization using language-specific optimal configuration.
+    
+    Args:
+        audio: Audio data for diarization
+        language: Language code for optimal configuration
+        diarization_model_path: Path to diarization model
+        use_auth_token: Whether to use authentication token
+        device: Device for inference
+        hf_token: Hugging Face token
+        override_min_speakers: Override minimum speaker count
+        override_max_speakers: Override maximum speaker count
+        
+    Returns:
+        dict: Diarization results with configuration metadata
+    """
+    # Get optimal diarization config for language
+    diar_config = get_diarization_config_for_language(language)
+    
+    # Apply overrides if provided
+    min_speakers = override_min_speakers or diar_config["min_speakers"]
+    max_speakers = override_max_speakers or diar_config["max_speakers"]
+    confidence_threshold = diar_config["confidence_threshold"]
+    
+    logger.info(
+        f"Language-optimized diarization for '{language}': "
+        f"min_speakers={min_speakers}, max_speakers={max_speakers}, "
+        f"confidence_threshold={confidence_threshold}"
+    )
+    
+    # Use existing diarization function with optimal parameters
+    result = diarize(
+        audio=audio,
+        diarization_model_path=diarization_model_path,
+        use_auth_token=use_auth_token,
+        min_speakers=min_speakers,
+        max_speakers=max_speakers,
+        device=device,
+        hf_token=hf_token,
+    )
+    
+    # Add optimization metadata
+    if "segments" in result:
+        # Filter segments by confidence threshold
+        filtered_segments = [
+            segment for segment in result["segments"]
+            if segment.get("confidence", 1.0) >= confidence_threshold
+        ]
+        result["segments"] = filtered_segments
+        result["optimization_metadata"] = {
+            "language": language,
+            "min_speakers": min_speakers,
+            "max_speakers": max_speakers,
+            "confidence_threshold": confidence_threshold,
+            "original_segment_count": len(result["segments"]) + len([
+                s for s in result.get("segments", []) 
+                if s.get("confidence", 1.0) < confidence_threshold
+            ]),
+            "filtered_segment_count": len(filtered_segments),
+            "optimization_applied": True
+        }
+    
     return result
 
 

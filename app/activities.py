@@ -1,12 +1,12 @@
 
 from temporalio import activity
-from temporalio.exceptions import ApplicationError
-from app.temporal_config import TemporalConfig  # Only import what we need
 from app.temporal_error_handler import TemporalErrorHandler
 from app.temporal_monitoring import TemporalMetrics
 from app.whisperx_services import (
     transcribe_with_whisper,
+    transcribe_with_optimized_model,
     diarize,
+    diarize_with_optimized_config,
     align_whisper_output,
 )
 import whisperx
@@ -127,3 +127,81 @@ async def assign_speakers_activity(
             return result
         except Exception as e:
             raise TemporalErrorHandler.create_application_error(e, "Speaker assignment")
+
+
+@activity.defn
+async def transcribe_optimized_activity(
+    audio_path: str,
+    model_params: dict,
+    asr_options: dict,
+    vad_options: dict,
+) -> dict:
+    """Activity to transcribe audio with optimized model selection."""
+    async with TemporalMetrics.activity_timer("transcription_optimized"):
+        try:
+            # Load audio
+            audio = whisperx.load_audio(audio_path)
+            
+            # Extract parameters
+            language = model_params.get("language", "en")
+            task = model_params.get("task", "transcribe")
+            device = model_params.get("device", "cuda")
+            device_index = model_params.get("device_index", 0)
+            batch_size = model_params.get("batch_size", 8)
+            threads = model_params.get("threads", 0)
+            override_model = model_params.get("model")
+            
+            # Use optimized transcription
+            result = transcribe_with_optimized_model(
+                audio=audio,
+                language=language,
+                task=task,
+                device=device,
+                device_index=device_index,
+                asr_options=asr_options,
+                vad_options=vad_options,
+                batch_size=batch_size,
+                threads=threads,
+                override_model=override_model,
+            )
+            
+            return result
+        except Exception as e:
+            raise TemporalErrorHandler.create_application_error(e, "Optimized transcription")
+
+
+@activity.defn
+async def diarize_optimized_activity(
+    audio_path: str,
+    diarization_params: dict,
+    language: str,
+) -> dict:
+    """Activity to perform diarization with language-specific optimization."""
+    async with TemporalMetrics.activity_timer("diarization_optimized"):
+        try:
+            # Load audio
+            audio = whisperx.load_audio(audio_path)
+            
+            # Extract parameters
+            diarization_model_path = diarization_params.get("diarization_model_path")
+            use_auth_token = diarization_params.get("use_auth_token", False)
+            min_speakers = diarization_params.get("min_speakers")
+            max_speakers = diarization_params.get("max_speakers")
+            device = diarization_params.get("device", "cuda")
+            hf_token = diarization_params.get("hf_token")
+            
+            # Use optimized diarization
+            result = diarize_with_optimized_config(
+                audio=audio,
+                language=language,
+                diarization_model_path=diarization_model_path,
+                use_auth_token=use_auth_token,
+                device=device,
+                hf_token=hf_token,
+                override_min_speakers=min_speakers,
+                override_max_speakers=max_speakers,
+            )
+            
+            return result
+        except Exception as e:
+            raise TemporalErrorHandler.create_application_error(e, "Optimized diarization")
