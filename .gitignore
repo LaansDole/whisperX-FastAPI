@@ -210,10 +210,12 @@ __marimo__/
 .vscode
 .clinerules/
 app/docs/*
-GEMINI.md
+AGENTS.md
+CRUSH.md
 .temporal.pid
 .serena
 .roo/
+report/
 
 # Temporal db
 records.db

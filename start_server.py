@@ -1,6 +1,26 @@
 import subprocess
 import os
 import signal
+import sys
+
+# Add the current directory to Python path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
+# Import cleanup handlers
+try:
+    from app.cleanup import setup_cleanup_handlers
+    setup_cleanup_handlers()
+    print("✅ Resource cleanup handlers registered")
+except ImportError as e:
+    print(f"⚠️  Warning: Could not import cleanup handlers: {e}")
+    print("   Resource cleanup will not be available")
+
+try:
+    from app.warnings_filter import filter_warnings
+    filter_warnings()
+except ImportError as e:
+    print(f"⚠️  Warning: Could not import warning filters: {e}")
+    print("   Warning filters will not be available")
 
 # Function to kill any process using a specific port
 def kill_port(port):

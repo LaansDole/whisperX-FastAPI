@@ -11,8 +11,8 @@ info:
     \ Align the transcript to the audio/video file.\n    3. Diarize: Diarize an audio/video\
     \ file into speakers.\n    4. Combine Transcript and Diarization: Combine the\
     \ transcript and diarization results.\n\n    ## Supported file extensions:\n \
-    \   AUDIO_EXTENSIONS = {'.wav', '.aac', '.wma', '.awb', '.amr', '.ogg', '.mp3',\
-    \ '.oga', '.m4a'}\n\n    VIDEO_EXTENSIONS = {'.mov', '.mkv', '.avi', '.mp4', '.wmv'}\n\
+    \   AUDIO_EXTENSIONS = {'.wma', '.aac', '.wav', '.m4a', '.oga', '.ogg', '.amr',\
+    \ '.mp3', '.awb'}\n\n    VIDEO_EXTENSIONS = {'.mkv', '.avi', '.mov', '.mp4', '.wmv'}\n\
     \n    "
   version: 0.0.1
 paths:
@@ -237,6 +237,15 @@ paths:
           default: false
           title: Return Char Alignments
         description: Return character-level alignments in the output json file
+      - name: return_word_alignments
+        in: query
+        required: false
+        schema:
+          type: boolean
+          description: Return word-level alignments in the output json file
+          default: false
+          title: Return Word Alignments
+        description: Return word-level alignments in the output json file
       - name: min_speakers
         in: query
         required: false
@@ -648,6 +657,15 @@ paths:
           default: false
           title: Return Char Alignments
         description: Return character-level alignments in the output json file
+      - name: return_word_alignments
+        in: query
+        required: false
+        schema:
+          type: boolean
+          description: Return word-level alignments in the output json file
+          default: false
+          title: Return Word Alignments
+        description: Return word-level alignments in the output json file
       - name: min_speakers
         in: query
         required: false
@@ -882,6 +900,15 @@ paths:
           default: false
           title: Return Char Alignments
         description: Return character-level alignments in the output json file
+      - name: return_word_alignments
+        in: query
+        required: false
+        schema:
+          type: boolean
+          description: Return word-level alignments in the output json file
+          default: false
+          title: Return Word Alignments
+        description: Return word-level alignments in the output json file
       - name: device
         in: query
         required: false
@@ -1487,6 +1514,15 @@ paths:
           default: false
           title: Return Char Alignments
         description: Return character-level alignments in the output json file
+      - name: return_word_alignments
+        in: query
+        required: false
+        schema:
+          type: boolean
+          description: Return word-level alignments in the output json file
+          default: false
+          title: Return Word Alignments
+        description: Return word-level alignments in the output json file
       requestBody:
         required: true
         content:
