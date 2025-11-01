@@ -350,6 +350,12 @@ class AlignmentParams(BaseModel):
             description="Return character-level alignments in the output json file",
         )
     )
+    return_word_alignments: bool = Field(
+        Query(
+            False,
+            description="Return word-level alignments in the output json file",
+        )
+    )
     device: Device = Field(
         Query(
             default="cuda",

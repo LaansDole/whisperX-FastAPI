@@ -77,9 +77,19 @@ def transcribe_with_whisper(
         torch.set_num_threads(threads)
         faster_whisper_threads = threads
 
+    # Handle both WhisperModel enum and HuggingFace model strings
+    if isinstance(model, str) and "/" in model:
+        # HuggingFace model - use as-is
+        model_name = model
+        model_display = model
+    else:
+        # WhisperModel enum - use .value
+        model_name = model.value if hasattr(model, 'value') else model
+        model_display = model.value if hasattr(model, 'value') else model
+
     logger.debug(
         "Loading model with config - model: %s, device: %s, compute_type: %s, threads: %d, task: %s, language: %s",
-        model.value,
+        model_display,
         device,
         compute_type,
         faster_whisper_threads,
@@ -87,8 +97,15 @@ def transcribe_with_whisper(
         language,
     )
     try:
+        # Check if we're on CPU but trying to use CUDA - fallback to CPU
+        if device == "cuda" and not torch.cuda.is_available():
+            logger.warning("CUDA not available, falling back to CPU")
+            device = "cpu"
+            if compute_type == "float16":
+                compute_type = "int8"
+        
         model = load_model(
-            model.value,
+            model_name,
             device,
             device_index=device_index,
             compute_type=compute_type,
@@ -331,23 +348,34 @@ def transcribe_with_optimized_model(
         optimal_model = WhisperModel(override_model)
         logger.info(f"Using overridden model: {optimal_model.value}")
     else:
-        optimal_model = get_best_model_for_language(language)
-        logger.info(f"Auto-selected optimal model {optimal_model.value} for language '{language}'")
+        model_str = get_best_model_for_language(language)
+        # Check if it's a WhisperModel enum value or HuggingFace model string
+        if model_str in [m.value for m in WhisperModel]:
+            optimal_model = WhisperModel(model_str)
+            logger.info(f"Auto-selected optimal model {optimal_model.value} for language '{language}'")
+        else:
+            # It's a HuggingFace model string - use as-is
+            optimal_model = model_str
+            logger.info(f"Auto-selected optimal HuggingFace model {optimal_model} for language '{language}'")
     
     # Get optimal compute type for language
     optimal_compute_type = get_optimal_compute_type(language, device)
     logger.info(f"Using compute type '{optimal_compute_type}' for language '{language}' on device '{device}'")
     
     # Log model selection reasoning
+    model_display = optimal_model.value if hasattr(optimal_model, 'value') else optimal_model
     logger.info(
-        f"Language optimization: language='{language}' -> model='{optimal_model.value}', "
+        f"Language optimization: language='{language}' -> model='{model_display}', "
         f"compute_type='{optimal_compute_type}'"
     )
     
     # Use the existing transcribe function with optimal parameters
+    # Ensure model is a string for the transcribe function
+    model_for_transcribe = optimal_model.value if hasattr(optimal_model, 'value') else optimal_model
+    
     result = transcribe_with_whisper(
         audio=audio,
-        model=optimal_model,
+        model=model_for_transcribe,
         device=device,
         device_index=device_index,
         compute_type=optimal_compute_type,

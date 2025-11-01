@@ -5,7 +5,7 @@ This file provides guidance to agents when working with code in this repository.
 ## Build & Development
 
 - **Package manager**: `uv` (NOT pip/poetry) - faster dependency management
-- **Run dev**: `make run` starts both FastAPI server AND Temporal worker (required)
+- **Run dev**: `make dev` starts both FastAPI server AND Temporal worker (required)
 - **Single test**: `pytest tests/test_file.py::test_name` (use `pytest.ini` in tests/ dir)
 - **GPU builds**: `uv sync --extra gpu` (separate dependency group, not automatic)
 
@@ -13,7 +13,7 @@ This file provides guidance to agents when working with code in this repository.
 
 - **warnings_filter.py MUST be imported FIRST** in [`app/main.py`](app/main.py:3) before any other imports to suppress library warnings
 - **Manual GPU memory management required**: Every model load/inference in [`app/whisperx_services.py`](app/whisperx_services.py:118) must explicitly call `gc.collect()`, `torch.cuda.empty_cache()`, and `del model` to prevent OOM errors
-- **Temporal worker is mandatory**: API calls fail without running worker via `make run-worker-local` - not optional despite appearing so
+- **Temporal worker is mandatory**: API calls fail without running worker via `make worker` - not optional despite appearing so
 - **HF_TOKEN requires model acceptance**: Must accept terms on HuggingFace Hub for `pyannote/speaker-diarization-3.1` - token alone is insufficient
 - **Local diarization fallback**: Set `DIARIZATION_MODEL_PATH` in `.env` for offline operation - see [`app/whisperx_services.py`](app/whisperx_services.py:166) fallback logic
 
