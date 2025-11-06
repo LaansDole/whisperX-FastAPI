@@ -1,6 +1,7 @@
 """This module provides functions for processing audio files."""
 
 import subprocess
+import os
 from tempfile import NamedTemporaryFile
 
 from whisperx import load_audio
@@ -19,7 +20,16 @@ def convert_video_to_audio(file):
     Returns:
         str: The path to the audio file.
     """
-    temp_filename = NamedTemporaryFile(delete=False).name
+    # Use shared uploads directory for Docker environment
+    # This ensures files are accessible across containers
+    uploads_dir = "/tmp/uploads"
+    os.makedirs(uploads_dir, exist_ok=True)
+    
+    # Create a unique filename with .wav extension
+    import uuid
+    unique_filename = f"{uuid.uuid4()}.wav"
+    temp_filename = os.path.join(uploads_dir, unique_filename)
+    
     subprocess.call(
         [
             "ffmpeg",
@@ -48,8 +58,14 @@ def process_audio_file(audio_file):
     Returns:
         Audio: The processed audio.
     """
-    if check_file_extension(audio_file) in VIDEO_EXTENSIONS:
+    # Get the file extension
+    _, file_extension = os.path.splitext(audio_file)
+    file_extension = file_extension.lower()
+    
+    # Convert video to audio if needed
+    if file_extension in VIDEO_EXTENSIONS:
         audio_file = convert_video_to_audio(audio_file)
+    
     return load_audio(audio_file)
 
 

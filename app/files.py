@@ -54,8 +54,15 @@ def save_temporary_file(temporary_file, original_filename):
     # Extract the original file extension
     _, original_extension = os.path.splitext(original_filename)
 
-    # Create a temporary file with the original extension
-    temp_filename = NamedTemporaryFile(suffix=original_extension, delete=False).name
+    # Use shared uploads directory for Docker environment
+    # This ensures files are accessible across containers
+    uploads_dir = "/tmp/uploads"
+    os.makedirs(uploads_dir, exist_ok=True)
+    
+    # Create a unique filename with original extension
+    import uuid
+    unique_filename = f"{uuid.uuid4()}{original_extension}"
+    temp_filename = os.path.join(uploads_dir, unique_filename)
 
     # Write the contents of the SpooledTemporaryFile to the temporary file
     with open(temp_filename, "wb") as dest:
