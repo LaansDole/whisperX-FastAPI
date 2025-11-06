@@ -12,7 +12,6 @@ help:
 	@echo "  dev                  	- Start worker + FastAPI server (full app)"
 	@echo "  server            		- Start FastAPI server only"
 	@echo "  worker           		- Start Temporal server + worker"
-	@echo "  start-temporal     	- Start Temporal worker only"
 	@echo "  start-temporal     	- Start local Temporal server"
 	@echo "  stop-temporal      	- Stop local Temporal server"
 	@echo "  stop              		- Stop all running processes (pkill)"

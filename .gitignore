@@ -216,6 +216,7 @@ CRUSH.md
 .serena
 .roo/
 report/
+.DS_Store
 
 # Temporal db
 records.db
