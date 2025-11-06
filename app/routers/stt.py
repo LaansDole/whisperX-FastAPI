@@ -107,13 +107,22 @@ async def speech_to_text_url(
         # Get the file extension
         _, original_extension = os.path.splitext(filename)
 
-        # Save the file to a temporary location
-        temp_audio_file = NamedTemporaryFile(suffix=original_extension, delete=False)
-        for chunk in response.iter_content(chunk_size=8192):
-            temp_audio_file.write(chunk)
+        # Use shared uploads directory for Docker environment
+        # This ensures files are accessible across containers
+        uploads_dir = "/tmp/uploads"
+        os.makedirs(uploads_dir, exist_ok=True)
+        
+        # Create a unique filename with original extension
+        unique_filename = f"{uuid.uuid4()}{original_extension}"
+        temp_audio_file_path = os.path.join(uploads_dir, unique_filename)
+        
+        # Save the file to the shared location
+        with open(temp_audio_file_path, "wb") as temp_file:
+            for chunk in response.iter_content(chunk_size=8192):
+                temp_file.write(chunk)
 
-    logger.info("File downloaded and saved temporarily: %s", temp_audio_file.name)
-    validate_extension(temp_audio_file.name, ALLOWED_EXTENSIONS)
+        logger.info("File downloaded and saved temporarily: %s", temp_audio_file_path)
+        validate_extension(temp_audio_file_path, ALLOWED_EXTENSIONS)
 
     params = {
         "whisper_model_params": model_params.model_dump(),
@@ -129,7 +138,7 @@ async def speech_to_text_url(
     workflow_id = f"whisperx-workflow-{uuid.uuid4()}"
     handle = await client.start_workflow(
         WhisperXWorkflow.run,
-        args=[temp_audio_file.name, params],
+        args=[temp_audio_file_path, params],
         id=workflow_id,
         task_queue=config.TEMPORAL_TASK_QUEUE,
     )

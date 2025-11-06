@@ -128,9 +128,8 @@ class WhisperXOptimizedWorkflow:
                 alignment_result = await workflow.execute_activity(
                     "align_activity",
                     args=[
-                        audio_path,
                         transcription_result,
-                        params["whisper_model_params"]["language"],
+                        audio_path,
                         params["alignment_params"],
                     ],
                     start_to_close_timeout=timedelta(minutes=TemporalConfig.ALIGNMENT_TIMEOUT_MINUTES),
@@ -145,7 +144,8 @@ class WhisperXOptimizedWorkflow:
                 alignment_result = None
 
             # Optimized diarization step with language-specific configuration
-            if params["diarization_params"]["num_speakers"] > 0 or params["diarization_params"]["enable_automated_diarization"]:
+            if (params["diarization_params"]["min_speakers"] is not None or
+                params["diarization_params"]["max_speakers"] is not None):
                 diarization_result = await workflow.execute_activity(
                     "diarize_optimized_activity",
                     args=[
@@ -168,7 +168,7 @@ class WhisperXOptimizedWorkflow:
             if alignment_result and diarization_result:
                 final_result = await workflow.execute_activity(
                     "assign_speakers_activity",
-                    args=[alignment_result, diarization_result],
+                    args=[diarization_result, alignment_result],
                     start_to_close_timeout=timedelta(minutes=TemporalConfig.SPEAKER_ASSIGNMENT_TIMEOUT_MINUTES),
                     retry_policy=RetryPolicy(
                         initial_interval=timedelta(seconds=5),

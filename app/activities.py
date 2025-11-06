@@ -137,10 +137,12 @@ async def transcribe_optimized_activity(
     vad_options: dict,
 ) -> dict:
     """Activity to transcribe audio with optimized model selection."""
+    from app.audio import process_audio_file
+    
     async with TemporalMetrics.activity_timer("transcription_optimized"):
         try:
-            # Load audio
-            audio = whisperx.load_audio(audio_path)
+            # Process audio file
+            audio = process_audio_file(audio_path)
             
             # Extract parameters
             language = model_params.get("language", "en")
@@ -179,8 +181,9 @@ async def diarize_optimized_activity(
     """Activity to perform diarization with language-specific optimization."""
     async with TemporalMetrics.activity_timer("diarization_optimized"):
         try:
-            # Load audio
-            audio = whisperx.load_audio(audio_path)
+            # Process audio file
+            from app.audio import process_audio_file
+            audio = process_audio_file(audio_path)
             
             # Extract parameters
             diarization_model_path = diarization_params.get("diarization_model_path")

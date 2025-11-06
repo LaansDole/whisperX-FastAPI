@@ -387,14 +387,27 @@ def transcribe_with_optimized_model(
         task=task,
     )
     
-    # Add optimization metadata
-    result["optimization_metadata"] = {
-        "selected_model": optimal_model.value,
-        "language": language,
-        "compute_type": optimal_compute_type,
-        "optimization_applied": override_model is None,
-        "device": device
-    }
+    # Add optimization metadata - ensure result is a dict
+    if isinstance(result, dict):
+        result["optimization_metadata"] = {
+            "selected_model": optimal_model.value if hasattr(optimal_model, 'value') else optimal_model,
+            "language": language,
+            "compute_type": optimal_compute_type,
+            "optimization_applied": override_model is None,
+            "device": device
+        }
+    else:
+        # If result is not a dict, wrap it with metadata
+        result = {
+            "transcription": result,
+            "optimization_metadata": {
+                "selected_model": optimal_model.value if hasattr(optimal_model, 'value') else optimal_model,
+                "language": language,
+                "compute_type": optimal_compute_type,
+                "optimization_applied": override_model is None,
+                "device": device
+            }
+        }
     
     return result
 
@@ -442,36 +455,45 @@ def diarize_with_optimized_config(
     # Use existing diarization function with optimal parameters
     result = diarize(
         audio=audio,
-        diarization_model_path=diarization_model_path,
-        use_auth_token=use_auth_token,
         min_speakers=min_speakers,
         max_speakers=max_speakers,
         device=device,
-        hf_token=hf_token,
     )
     
-    # Add optimization metadata
-    if "segments" in result:
-        # Filter segments by confidence threshold
-        filtered_segments = [
-            segment for segment in result["segments"]
-            if segment.get("confidence", 1.0) >= confidence_threshold
-        ]
-        result["segments"] = filtered_segments
-        result["optimization_metadata"] = {
-            "language": language,
+    # Convert DataFrame to dict format and add optimization metadata
+    import pandas as pd
+    
+    # Convert to dict format for consistency with other functions
+    result_dict = {
+        "segments": result.to_dict(orient="records"),
+        "metadata": {
             "min_speakers": min_speakers,
             "max_speakers": max_speakers,
-            "confidence_threshold": confidence_threshold,
-            "original_segment_count": len(result["segments"]) + len([
-                s for s in result.get("segments", []) 
-                if s.get("confidence", 1.0) < confidence_threshold
-            ]),
-            "filtered_segment_count": len(filtered_segments),
-            "optimization_applied": True
         }
+    }
     
-    return result
+    # Filter segments by confidence threshold if applicable
+    filtered_segments = [
+        segment for segment in result_dict["segments"]
+        if segment.get("confidence", 1.0) >= confidence_threshold
+    ]
+    
+    # Add optimization metadata
+    result_dict["optimization_metadata"] = {
+        "language": language,
+        "min_speakers": min_speakers,
+        "max_speakers": max_speakers,
+        "confidence_threshold": confidence_threshold,
+        "original_segment_count": len(result_dict["segments"]),
+        "filtered_segment_count": len(filtered_segments),
+        "optimization_applied": True
+    }
+    
+    # Use filtered segments if confidence filtering was applied
+    if confidence_threshold > 0:
+        result_dict["segments"] = filtered_segments
+    
+    return result_dict
 
 
 
