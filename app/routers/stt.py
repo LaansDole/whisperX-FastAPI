@@ -149,23 +149,22 @@ async def speech_to_text_url(
 
 @stt_router.post("/speech-to-text-optimized", tags=["Speech-2-Text"])
 async def speech_to_text_optimized(
-    language: str = Form(..., description="Target language code (e.g., 'en', 'zh', 'ja')"),
-    task: str = Form(default="transcribe", description="Task: 'transcribe' or 'translate'"),
-    device: str = Form(default="cuda", description="Device: 'cuda' or 'cpu'"),
-    batch_size: int = Form(default=8, description="Batch size for processing"),
-    threads: int = Form(default=0, description="Number of CPU threads"),
-    align_params: AlignmentParams = Depends(),
-    diarize_params: DiarizationParams = Depends(),
-    asr_options_params: ASROptions = Depends(),
-    vad_options_params: VADOptions = Depends(),
     file: UploadFile = File(...),
-    override_model: str = Form(default=None, description="Override auto-selected model"),
+    language: str = Form(default="sg", description="Target language code (e.g., 'sg', 'en', 'zh', 'vi')"),
+    task: str = Form(default="transcribe", description="Task: 'transcribe' or 'translate'"),
+    device: str = Form(default="cpu", description="Device: 'cpu' or 'cuda'"),
+    batch_size: int = Form(default=8, description="Batch size for processing (advanced)"),
+    threads: int = Form(default=0, description="Number of CPU threads (advanced, 0=auto)"),
+    return_word_alignments: bool = Form(default=False, description="Return word-level timestamps"),
+    return_char_alignments: bool = Form(default=False, description="Return character-level timestamps"),
+    min_speakers: int = Form(default=None, description="Minimum number of speakers (optional)"),
+    max_speakers: int = Form(default=None, description="Maximum number of speakers (optional)"),
 ) -> Response:
     """
-    Process audio with language-optimized model selection.
+    Process audio with simplified language-optimized model selection.
     
     This endpoint automatically selects the optimal Whisper model for the specified language
-    based on AudioBench performance data, along with optimal compute settings and diarization parameters.
+    and uses safe defaults for stable processing. Optimized for Singapore English ('sg') by default.
     """
     logger.info("Received optimized file upload request: %s for language: %s", file.filename, language)
 
@@ -174,25 +173,44 @@ async def speech_to_text_optimized(
     temp_file = save_temporary_file(file.file, file.filename)
     logger.info("%s saved as temporary file: %s", file.filename, temp_file)
 
+    # Create simplified parameter objects with safe defaults
+    from ..schemas import AlignmentParams, DiarizationParams, ASROptions, VADOptions
+    
+    align_params = AlignmentParams(
+        return_word_alignments=return_word_alignments,
+        return_char_alignments=return_char_alignments,
+        device=device
+    )
+    
+    diarize_params = DiarizationParams(
+        min_speakers=min_speakers,
+        max_speakers=max_speakers,
+        device=device
+    )
+    
+    # Use default ASR and VAD options for simplicity
+    asr_options = ASROptions()
+    vad_options = VADOptions()
+
     # Build params with optimized model selection
     params = {
         "whisper_model_params": {
             "language": language,
             "task": task,
-            "model": override_model,  # Will be overridden by optimization if None
+            "model": None,  # Auto-selected based on language
             "device": device,
             "batch_size": batch_size,
             "threads": threads,
-            "compute_type": None,  # Will be auto-selected
+            "compute_type": None,  # Will be auto-selected based on device
             "device_index": 0,
             "chunk_size": 20,
         },
         "alignment_params": align_params.model_dump(),
         "diarization_params": diarize_params.model_dump(),
-        "asr_options": asr_options_params.model_dump(),
-        "vad_options": vad_options_params.model_dump(),
+        "asr_options": asr_options.model_dump(),
+        "vad_options": vad_options.model_dump(),
         "optimization_enabled": True,
-        "override_model": override_model,
+        "override_model": None,
     }
 
     client = await temporal_manager.get_client()

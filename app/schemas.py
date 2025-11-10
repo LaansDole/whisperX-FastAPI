@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field, field_validator, ConfigDict
 from whisperx import utils
 
 WHISPER_MODEL = os.getenv("WHISPER_MODEL")
-LANG = os.getenv("DEFAULT_LANG", "en")
+LANG = os.getenv("DEFAULT_LANG", "sg")
 
 
 class Response(BaseModel):
@@ -305,7 +305,7 @@ class WhisperModelParams(BaseModel):
     )
     device: Device = Field(
         Query(
-            default="cuda",
+            default="cpu",
             description="Device to use for PyTorch inference",
         )
     )
@@ -328,7 +328,7 @@ class WhisperModelParams(BaseModel):
         )
     )
     compute_type: ComputeType = Field(
-        Query("float16", description="Type of computation")
+        Query("int8", description="Type of computation")
     )
 
 
@@ -358,7 +358,7 @@ class AlignmentParams(BaseModel):
     )
     device: Device = Field(
         Query(
-            default="cuda",
+            default="cpu",
             description="Device to use for PyTorch inference",
         )
     )
@@ -375,7 +375,7 @@ class DiarizationParams(BaseModel):
     )
     device: Device = Field(
         Query(
-            default="cuda",
+            default="cpu",
             description="Device to use for PyTorch inference",
         )
     )

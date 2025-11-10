@@ -101,8 +101,14 @@ def transcribe_with_whisper(
         if device == "cuda" and not torch.cuda.is_available():
             logger.warning("CUDA not available, falling back to CPU")
             device = "cpu"
-            if compute_type == "float16":
-                compute_type = "int8"
+        
+        # Ensure compute type is compatible with device
+        if device == "cpu" and compute_type in ["float16", "float32"]:
+            logger.info(f"CPU device detected, changing compute_type from {compute_type} to int8")
+            compute_type = "int8"
+        elif device == "cuda" and compute_type == "int8":
+            logger.info(f"CUDA device detected, changing compute_type from int8 to float16")
+            compute_type = "float16"
         
         model = load_model(
             model_name,
@@ -345,8 +351,26 @@ def transcribe_with_optimized_model(
     
     # Get optimal model for language (unless overridden)
     if override_model:
-        optimal_model = WhisperModel(override_model)
-        logger.info(f"Using overridden model: {optimal_model.value}")
+        # Check if override_model is a valid WhisperModel enum value
+        try:
+            optimal_model = WhisperModel(override_model)
+            logger.info(f"Using overridden model: {optimal_model.value}")
+        except ValueError:
+            # If it's not a valid enum value, check if it's a HuggingFace model string
+            if "/" in override_model:
+                # It's a HuggingFace model string - use as-is
+                optimal_model = override_model
+                logger.info(f"Using overridden HuggingFace model: {optimal_model}")
+            else:
+                # Invalid model string, log error and fallback to auto-selection
+                logger.error(f"Invalid model '{override_model}' provided. Falling back to auto-selection.")
+                model_str = get_best_model_for_language(language)
+                if model_str in [m.value for m in WhisperModel]:
+                    optimal_model = WhisperModel(model_str)
+                    logger.info(f"Auto-selected optimal model {optimal_model.value} for language '{language}'")
+                else:
+                    optimal_model = model_str
+                    logger.info(f"Auto-selected optimal HuggingFace model {optimal_model} for language '{language}'")
     else:
         model_str = get_best_model_for_language(language)
         # Check if it's a WhisperModel enum value or HuggingFace model string

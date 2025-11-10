@@ -11,14 +11,12 @@ load_dotenv()
 class Config:
     """Configuration class for WhisperX FastAPI application settings."""
 
-    LANG = os.getenv("DEFAULT_LANG", "en")
+    LANG = os.getenv("DEFAULT_LANG", "sg")
     HF_TOKEN = os.getenv("HF_TOKEN")
     WHISPER_MODEL = os.getenv("WHISPER_MODEL")
     DIARIZATION_MODEL_PATH = os.getenv("DIARIZATION_MODEL_PATH")
-    DEVICE = os.getenv("DEVICE", "cuda" if torch.cuda.is_available() else "cpu")
-    COMPUTE_TYPE = os.getenv(
-        "COMPUTE_TYPE", "float16" if torch.cuda.is_available() else "int8"
-    )
+    DEVICE = os.getenv("DEVICE", "cpu")  # Default to CPU for stability
+    COMPUTE_TYPE = os.getenv("COMPUTE_TYPE", "int8")  # Default to int8 for CPU compatibility
     ENVIRONMENT = os.getenv("ENVIRONMENT", "production").lower()
     LOG_LEVEL = os.getenv(
         "LOG_LEVEL", "DEBUG" if ENVIRONMENT == "development" else "INFO"
