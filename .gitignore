@@ -214,6 +214,7 @@ GEMINI.md
 .temporal.pid
 .serena
 .roo/
+.DS_Store
 
 # Temporal db
 records.db
