@@ -5,17 +5,27 @@ This file provides guidance to agents when working with code in this repository.
 ## Build & Development
 
 - **Package manager**: `uv` (NOT pip/poetry) - faster dependency management
-- **Run dev**: `make run` starts both FastAPI server AND Temporal worker (required)
+- **Run dev**: `make dev` starts both FastAPI server AND Temporal worker (required)
 - **Single test**: `pytest tests/test_file.py::test_name` (use `pytest.ini` in tests/ dir)
 - **GPU builds**: `uv sync --extra gpu` (separate dependency group, not automatic)
+
+### Code generation
+
+Always use context7 when I need code generation, setup or configuration steps, or
+library/API documentation. This means you should automatically use the Context7 MCP
+tools to resolve library id and get library docs without me having to explicitly ask.
 
 ## Critical Non-Obvious Patterns
 
 - **warnings_filter.py MUST be imported FIRST** in [`app/main.py`](app/main.py:3) before any other imports to suppress library warnings
-- **Manual GPU memory management required**: Every model load/inference in [`app/whisperx_services.py`](app/whisperx_services.py:118) must explicitly call `gc.collect()`, `torch.cuda.empty_cache()`, and `del model` to prevent OOM errors
-- **Temporal worker is mandatory**: API calls fail without running worker via `make run-worker-local` - not optional despite appearing so
-- **HF_TOKEN requires model acceptance**: Must accept terms on HuggingFace Hub for `pyannote/speaker-diarization-3.1` - token alone is insufficient
-- **Local diarization fallback**: Set `DIARIZATION_MODEL_PATH` in `.env` for offline operation - see [`app/whisperx_services.py`](app/whisperx_services.py:166) fallback logic
+- **Manual GPU memory management required**: Every model operation in [`app/whisperx_services.py`](app/whisperx_services.py:118) MUST explicitly cleanup: `gc.collect()`, `torch.cuda.empty_cache()`, `del model`
+- **Temporal Activity Patterns**: Activities in [`activities.py`](app/activities.py:24) must use `@activity.defn` decorator
+- **Error handling uses [`TemporalErrorHandler`](app/temporal_error_handler.py:14) to classify retryable vs non-retryable errors**
+- **401/auth errors are non-retryable, network/CUDA OOM are retryable**
+- **Diarization Model Loading**: Primary: loads from HuggingFace Hub using `HF_TOKEN`, Fallback: tries `DIARIZATION_MODEL_PATH` env var if Hub fails (see [`whisperx_services.py`](app/whisperx_services.py:166))
+- **File Processing Pattern**: Video files automatically converted to audio using ffmpeg in [`audio.py`](app/audio.py:12)
+- **Audio processing uses whisperx.load_audio() which returns numpy arrays**
+- **Temporary files preserve original extensions but are converted to WAV for processing**
 
 ## Error Handling
 
@@ -25,7 +35,9 @@ This file provides guidance to agents when working with code in this repository.
 ## Code Conventions
 
 - **Import order enforced**: `warnings_filter` must be first, then stdlib, then third-party (see [`app/main.py`](app/main.py:1) pattern)
-- **Compute type validation**: CPU MUST use `int8`, GPU can use `float16`/`float32` - violating this raises ValueError in [`app/whisperx_services.py`](app/whisperx_services.py:272)
+- **Compute type validation**: CPU device REQUIRES `int8` compute type - `float16`/`float32` will raise ValueError
+- **GPU device allows `float16`/`float32` but NOT `int8`**
+- **Validation happens in model loading, not at config level**
 - **Device config precedence**: `Config.DEVICE` auto-detects CUDA but ENV var `DEVICE=cpu` overrides this
 
 ## Testing

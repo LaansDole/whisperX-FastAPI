@@ -162,6 +162,8 @@ docker-compose -f docker-compose.gpu.yaml up -d
    uv sync --no-dev --extra gpu
    ```
 
+   *Alternative: Use make commands for streamlined setup: `make install-dev`, `make install-prod`, `make install-dev-gpu`, `make install-prod-gpu`*
+
 5. **Create `.env` file**
     ```sh
     cp .env.example .env
@@ -171,22 +173,31 @@ docker-compose -f docker-compose.gpu.yaml up -d
    To run temporal server locally without docker, you need to install the `temporal` CLI.
    Download and install the latest version for your system from the [official GitHub releases page](https://github.com/temporalio/cli/releases). You will need to move the `temporal` binary to a directory in your `PATH` (e.g., `/usr/local/bin`).
 
-   Once installed, you can run a local temporal server.
+   **Recommended: Start the full application with one command:**
+   ```sh
+   # Start worker + FastAPI server (full app)
+   make dev
+   ```
+
+   **Alternative: Manual startup with individual commands:**
    ```sh
    # Start the local temporal server
    make start-temporal
 
-   # Stop the local temporal server
-   make stop-temporal
-   ```
-
-   Now you can start the FastAPI server and the Temporal worker.
-   ```sh
-   # Start the FastAPI server
+   # Start the FastAPI server (in separate terminal)
    make server
 
-   # In a separate terminal, start the Temporal worker
-   make start-temporal
+   # Start the Temporal worker (in separate terminal)
+   make worker
+   ```
+
+   **Process Management:**
+   ```sh
+   # Stop all running processes (FastAPI, Temporal, worker, etc.)
+   make stop
+
+   # Stop only the local temporal server
+   make stop-temporal
    ```
 
 The API will be accessible at <http://127.0.0.1:8000>.
@@ -197,6 +208,41 @@ The models used by whisperX are stored in `root/.cache`, if you want to avoid do
 
 - faster-whisper cache: `root/.cache/huggingface/hub`
 - pyannotate and other models cache: `root/.cache/torch`
+
+### Make Commands Reference
+
+The project provides make commands for complex operations that simplify development and deployment:
+
+#### Complex Development Commands
+```bash
+make dev                   # Start worker + FastAPI server (full app) - RECOMMENDED
+make worker                # Start Temporal server + worker
+```
+
+#### Process Management
+```bash
+make stop                  # Stop all running processes (pkill)
+make temporal-fresh         # Clean Temporal data and start fresh
+make check-activities      # Check running Temporal activities via CLI
+```
+
+#### Simple Commands (Direct uv usage preferred)
+```bash
+uv sync                    # Install development dependencies (CPU only)
+uv sync --extra gpu        # Install development dependencies with GPU support
+uv run python -m start_server  # Start FastAPI server only
+temporal server start-dev   # Start local Temporal server
+```
+
+#### Environment Variables
+- `TEMPORAL_DB_PATH` - Path for Temporal database (default: `./temporal_data/temporal.db`)
+
+#### Getting Help
+```bash
+make help                  # Show all available commands and descriptions
+```
+
+**Note**: Use `uv sync` directly for simple dependency installation (more transparent). Use make commands for complex workflows like `make dev` (handles worker + server coordination) or `make temporal-fresh` (comprehensive cleanup).
 
 ## Documentation
 
@@ -261,6 +307,33 @@ WhisperX supports a comprehensive range of model sizes and specialized variants:
 
 2. **Warnings Not Filtered**
    - Ensure the `FILTER_WARNING` environment variable is set to `true` in the `.env` file.
+
+3. **Process Management Issues**
+   - If processes become unresponsive or you need to clean up:
+   ```sh
+   # Stop all running processes
+   make stop
+   
+   # For a completely fresh Temporal start
+   make temporal-fresh
+   ```
+
+4. **Temporal Server Issues**
+   - If Temporal workflows are stuck or corrupted:
+   ```sh
+   # Check running activities
+   make check-activities
+   
+   # Clean and restart Temporal
+   make temporal-fresh
+   ```
+
+5. **Testing Workflow Functionality**
+   - To verify the complete workflow is working:
+   ```sh
+   # Run comprehensive API tests
+   make test-api
+   ```
 
 #### Workflow Monitoring
 

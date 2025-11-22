@@ -210,10 +210,15 @@ __marimo__/
 .vscode
 .clinerules/
 app/docs/*
-GEMINI.md
+AGENTS.md
+CRUSH.md
 .temporal.pid
 .serena
 .roo/
+<<<<<<< HEAD
+=======
+report/
+>>>>>>> feat/optimal-models-for-language
 .DS_Store
 
 # Temporal db
