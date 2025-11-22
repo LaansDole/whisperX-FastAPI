@@ -22,6 +22,15 @@ class Config:
         "LOG_LEVEL", "DEBUG" if ENVIRONMENT == "development" else "INFO"
     ).upper()
     
+    # MERaLiON Configuration
+    MERALION_ENABLED = os.getenv("MERALION_ENABLED", "true").lower() == "true"
+    MERALION_REPO_ID = os.getenv("MERALION_REPO_ID", "MERaLiON/MERaLiON-AudioLLM-Whisper-SEA-LION")
+    MERALION_MAX_AUDIO_LENGTH = int(os.getenv("MERALION_MAX_AUDIO_LENGTH", "30"))  # seconds
+    MERALION_SAMPLE_RATE = int(os.getenv("MERALION_SAMPLE_RATE", "16000"))  # Hz
+    MERALION_MAX_NEW_TOKENS = int(os.getenv("MERALION_MAX_NEW_TOKENS", "256"))
+    MERALION_FALLBACK_ENABLED = os.getenv("MERALION_FALLBACK_ENABLED", "true").lower() == "true"
+    MERALION_FALLBACK_MODELS = os.getenv("MERALION_FALLBACK_MODELS", "whisper-large-v3,faster-whisper,whisperX").split(",")
+    
     AUDIO_EXTENSIONS = {
         ".mp3",
         ".wav",

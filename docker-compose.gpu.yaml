@@ -49,7 +49,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      # GPU-optimized settings
+      # GPU settings
       - HF_TOKEN=${HF_TOKEN:-}
       - WHISPER_MODEL=${WHISPER_MODEL:-small}
       - DEFAULT_LANG=${DEFAULT_LANG:-en}
@@ -57,7 +57,7 @@ services:
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - FILTER_WARNING=${FILTER_WARNING:-true}
       - DEVICE=${DEVICE:-cuda}  # Use CUDA by default
-      - COMPUTE_TYPE=${COMPUTE_TYPE:-float16}  # GPU-optimized precision
+      - COMPUTE_TYPE=${COMPUTE_TYPE:-float16}  # GPU precision
       - DIARIZATION_MODEL_PATH=${DIARIZATION_MODEL_PATH:-}
       # Temporal Configuration
       - TEMPORAL_SERVER_URL=temporal:7233
@@ -107,7 +107,7 @@ services:
       args:
         - INSTALL_GPU=true  # Enable GPU support
     environment:
-      # GPU-optimized settings (same as API)
+      # GPU settings (same as API)
       - HF_TOKEN=${HF_TOKEN:-}
       - WHISPER_MODEL=${WHISPER_MODEL:-small}
       - DEFAULT_LANG=${DEFAULT_LANG:-en}
@@ -115,7 +115,7 @@ services:
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - FILTER_WARNING=${FILTER_WARNING:-true}
       - DEVICE=${DEVICE:-cuda}  # Use CUDA by default
-      - COMPUTE_TYPE=${COMPUTE_TYPE:-float16}  # GPU-optimized precision
+      - COMPUTE_TYPE=${COMPUTE_TYPE:-float16}  # GPU precision
       - DIARIZATION_MODEL_PATH=${DIARIZATION_MODEL_PATH:-}
       # Temporal Configuration
       - TEMPORAL_SERVER_URL=temporal:7233

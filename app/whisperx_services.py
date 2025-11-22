@@ -19,11 +19,7 @@ from .config import Config
 from .logger import logger  # Import the logger from the new module
 from .schemas import AlignedTranscription, SpeechToTextProcessingParams
 from .transcript import filter_aligned_transcription
-from .language_optimization import (
-    get_best_model_for_language,
-    get_optimal_compute_type,
-    get_diarization_config_for_language
-)
+from .meralion_services import transcribe_with_fallback as meralion_transcribe
 
 LANG = Config.LANG
 HF_TOKEN = Config.HF_TOKEN
@@ -31,6 +27,13 @@ WHISPER_MODEL = Config.WHISPER_MODEL
 DIARIZATION_MODEL_PATH = Config.DIARIZATION_MODEL_PATH
 device = Config.DEVICE
 compute_type = Config.COMPUTE_TYPE
+
+# Fallback model hierarchy for MERaLiON
+FALLBACK_MODELS = [
+    "whisper-large-v3",
+    "faster-whisper",
+    "whisperX"
+]
 
 
 def transcribe_with_whisper(
@@ -314,210 +317,210 @@ def align_whisper_output(
     return result
 
 
-def transcribe_with_optimized_model(
+
+
+def transcribe_with_meralion_fallback(
     audio,
-    language: str,
     task: str = "transcribe",
-    device: str = "cuda",
+    language: str = "auto",
+    device: str = None,
     device_index: int = 0,
     asr_options: dict = None,
     vad_options: dict = None,
     batch_size: int = 8,
     threads: int = 0,
+    use_meralion: bool = True,
+    meralion_fallback_enabled: bool = True,
+    meralion_max_new_tokens: int = 256,
     override_model: str = None,
 ) -> dict:
     """
-    Transcribe audio using the optimal model for the specified language.
+    Transcribe audio using MERaLiON model with fallback to Whisper models.
     
-    This function automatically selects the best Whisper model for the given language
-    based on AudioBench performance data, along with optimal compute settings.
+    This function provides a unified interface for transcription that prioritizes
+    MERaLiON-AudioLLM-Whisper-SEA-LION model but gracefully falls back to
+    traditional Whisper models when needed.
     
     Args:
         audio: Audio data for transcription
-        language: Target language code (e.g., 'en', 'zh', 'ja')
         task: Transcription task ('transcribe' or 'translate')
-        device: Device for inference ('cuda' or 'cpu')
+        language: Target language code (e.g., 'en', 'zh', 'ja')
+        device: Device for inference ('cuda', 'cpu', or None for auto-detection)
         device_index: GPU device index
         asr_options: ASR configuration options
         vad_options: VAD configuration options
         batch_size: Batch size for processing
         threads: Number of CPU threads
-        override_model: Force use of specific model instead of optimal one
+        use_meralion: Whether to use MERaLiON as primary model
+        meralion_fallback_enabled: Whether to enable fallback to Whisper models
+        meralion_max_new_tokens: Maximum tokens for MERaLiON generation
+        override_model: Force use of specific model instead of auto-selection
         
     Returns:
-        dict: Transcription results with metadata about model selection
+        dict: Transcription results with metadata about model selection and fallback
     """
-    from .schemas import WhisperModel
+    # Auto-detect device if not specified
+    if device is None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
     
-    # Get optimal model for language (unless overridden)
-    if override_model:
-        # Check if override_model is a valid WhisperModel enum value
+    # Check if MERaLiON is enabled in config
+    meralion_config_enabled = getattr(Config, 'MERALION_ENABLED', True)
+    
+    # Determine if we should use MERaLiON
+    should_use_meralion = (
+        use_meralion and
+        meralion_config_enabled and
+        override_model is None
+    )
+    
+    logger.info(
+        f"Transcription request - task: {task}, language: {language}, device: {device}, "
+        f"use_meralion: {should_use_meralion}, fallback_enabled: {meralion_fallback_enabled}"
+    )
+    
+    if should_use_meralion:
         try:
-            optimal_model = WhisperModel(override_model)
-            logger.info(f"Using overridden model: {optimal_model.value}")
-        except ValueError:
-            # If it's not a valid enum value, check if it's a HuggingFace model string
-            if "/" in override_model:
-                # It's a HuggingFace model string - use as-is
-                optimal_model = override_model
-                logger.info(f"Using overridden HuggingFace model: {optimal_model}")
-            else:
-                # Invalid model string, log error and fallback to auto-selection
-                logger.error(f"Invalid model '{override_model}' provided. Falling back to auto-selection.")
-                model_str = get_best_model_for_language(language)
-                if model_str in [m.value for m in WhisperModel]:
-                    optimal_model = WhisperModel(model_str)
-                    logger.info(f"Auto-selected optimal model {optimal_model.value} for language '{language}'")
-                else:
-                    optimal_model = model_str
-                    logger.info(f"Auto-selected optimal HuggingFace model {optimal_model} for language '{language}'")
-    else:
-        model_str = get_best_model_for_language(language)
-        # Check if it's a WhisperModel enum value or HuggingFace model string
-        if model_str in [m.value for m in WhisperModel]:
-            optimal_model = WhisperModel(model_str)
-            logger.info(f"Auto-selected optimal model {optimal_model.value} for language '{language}'")
-        else:
-            # It's a HuggingFace model string - use as-is
-            optimal_model = model_str
-            logger.info(f"Auto-selected optimal HuggingFace model {optimal_model} for language '{language}'")
-    
-    # Get optimal compute type for language
-    optimal_compute_type = get_optimal_compute_type(language, device)
-    logger.info(f"Using compute type '{optimal_compute_type}' for language '{language}' on device '{device}'")
-    
-    # Log model selection reasoning
-    model_display = optimal_model.value if hasattr(optimal_model, 'value') else optimal_model
-    logger.info(
-        f"Language optimization: language='{language}' -> model='{model_display}', "
-        f"compute_type='{optimal_compute_type}'"
-    )
-    
-    # Use the existing transcribe function with optimal parameters
-    # Ensure model is a string for the transcribe function
-    model_for_transcribe = optimal_model.value if hasattr(optimal_model, 'value') else optimal_model
-    
-    result = transcribe_with_whisper(
-        audio=audio,
-        model=model_for_transcribe,
-        device=device,
-        device_index=device_index,
-        compute_type=optimal_compute_type,
-        asr_options=asr_options,
-        vad_options=vad_options,
-        batch_size=batch_size,
-        threads=threads,
-        language=language,
-        task=task,
-    )
-    
-    # Add optimization metadata - ensure result is a dict
-    if isinstance(result, dict):
-        result["optimization_metadata"] = {
-            "selected_model": optimal_model.value if hasattr(optimal_model, 'value') else optimal_model,
-            "language": language,
-            "compute_type": optimal_compute_type,
-            "optimization_applied": override_model is None,
-            "device": device
-        }
-    else:
-        # If result is not a dict, wrap it with metadata
-        result = {
-            "transcription": result,
-            "optimization_metadata": {
-                "selected_model": optimal_model.value if hasattr(optimal_model, 'value') else optimal_model,
+            # Use MERaLiON with fallback
+            fallback_models = None
+            if meralion_fallback_enabled:
+                fallback_models = getattr(Config, 'MERALION_FALLBACK_MODELS', FALLBACK_MODELS)
+            
+            result = meralion_transcribe(
+                audio=audio,
+                task=task,
+                device=device,
+                max_new_tokens=meralion_max_new_tokens,
+                fallback_models=fallback_models
+            )
+            
+            # Add comprehensive metadata
+            result["transcription_metadata"] = {
+                "primary_model": "MERaLiON-AudioLLM-Whisper-SEA-LION",
+                "actual_model": result.get("model_used", "unknown"),
+                "device": device,
+                "task": task,
                 "language": language,
-                "compute_type": optimal_compute_type,
-                "optimization_applied": override_model is None,
-                "device": device
+                "meralion_used": result.get("model_used") == "MERaLiON-AudioLLM-Whisper-SEA-LION",
+                "fallback_used": result.get("fallback_used", False),
+                "meralion_fallback_enabled": meralion_fallback_enabled,
+                "audio_duration": result.get("audio_duration"),
+                "success": result.get("success", False)
             }
-        }
+            
+            if result.get("success", False):
+                logger.info(
+                    f"MERaLiON transcription successful using model: {result.get('model_used')}"
+                )
+                return result
+            else:
+                logger.warning(
+                    f"MERaLiON transcription failed: {result.get('error', 'Unknown error')}"
+                )
+                
+        except Exception as e:
+            logger.error(f"MERaLiON transcription failed with exception: {e}")
+            result = {
+                "text": "",
+                "error": str(e),
+                "success": False
+            }
     
-    return result
-
-
-def diarize_with_optimized_config(
-    audio,
-    language: str,
-    diarization_model_path: str = None,
-    use_auth_token: bool = False,
-    device: str = "cuda",
-    hf_token: str = None,
-    override_min_speakers: int = None,
-    override_max_speakers: int = None,
-) -> dict:
-    """
-    Perform diarization using language-specific optimal configuration.
+    # Fallback to traditional Whisper models
+    logger.info("Falling back to traditional Whisper models")
     
-    Args:
-        audio: Audio data for diarization
-        language: Language code for optimal configuration
-        diarization_model_path: Path to diarization model
-        use_auth_token: Whether to use authentication token
-        device: Device for inference
-        hf_token: Hugging Face token
-        override_min_speakers: Override minimum speaker count
-        override_max_speakers: Override maximum speaker count
+    try:
+        # Use the standard transcription function
+        whisper_result = transcribe_with_whisper(
+            audio=audio,
+            task=task,
+            asr_options=asr_options,
+            vad_options=vad_options,
+            language=language,
+            batch_size=batch_size,
+            chunk_size=20,
+            model=override_model or WHISPER_MODEL,
+            device=device,
+            device_index=device_index,
+            compute_type="int8" if device == "cpu" else "float16",
+            threads=threads,
+        )
         
-    Returns:
-        dict: Diarization results with configuration metadata
-    """
-    # Get optimal diarization config for language
-    diar_config = get_diarization_config_for_language(language)
-    
-    # Apply overrides if provided
-    min_speakers = override_min_speakers or diar_config["min_speakers"]
-    max_speakers = override_max_speakers or diar_config["max_speakers"]
-    confidence_threshold = diar_config["confidence_threshold"]
-    
-    logger.info(
-        f"Language-optimized diarization for '{language}': "
-        f"min_speakers={min_speakers}, max_speakers={max_speakers}, "
-        f"confidence_threshold={confidence_threshold}"
-    )
-    
-    # Use existing diarization function with optimal parameters
-    result = diarize(
-        audio=audio,
-        min_speakers=min_speakers,
-        max_speakers=max_speakers,
-        device=device,
-    )
-    
-    # Convert DataFrame to dict format and add optimization metadata
-    import pandas as pd
-    
-    # Convert to dict format for consistency with other functions
-    result_dict = {
-        "segments": result.to_dict(orient="records"),
-        "metadata": {
-            "min_speakers": min_speakers,
-            "max_speakers": max_speakers,
+        # Extract text from whisper result
+        if isinstance(whisper_result, dict):
+            if "segments" in whisper_result:
+                text = " ".join([segment.get("text", "") for segment in whisper_result["segments"]])
+            elif "transcription" in whisper_result:
+                # Handle wrapped transcription
+                transcription = whisper_result["transcription"]
+                if hasattr(transcription, 'segments'):
+                    text = " ".join([segment.text for segment in transcription.segments])
+                elif isinstance(transcription, dict) and "segments" in transcription:
+                    text = " ".join([segment.get("text", "") for segment in transcription["segments"]])
+                else:
+                    text = str(transcription)
+            else:
+                text = str(whisper_result)
+        elif hasattr(whisper_result, 'segments'):
+            text = " ".join([segment.text for segment in whisper_result.segments])
+        else:
+            text = str(whisper_result)
+        
+        # Create unified result format
+        final_result = {
+            "text": text,
+            "model_used": "whisper",
+            "device": device,
+            "task": task,
+            "success": True,
+            "fallback_used": True,
+            "whisper_result": whisper_result  # Include full whisper result for compatibility
         }
-    }
-    
-    # Filter segments by confidence threshold if applicable
-    filtered_segments = [
-        segment for segment in result_dict["segments"]
-        if segment.get("confidence", 1.0) >= confidence_threshold
-    ]
-    
-    # Add optimization metadata
-    result_dict["optimization_metadata"] = {
-        "language": language,
-        "min_speakers": min_speakers,
-        "max_speakers": max_speakers,
-        "confidence_threshold": confidence_threshold,
-        "original_segment_count": len(result_dict["segments"]),
-        "filtered_segment_count": len(filtered_segments),
-        "optimization_applied": True
-    }
-    
-    # Use filtered segments if confidence filtering was applied
-    if confidence_threshold > 0:
-        result_dict["segments"] = filtered_segments
-    
-    return result_dict
+        
+        # Add comprehensive metadata
+        final_result["transcription_metadata"] = {
+            "primary_model": "MERaLiON-AudioLLM-Whisper-SEA-LION",
+            "actual_model": final_result["model_used"],
+            "device": device,
+            "task": task,
+            "language": language,
+            "meralion_used": False,
+            "fallback_used": True,
+            "meralion_fallback_enabled": meralion_fallback_enabled,
+            "success": True
+        }
+        
+        logger.info(f"Whisper fallback transcription successful using model: {final_result['model_used']}")
+        return final_result
+        
+    except Exception as e:
+        logger.error(f"Whisper fallback transcription failed: {e}")
+        
+        # Return error result
+        error_result = {
+            "text": "",
+            "model_used": "none",
+            "device": device,
+            "task": task,
+            "success": False,
+            "error": f"All transcription methods failed. MERaLiON error: {result.get('error', 'Unknown') if 'result' in locals() else 'Unknown'}, Whisper error: {str(e)}"
+        }
+        
+        # Add error metadata
+        error_result["transcription_metadata"] = {
+            "primary_model": "MERaLiON-AudioLLM-Whisper-SEA-LION",
+            "actual_model": "none",
+            "device": device,
+            "task": task,
+            "language": language,
+            "meralion_used": False,
+            "fallback_used": False,
+            "meralion_fallback_enabled": meralion_fallback_enabled,
+            "success": False,
+            "meralion_error": result.get("error", "Unknown") if 'result' in locals() else "Unknown",
+            "whisper_error": str(e)
+        }
+        
+        return error_result
 
 
 

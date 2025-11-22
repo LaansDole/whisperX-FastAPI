@@ -22,3 +22,10 @@ def filter_warnings():
             "ignore", message="Model was trained with pyannote.audio*"
         )
         warnings.filterwarnings("ignore", message="Model was trained with torch*")
+        # Filter multiprocessing resource tracker warnings (common with transformers/torch)
+        warnings.filterwarnings(
+            "ignore", message="resource_tracker: There appear to be .* leaked semaphore objects to clean up at shutdown"
+        )
+        warnings.filterwarnings(
+            "ignore", module="multiprocessing.resource_tracker"
+        )

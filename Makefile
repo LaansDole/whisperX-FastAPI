@@ -15,7 +15,6 @@ help:
 	@echo "  start-temporal     	- Start local Temporal server"
 	@echo "  stop-temporal      	- Stop local Temporal server"
 	@echo "  stop              		- Stop all running processes (pkill)"
-	@echo "  test-api          		- Test optimized workflow functionality"
 	@echo "  temporal-fresh     	- Clean Temporal data and start fresh"
 	@echo "  check-activities  	- Check running Temporal activities via CLI"
 	@echo ""
@@ -106,46 +105,6 @@ stop:
 	@echo "✓ All processes stopped"
 	@echo ""
 	@echo "Cleanup complete. All related processes have been terminated."
-
-# ============================================================================
-# Testing targets
-# ============================================================================
-
-# Test optimized workflow functionality
-test-api:
-	@echo "🧪 Testing Optimized Workflow Functionality"
-	@echo "============================================"
-	@echo "Starting worker and server for testing..."
-	@echo ""
-	@echo "1️⃣  Starting worker..."
-	$(MAKE) worker
-	@echo "   Worker started, waiting 3 seconds for initialization..."
-	sleep 3
-	@echo ""
-	@echo "2️⃣  Starting server..."
-	$(MAKE) server &
-	SERVER_PID=$!
-	@echo "   Server starting (PID: $$SERVER_PID), waiting 5 seconds..."
-	sleep 5
-	@echo ""
-	@echo "3️⃣  Running optimized workflow tests..."
-	uv run python test_final_verification.py
-	TEST_EXIT_CODE=$?
-	@echo ""
-	@echo "4️⃣  Stopping server..."
-	kill $$SERVER_PID 2>/dev/null || true
-	@echo "   Server stopped"
-	@echo ""
-	@echo "============================================"
-	@if [ $$TEST_EXIT_CODE -eq 0 ]; then \
-		echo "✅ TEST-API: All tests passed successfully!"; \
-		echo "   🎉 Optimized workflow functionality verified"; \
-		echo "   🚀 Language optimization feature is working correctly"; \
-	else \
-		echo "❌ TEST-API: Tests failed with exit code $$TEST_EXIT_CODE"; \
-		echo "   🔍 Check the test output above for details"; \
-	fi
-	@echo "============================================"
 
 # ============================================================================
 # Testing targets

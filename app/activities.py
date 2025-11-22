@@ -4,9 +4,8 @@ from app.temporal_error_handler import TemporalErrorHandler
 from app.temporal_monitoring import TemporalMetrics
 from app.whisperx_services import (
     transcribe_with_whisper,
-    transcribe_with_optimized_model,
+    transcribe_with_meralion_fallback,
     diarize,
-    diarize_with_optimized_config,
     align_whisper_output,
 )
 import whisperx
@@ -129,17 +128,19 @@ async def assign_speakers_activity(
             raise TemporalErrorHandler.create_application_error(e, "Speaker assignment")
 
 
+
+
 @activity.defn
-async def transcribe_optimized_activity(
+async def transcribe_meralion_activity(
     audio_path: str,
     model_params: dict,
     asr_options: dict,
     vad_options: dict,
 ) -> dict:
-    """Activity to transcribe audio with optimized model selection."""
+    """Activity to transcribe audio using MERaLiON with fallback."""
     from app.audio import process_audio_file
     
-    async with TemporalMetrics.activity_timer("transcription_optimized"):
+    async with TemporalMetrics.activity_timer("transcription_meralion"):
         try:
             # Process audio file
             audio = process_audio_file(audio_path)
@@ -147,64 +148,34 @@ async def transcribe_optimized_activity(
             # Extract parameters
             language = model_params.get("language", "en")
             task = model_params.get("task", "transcribe")
-            device = model_params.get("device", "cuda")
+            device = model_params.get("device", "auto")
             device_index = model_params.get("device_index", 0)
             batch_size = model_params.get("batch_size", 8)
             threads = model_params.get("threads", 0)
+            use_meralion = model_params.get("use_meralion", True)
+            meralion_fallback_enabled = model_params.get("meralion_fallback_enabled", True)
+            meralion_max_new_tokens = model_params.get("meralion_max_new_tokens", 256)
             override_model = model_params.get("model")
             
-            # Use optimized transcription
-            result = transcribe_with_optimized_model(
+            # Use MERaLiON transcription with fallback
+            result = transcribe_with_meralion_fallback(
                 audio=audio,
-                language=language,
                 task=task,
+                language=language,
                 device=device,
                 device_index=device_index,
                 asr_options=asr_options,
                 vad_options=vad_options,
                 batch_size=batch_size,
                 threads=threads,
+                use_meralion=use_meralion,
+                meralion_fallback_enabled=meralion_fallback_enabled,
+                meralion_max_new_tokens=meralion_max_new_tokens,
                 override_model=override_model,
             )
             
             return result
         except Exception as e:
-            raise TemporalErrorHandler.create_application_error(e, "Optimized transcription")
+            raise TemporalErrorHandler.create_application_error(e, "MERaLiON transcription")
 
 
-@activity.defn
-async def diarize_optimized_activity(
-    audio_path: str,
-    diarization_params: dict,
-    language: str,
-) -> dict:
-    """Activity to perform diarization with language-specific optimization."""
-    async with TemporalMetrics.activity_timer("diarization_optimized"):
-        try:
-            # Process audio file
-            from app.audio import process_audio_file
-            audio = process_audio_file(audio_path)
-            
-            # Extract parameters
-            diarization_model_path = diarization_params.get("diarization_model_path")
-            use_auth_token = diarization_params.get("use_auth_token", False)
-            min_speakers = diarization_params.get("min_speakers")
-            max_speakers = diarization_params.get("max_speakers")
-            device = diarization_params.get("device", "cuda")
-            hf_token = diarization_params.get("hf_token")
-            
-            # Use optimized diarization
-            result = diarize_with_optimized_config(
-                audio=audio,
-                language=language,
-                diarization_model_path=diarization_model_path,
-                use_auth_token=use_auth_token,
-                device=device,
-                hf_token=hf_token,
-                override_min_speakers=min_speakers,
-                override_max_speakers=max_speakers,
-            )
-            
-            return result
-        except Exception as e:
-            raise TemporalErrorHandler.create_application_error(e, "Optimized diarization")

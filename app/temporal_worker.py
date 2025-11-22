@@ -2,13 +2,12 @@
 import asyncio
 from temporalio.worker import Worker
 from .temporal_manager import temporal_manager
-from .temporal_workflows import WhisperXWorkflow, WhisperXOptimizedWorkflow
+from .temporal_workflows import WhisperXWorkflow
 from .activities import (
     transcribe_activity,
-    transcribe_optimized_activity,
+    transcribe_meralion_activity,
     align_activity,
     diarize_activity,
-    diarize_optimized_activity,
     assign_speakers_activity,
 )
 from .temporal_config import config
@@ -24,13 +23,12 @@ async def main():
     worker = Worker(
         client,
         task_queue=config.TEMPORAL_TASK_QUEUE,
-        workflows=[WhisperXWorkflow, WhisperXOptimizedWorkflow],
+        workflows=[WhisperXWorkflow],
         activities=[
             transcribe_activity,
-            transcribe_optimized_activity,
+            transcribe_meralion_activity,
             align_activity,
             diarize_activity,
-            diarize_optimized_activity,
             assign_speakers_activity,
         ],
     )

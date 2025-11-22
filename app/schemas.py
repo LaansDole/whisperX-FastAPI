@@ -165,6 +165,7 @@ class WhisperModel(str, Enum):
     distil_small_en = "distil-small.en"
     distil_large_v3 = "distil-large-v3"
     faster_crisper_whisper = "nyrahealth/faster_CrisperWhisper"
+    meralion_audiollm = "MERaLiON/MERaLiON-AudioLLM-Whisper-SEA-LION"
 
 
 class Device(str, Enum):
@@ -329,6 +330,15 @@ class WhisperModelParams(BaseModel):
     )
     compute_type: ComputeType = Field(
         Query("int8", description="Type of computation")
+    )
+    use_meralion: bool = Field(
+        Query(True, description="Use MERaLiON model as primary transcription engine")
+    )
+    meralion_fallback_enabled: bool = Field(
+        Query(True, description="Enable fallback to Whisper models if MERaLiON fails")
+    )
+    meralion_max_new_tokens: int = Field(
+        Query(256, description="Maximum number of tokens to generate with MERaLiON")
     )
 
 

@@ -217,7 +217,6 @@ The project provides make commands for complex operations that simplify developm
 ```bash
 make dev                   # Start worker + FastAPI server (full app) - RECOMMENDED
 make worker                # Start Temporal server + worker
-make test-api              # Test optimized workflow functionality
 ```
 
 #### Process Management

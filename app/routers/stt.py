@@ -7,6 +7,7 @@ It includes endpoints for processing uploaded audio files and audio files from U
 import logging
 import os
 from tempfile import NamedTemporaryFile
+from typing import Optional
 import uuid
 
 import requests
@@ -24,7 +25,7 @@ from ..schemas import (
     WhisperModelParams,
 )
 from ..temporal_manager import temporal_manager
-from ..temporal_workflows import WhisperXWorkflow, WhisperXOptimizedWorkflow
+from ..temporal_workflows import WhisperXWorkflow
 from ..temporal_config import config
 
 # Configure logging
@@ -147,82 +148,99 @@ async def speech_to_text_url(
     return Response(identifier=handle.id, message="Workflow started")
 
 
-@stt_router.post("/speech-to-text-optimized", tags=["Speech-2-Text"])
-async def speech_to_text_optimized(
+
+
+@stt_router.post("/speech-to-text-meralion", tags=["Speech-2-Text"])
+async def speech_to_text_meralion(
     file: UploadFile = File(...),
     language: str = Form(default="sg", description="Target language code (e.g., 'sg', 'en', 'zh', 'vi')"),
     task: str = Form(default="transcribe", description="Task: 'transcribe' or 'translate'"),
-    device: str = Form(default="cpu", description="Device: 'cpu' or 'cuda'"),
-    batch_size: int = Form(default=8, description="Batch size for processing (advanced)"),
-    threads: int = Form(default=0, description="Number of CPU threads (advanced, 0=auto)"),
+    device: str = Form(default="auto", description="Device: 'auto', 'cpu', or 'cuda'"),
+    use_meralion: bool = Form(default=True, description="Use MERaLiON model as primary transcription engine"),
+    meralion_fallback_enabled: bool = Form(default=True, description="Enable fallback to Whisper models if MERaLiON fails"),
+    meralion_max_new_tokens: int = Form(default=256, description="Maximum tokens for MERaLiON generation"),
     return_word_alignments: bool = Form(default=False, description="Return word-level timestamps"),
     return_char_alignments: bool = Form(default=False, description="Return character-level timestamps"),
-    min_speakers: int = Form(default=None, description="Minimum number of speakers (optional)"),
-    max_speakers: int = Form(default=None, description="Maximum number of speakers (optional)"),
+    min_speakers: Optional[int] = Form(default=None, description="Minimum number of speakers (optional)"),
+    max_speakers: Optional[int] = Form(default=None, description="Maximum number of speakers (optional)"),
 ) -> Response:
     """
-    Process audio with simplified language-optimized model selection.
+    Process audio using MERaLiON-AudioLLM-Whisper-SEA-LION model with fallback to Whisper models.
     
-    This endpoint automatically selects the optimal Whisper model for the specified language
-    and uses safe defaults for stable processing. Optimized for Singapore English ('sg') by default.
+    This endpoint prioritizes the MERaLiON model for transcription and translation tasks,
+    with automatic fallback to traditional Whisper models when needed. Optimized for
+    Singapore English ('sg') by default.
     """
-    logger.info("Received optimized file upload request: %s for language: %s", file.filename, language)
+    logger.info(
+        "Received MERaLiON file upload request: %s for language: %s, "
+        "use_meralion: %s, device: %s",
+        file.filename, language, use_meralion, device
+    )
 
     validate_extension(file.filename, ALLOWED_EXTENSIONS)
 
     temp_file = save_temporary_file(file.file, file.filename)
     logger.info("%s saved as temporary file: %s", file.filename, temp_file)
 
-    # Create simplified parameter objects with safe defaults
-    from ..schemas import AlignmentParams, DiarizationParams, ASROptions, VADOptions
-    
-    align_params = AlignmentParams(
-        return_word_alignments=return_word_alignments,
-        return_char_alignments=return_char_alignments,
-        device=device
-    )
-    
-    diarize_params = DiarizationParams(
-        min_speakers=min_speakers,
-        max_speakers=max_speakers,
-        device=device
-    )
-    
-    # Use default ASR and VAD options for simplicity
-    asr_options = ASROptions()
-    vad_options = VADOptions()
-
-    # Build params with optimized model selection
+    # Build params with MERaLiON configuration
     params = {
         "whisper_model_params": {
             "language": language,
             "task": task,
-            "model": None,  # Auto-selected based on language
+            "model": None,  # Will be auto-selected by MERaLiON
             "device": device,
-            "batch_size": batch_size,
-            "threads": threads,
+            "batch_size": 8,
+            "threads": 0,
             "compute_type": None,  # Will be auto-selected based on device
             "device_index": 0,
             "chunk_size": 20,
+            "use_meralion": use_meralion,
+            "meralion_fallback_enabled": meralion_fallback_enabled,
+            "meralion_max_new_tokens": meralion_max_new_tokens,
         },
-        "alignment_params": align_params.model_dump(),
-        "diarization_params": diarize_params.model_dump(),
-        "asr_options": asr_options.model_dump(),
-        "vad_options": vad_options.model_dump(),
-        "optimization_enabled": True,
-        "override_model": None,
+        "alignment_params": {
+            "align_model": None,
+            "interpolate_method": "nearest",
+            "return_char_alignments": return_char_alignments,
+            "return_word_alignments": return_word_alignments,
+            "device": device,
+        },
+        "diarization_params": {
+            "min_speakers": min_speakers,
+            "max_speakers": max_speakers,
+            "device": device,
+        },
+        "asr_options": {
+            "beam_size": 5,
+            "best_of": 5,
+            "patience": 1.0,
+            "length_penalty": 1.0,
+            "temperatures": 0.0,
+            "compression_ratio_threshold": 2.4,
+            "log_prob_threshold": -1.0,
+            "no_speech_threshold": 0.6,
+            "initial_prompt": None,
+            "suppress_tokens": [-1],
+            "suppress_numerals": False,
+            "hotwords": None,
+        },
+        "vad_options": {
+            "vad_onset": 0.500,
+            "vad_offset": 0.363,
+        },
+        "meralion_enabled": use_meralion,
     }
 
     client = await temporal_manager.get_client()
     if not client:
         raise HTTPException(status_code=503, detail="Temporal service not available")
-    workflow_id = f"whisperx-optimized-workflow-{uuid.uuid4()}"
+    workflow_id = f"meralion-workflow-{uuid.uuid4()}"
     handle = await client.start_workflow(
-        WhisperXOptimizedWorkflow.run,
+        WhisperXWorkflow.run,
         args=[temp_file, params],
         id=workflow_id,
         task_queue=config.TEMPORAL_TASK_QUEUE,
     )
-    logger.info("Optimized workflow started: ID %s", handle.id)
+    logger.info("MERaLiON workflow started: ID %s", handle.id)
 
-    return Response(identifier=handle.id, message="Optimized workflow started")
+    return Response(identifier=handle.id, message="MERaLiON workflow started")
