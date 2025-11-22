@@ -305,7 +305,7 @@ class WhisperModelParams(BaseModel):
     )
     device: Device = Field(
         Query(
-            default="cuda",
+            default="cpu",
             description="Device to use for PyTorch inference",
         )
     )
@@ -328,7 +328,7 @@ class WhisperModelParams(BaseModel):
         )
     )
     compute_type: ComputeType = Field(
-        Query("float16", description="Type of computation")
+        Query("int8", description="Type of computation")
     )
 
 
@@ -350,9 +350,15 @@ class AlignmentParams(BaseModel):
             description="Return character-level alignments in the output json file",
         )
     )
+    return_word_alignments: bool = Field(
+        Query(
+            False,
+            description="Return word-level alignments in the output json file",
+        )
+    )
     device: Device = Field(
         Query(
-            default="cuda",
+            default="cpu",
             description="Device to use for PyTorch inference",
         )
     )
@@ -369,7 +375,7 @@ class DiarizationParams(BaseModel):
     )
     device: Device = Field(
         Query(
-            default="cuda",
+            default="cpu",
             description="Device to use for PyTorch inference",
         )
     )
