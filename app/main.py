@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse, RedirectResponse  # noqa: E402
 
 from .config import Config  # noqa: E402
 from .docs import save_openapi_json  # noqa: E402
-from .routers import stt, stt_services, rag, temporal_tasks  # noqa: E402
+from .routers import stt, stt_services, temporal_tasks  # noqa: E402
 from .temporal_manager import temporal_manager
 from .trace_middleware import TraceMiddleware  # noqa: E402
 
@@ -54,15 +54,6 @@ tags_metadata = [
     },
 ]
 
-if Config.RAG_CHATBOT_ENABLED:
-    tags_metadata.append(
-        {
-            "name": "RAG Chatbot",
-            "description": "Interact with the RAG chatbot.",
-        }
-    )
-
-
 app = FastAPI(
     title="whisperX REST service",
     description=f"""
@@ -101,11 +92,6 @@ app.add_middleware(TraceMiddleware)
 app.include_router(stt.stt_router)
 app.include_router(stt_services.service_router)
 app.include_router(temporal_tasks.temporal_router)
-
-
-if Config.RAG_CHATBOT_ENABLED:
-    app.include_router(rag.rag_router)
-
 
 @app.get("/", include_in_schema=False)
 async def index():
