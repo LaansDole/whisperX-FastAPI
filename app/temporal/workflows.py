@@ -1,11 +1,13 @@
+"""Temporal workflows for audio processing."""
 
 from temporalio import workflow
 from temporalio.common import RetryPolicy
 from temporalio.exceptions import ActivityError, ApplicationError
 from datetime import timedelta
-from app.temporal_config import TemporalConfig
-from app.temporal_monitoring import TemporalMetrics
 import logging
+
+from .config import TemporalConfig
+from .monitoring import TemporalMetrics
 
 logging.basicConfig(level=logging.INFO)
 

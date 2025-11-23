@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse, RedirectResponse  # noqa: E402
 from .config import Config  # noqa: E402
 from .docs import save_openapi_json  # noqa: E402
 from .routers import stt, stt_services, temporal_tasks  # noqa: E402
-from .temporal_manager import temporal_manager
+from .temporal.manager import temporal_manager
 from .trace_middleware import TraceMiddleware  # noqa: E402
 
 # Load environment variables from .env

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "whisperX REST service",
-    "description": "\n    # whisperX RESTful API\n\n    Welcome to the whisperX RESTful API! This API provides a suite of audio processing services to enhance and analyze your audio content.\n\n    ## Documentation:\n\n    For detailed information on request and response formats, consult the [WhisperX Documentation](https://github.com/m-bain/whisperX).\n\n    ## Services:\n\n    Speech-2-Text provides a suite of audio processing services to enhance and analyze your audio content. The following services are available:\n\n    1. Transcribe: Transcribe an audio/video  file into text.\n    2. Align: Align the transcript to the audio/video file.\n    3. Diarize: Diarize an audio/video file into speakers.\n    4. Combine Transcript and Diarization: Combine the transcript and diarization results.\n\n    ## Supported file extensions:\n    AUDIO_EXTENSIONS = {'.ogg', '.awb', '.amr', '.wav', '.wma', '.oga', '.aac', '.m4a', '.mp3'}\n\n    VIDEO_EXTENSIONS = {'.avi', '.wmv', '.mkv', '.mov', '.mp4'}\n\n    ",
+    "description": "\n    # whisperX RESTful API\n\n    Welcome to the whisperX RESTful API! This API provides a suite of audio processing services to enhance and analyze your audio content.\n\n    ## Documentation:\n\n    For detailed information on request and response formats, consult the [WhisperX Documentation](https://github.com/m-bain/whisperX).\n\n    ## Services:\n\n    Speech-2-Text provides a suite of audio processing services to enhance and analyze your audio content. The following services are available:\n\n    1. Transcribe: Transcribe an audio/video  file into text.\n    2. Align: Align the transcript to the audio/video file.\n    3. Diarize: Diarize an audio/video file into speakers.\n    4. Combine Transcript and Diarization: Combine the transcript and diarization results.\n\n    ## Supported file extensions:\n    AUDIO_EXTENSIONS = {'.awb', '.aac', '.mp3', '.wav', '.m4a', '.ogg', '.amr', '.oga', '.wma'}\n\n    VIDEO_EXTENSIONS = {'.wmv', '.mov', '.avi', '.mkv', '.mp4'}\n\n    ",
     "version": "0.0.1"
   },
   "paths": {
@@ -158,7 +158,7 @@
             "schema": {
               "$ref": "#/components/schemas/Device",
               "description": "Device to use for PyTorch inference",
-              "default": "cuda"
+              "default": "cpu"
             },
             "description": "Device to use for PyTorch inference"
           },
@@ -217,7 +217,7 @@
             "schema": {
               "$ref": "#/components/schemas/ComputeType",
               "description": "Type of computation",
-              "default": "float16"
+              "default": "int8"
             },
             "description": "Type of computation"
           },
@@ -261,6 +261,18 @@
               "title": "Return Char Alignments"
             },
             "description": "Return character-level alignments in the output json file"
+          },
+          {
+            "name": "return_word_alignments",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Return word-level alignments in the output json file",
+              "default": false,
+              "title": "Return Word Alignments"
+            },
+            "description": "Return word-level alignments in the output json file"
           },
           {
             "name": "min_speakers",
@@ -677,7 +689,7 @@
             "schema": {
               "$ref": "#/components/schemas/Device",
               "description": "Device to use for PyTorch inference",
-              "default": "cuda"
+              "default": "cpu"
             },
             "description": "Device to use for PyTorch inference"
           },
@@ -736,7 +748,7 @@
             "schema": {
               "$ref": "#/components/schemas/ComputeType",
               "description": "Type of computation",
-              "default": "float16"
+              "default": "int8"
             },
             "description": "Type of computation"
           },
@@ -780,6 +792,18 @@
               "title": "Return Char Alignments"
             },
             "description": "Return character-level alignments in the output json file"
+          },
+          {
+            "name": "return_word_alignments",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Return word-level alignments in the output json file",
+              "default": false,
+              "title": "Return Word Alignments"
+            },
+            "description": "Return word-level alignments in the output json file"
           },
           {
             "name": "min_speakers",
@@ -1196,7 +1220,7 @@
             "schema": {
               "$ref": "#/components/schemas/Device",
               "description": "Device to use for PyTorch inference",
-              "default": "cuda"
+              "default": "cpu"
             },
             "description": "Device to use for PyTorch inference"
           },
@@ -1255,7 +1279,7 @@
             "schema": {
               "$ref": "#/components/schemas/ComputeType",
               "description": "Type of computation",
-              "default": "float16"
+              "default": "int8"
             },
             "description": "Type of computation"
           },
@@ -1502,7 +1526,7 @@
             "schema": {
               "$ref": "#/components/schemas/Device",
               "description": "Device to use for PyTorch inference",
-              "default": "cuda"
+              "default": "cpu"
             },
             "description": "Device to use for PyTorch inference"
           },
@@ -1546,6 +1570,18 @@
               "title": "Return Char Alignments"
             },
             "description": "Return character-level alignments in the output json file"
+          },
+          {
+            "name": "return_word_alignments",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Return word-level alignments in the output json file",
+              "default": false,
+              "title": "Return Word Alignments"
+            },
+            "description": "Return word-level alignments in the output json file"
           }
         ],
         "requestBody": {
@@ -1598,7 +1634,7 @@
             "schema": {
               "$ref": "#/components/schemas/Device",
               "description": "Device to use for PyTorch inference",
-              "default": "cuda"
+              "default": "cpu"
             },
             "description": "Device to use for PyTorch inference"
           },

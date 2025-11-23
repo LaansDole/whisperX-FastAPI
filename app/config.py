@@ -1,7 +1,6 @@
 """Configuration module for the WhisperX FastAPI application."""
 
 import os
-import torch
 from dotenv import load_dotenv
 
 # Load environment variables from .env

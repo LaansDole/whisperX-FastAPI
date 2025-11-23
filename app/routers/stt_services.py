@@ -31,9 +31,9 @@ from ..schemas import (
     VADOptions,
     WhisperModelParams,
 )
-from ..temporal_manager import temporal_manager
-from ..temporal_workflows import WhisperXWorkflow
-from ..temporal_config import config
+from ..temporal.manager import temporal_manager
+from ..temporal.workflows import WhisperXWorkflow
+from ..temporal.config import config
 from ..whisperx_services import device
 
 service_router = APIRouter()

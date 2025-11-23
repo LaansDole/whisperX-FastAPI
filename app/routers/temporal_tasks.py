@@ -1,8 +1,9 @@
+"""Router for Temporal workflow management endpoints."""
 
 from fastapi import APIRouter, Depends, HTTPException
-from app.temporal_manager import temporal_manager
-from app.temporal_workflows import WhisperXWorkflow
-from app.temporal_config import config
+from app.temporal.manager import temporal_manager
+from app.temporal.workflows import WhisperXWorkflow
+from app.temporal.config import config
 from app.schemas import Response
 
 temporal_router = APIRouter()

@@ -1,23 +1,12 @@
+"""Temporal activities for audio processing workflows."""
 
 from temporalio import activity
 from temporalio.exceptions import ApplicationError
-from app.temporal_config import TemporalConfig  # Only import what we need
-from app.temporal_error_handler import TemporalErrorHandler
-from app.temporal_monitoring import TemporalMetrics
-from app.whisperx_services import (
-    transcribe_with_whisper,
-    diarize,
-    align_whisper_output,
-)
-import whisperx
-from app.schemas import (
-    WhisperModelParams,
-    ASROptions,
-    VADOptions,
-    AlignmentParams,
-    DiarizationParams,
-)
 import logging
+
+from .config import TemporalConfig
+from .error_handler import TemporalErrorHandler
+from .monitoring import TemporalMetrics
 
 logging.basicConfig(level=logging.INFO)
 
@@ -30,6 +19,8 @@ async def transcribe_activity(
 ) -> dict:
     """Activity to transcribe audio."""
     from app.audio import process_audio_file
+    from app.whisperx_services import transcribe_with_whisper
+    from app.schemas import WhisperModelParams, ASROptions, VADOptions
 
     audio = process_audio_file(audio_path)
     model_params_obj = WhisperModelParams(**model_params)
@@ -62,6 +53,8 @@ async def align_activity(
 ) -> dict:
     """Activity to align transcript."""
     from app.audio import process_audio_file
+    from app.whisperx_services import align_whisper_output
+    from app.schemas import AlignmentParams
     
     audio = process_audio_file(audio_path)
     align_params_obj = AlignmentParams(**align_params)
@@ -85,6 +78,8 @@ async def align_activity(
 async def diarize_activity(audio_path: str, diarize_params: dict) -> dict:
     """Activity to diarize audio."""
     from app.audio import process_audio_file
+    from app.whisperx_services import diarize
+    from app.schemas import DiarizationParams
 
     audio = process_audio_file(audio_path)
     diarize_params_obj = DiarizationParams(**diarize_params)
@@ -114,13 +109,15 @@ async def assign_speakers_activity(
     diarization_segments: dict, transcript: dict
 ) -> dict:
     """Activity to assign speakers."""
+    import whisperx
+    import pandas as pd
+    
     async with TemporalMetrics.activity_timer("speaker_assignment"):
         try:
             # Extract the segments list from the diarization result
             segments_list = diarization_segments.get("segments", [])
             
             # Convert back to DataFrame format that whisperx.assign_word_speakers expects
-            import pandas as pd
             segments_df = pd.DataFrame(segments_list)
             
             result = whisperx.assign_word_speakers(segments_df, transcript)

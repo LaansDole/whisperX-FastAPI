@@ -1,16 +1,22 @@
+"""Temporal worker for processing audio workflows."""
 
-import asyncio
-from temporalio.worker import Worker
-from .temporal_manager import temporal_manager
-from .temporal_workflows import WhisperXWorkflow
-from .activities import (
+from app.warnings_filter import filter_warnings
+
+filter_warnings()
+
+import asyncio  # noqa: E402
+from temporalio.worker import Worker  # noqa: E402
+from app.logger import logger  # noqa: E402
+
+from .manager import temporal_manager  # noqa: E402
+from .workflows import WhisperXWorkflow  # noqa: E402
+from .activities import (  # noqa: E402
     transcribe_activity,
     align_activity,
     diarize_activity,
     assign_speakers_activity,
 )
-from .temporal_config import config
-from .logger import logger
+from .config import config  # noqa: E402
 
 
 async def main():

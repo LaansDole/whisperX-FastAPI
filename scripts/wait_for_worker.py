@@ -11,7 +11,7 @@ import socket
 # Add the project root to the Python path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.temporal_config import TemporalConfig
+from app.temporal.config import TemporalConfig
 
 def wait_for_worker(max_attempts=30, delay=2):
     """Wait for Temporal worker to be ready"""
@@ -33,7 +33,7 @@ def wait_for_worker(max_attempts=30, delay=2):
                 # Additional check to see if worker process is running
                 import subprocess
                 try:
-                    result = subprocess.run(['pgrep', '-f', 'temporal_worker'],
+                    result = subprocess.run(['pgrep', '-f', 'temporal.worker'],
                                           capture_output=True, text=True)
                     if result.returncode == 0:
                         print(f"✓ Temporal worker process is running")

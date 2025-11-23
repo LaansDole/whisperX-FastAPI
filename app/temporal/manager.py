@@ -1,8 +1,8 @@
+"""Temporal client manager for connection handling."""
 
 from temporalio.client import Client
-
 from app.logger import logger
-from .temporal_config import config
+from .config import config
 
 
 class TemporalManager:

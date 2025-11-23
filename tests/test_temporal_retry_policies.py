@@ -5,12 +5,12 @@ from datetime import timedelta
 from temporalio.common import RetryPolicy
 from temporalio.exceptions import ApplicationError
 
-from app.temporal_config import (
+from app.temporal.config import (
     get_default_retry_policy,
     get_model_loading_retry_policy,
     get_gpu_memory_retry_policy,
 )
-from app.temporal_error_handler import TemporalErrorHandler
+from app.temporal.error_handler import TemporalErrorHandler
 
 
 class TestTemporalRetryPolicies:
