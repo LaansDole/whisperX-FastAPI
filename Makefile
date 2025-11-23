@@ -57,7 +57,7 @@ server:
 
 # Start Temporal server + worker
 worker: stop start-temporal
-	uv run python -m app.temporal_worker &
+	uv run python -m app.temporal.worker &
 	@echo "✓ Temporal worker started"
 
 # ============================================================================
@@ -95,8 +95,8 @@ stop:
 	@pkill -f "start_server" || true
 	@echo "Stopping Temporal processes..."
 	@pkill -f "temporal_server" || true
-	@pkill -f "temporal_worker" || true
-	@pkill -f "app.temporal_worker" || true
+	@pkill -f "temporal.worker" || true
+	@pkill -f "app.temporal.worker" || true
 	@echo "Stopping Python processes..."
 	@pkill -f "python.*whisperx" || true
 	@pkill -f "python.*app" || true
