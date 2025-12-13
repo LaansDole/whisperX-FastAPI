@@ -212,6 +212,7 @@ __marimo__/
 app/docs/*
 AGENTS.md
 CRUSH.md
+CLAUDE.md
 .temporal.pid
 .serena
 .roo/
