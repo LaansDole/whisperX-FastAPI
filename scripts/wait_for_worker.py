@@ -36,13 +36,13 @@ def wait_for_worker(max_attempts=30, delay=2):
                     result = subprocess.run(['pgrep', '-f', 'temporal.worker'],
                                           capture_output=True, text=True)
                     if result.returncode == 0:
-                        print(f"✓ Temporal worker process is running")
+                        print("✓ Temporal worker process is running")
                         return True
                     else:
-                        print(f"✓ Temporal server reachable but worker not yet started")
-                except:
+                        print("✓ Temporal server reachable but worker not yet started")
+                except Exception:
                     pass
-        except Exception as e:
+        except Exception:
             pass
         
         print(f"Attempt {attempt + 1}/{max_attempts} - Temporal worker not ready yet...")

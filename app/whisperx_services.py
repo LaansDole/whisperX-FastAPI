@@ -1,24 +1,17 @@
 """This module provides services for transcribing, diarizing, and aligning audio using Whisper and other models."""
 
 import gc
-from datetime import datetime
 
-import psutil
 import torch
-from fastapi import Depends
-from sqlalchemy.orm import Session
 from whisperx.diarize import DiarizationPipeline
 from whisperx import (
     align,
-    assign_word_speakers,
     load_align_model,
     load_model,
 )
 
 from .config import Config
 from .logger import logger  # Import the logger from the new module
-from .schemas import AlignedTranscription, SpeechToTextProcessingParams
-from .transcript import filter_aligned_transcription
 
 LANG = Config.LANG
 HF_TOKEN = Config.HF_TOKEN

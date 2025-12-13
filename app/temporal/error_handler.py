@@ -1,7 +1,6 @@
 """Temporal error handling utilities."""
 
 import logging
-from typing import Type, Union
 from temporalio.exceptions import ApplicationError
 
 logger = logging.getLogger(__name__)

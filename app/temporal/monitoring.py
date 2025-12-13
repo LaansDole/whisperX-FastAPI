@@ -4,7 +4,6 @@ import logging
 import time
 from typing import Dict, Any
 from contextlib import asynccontextmanager
-from temporalio import workflow, activity
 
 logger = logging.getLogger(__name__)
 
