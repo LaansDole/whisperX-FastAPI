@@ -1,4 +1,4 @@
-# ADR 006: LM Studio Integration for Local Medical LLM Operations
+# ADR 002: LM Studio Integration for Local Medical LLM Operations
 
 **Date**: 2025-12-13  
 **Status**: Proposed  
