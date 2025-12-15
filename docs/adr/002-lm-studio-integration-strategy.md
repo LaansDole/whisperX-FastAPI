@@ -94,6 +94,11 @@ class LMStudioClient:
             timeout=httpx.Timeout(self.config.timeout),
         )
     
+    async def __aenter__(self):
+        return self
+    
+    async def __aexit__(self, exc_type, exc, tb):
+        await self.close()
     async def chat_completion(
         self,
         messages: List[Dict[str, str]],
