@@ -119,6 +119,7 @@ def test_speech_to_text_vietnamese_small():
     assert len(result["segments"]) > 0
 
 
+@pytest.mark.slow
 def test_transcribe_vietnamese_large():
     """Test transcription with larger Vietnamese audio file."""
     with open(VN_AUDIO_1, "rb") as audio_file:
@@ -153,6 +154,7 @@ def test_transcribe_vietnamese_large():
     assert "end" in first_segment
 
 
+@pytest.mark.slow
 def test_full_pipeline_vietnamese():
     """Test complete STT pipeline with Vietnamese audio."""
     with open(VN_AUDIO_2, "rb") as audio_file:
@@ -227,6 +229,7 @@ def test_missing_audio_file():
     assert response.status_code == 422  # Validation error
 
 
+@pytest.mark.integration
 def test_invalid_language():
     """Test with unsupported language code."""
     with open(VN_AUDIO_2, "rb") as audio_file:
@@ -241,6 +244,7 @@ def test_invalid_language():
         assert response.status_code in [200, 422]
 
 
+@pytest.mark.slow
 def test_concurrent_requests():
     """Test handling multiple concurrent requests."""
     identifiers = []

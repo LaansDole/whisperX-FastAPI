@@ -40,6 +40,7 @@ SAMPLE_TRANSCRIPT_ASTHMA = (
 # Health Check Tests
 # ============================================================================
 
+@pytest.mark.integration
 def test_lm_studio_health():
     """Test LM Studio health check endpoint."""
     response = client.get("/health/lm-studio")
@@ -49,6 +50,7 @@ def test_lm_studio_health():
     assert "url" in data
 
 
+@pytest.mark.medical
 def test_medical_health():
     """Test medical processing health check endpoint."""
     response = client.get("/health/medical")
@@ -67,6 +69,7 @@ def test_medical_health():
 # Process Transcript Tests
 # ============================================================================
 
+@pytest.mark.medical
 def test_process_transcript_basic():
     """Test basic transcript processing without vector storage."""
     response = client.post(
