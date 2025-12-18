@@ -1,6 +1,7 @@
 .PHONY: help install-prod install-prod-gpu install-dev install-dev-gpu \
 	dev server worker start-temporal \
-	start-temporal stop-temporal stop test-api temporal-fresh check-activities
+	start-temporal stop-temporal stop test-api temporal-fresh check-activities \
+	test test-unit test-integration test-medical test-coverage test-all test-quick
 
 # Default target - show help
 help:
@@ -17,6 +18,15 @@ help:
 	@echo "  stop              		- Stop all running processes (pkill)"
 	@echo "  temporal-fresh     	- Clean Temporal data and start fresh"
 	@echo "  check-activities  	- Check running Temporal activities via CLI"
+	@echo ""
+	@echo "Testing targets:"
+	@echo "  test              	- Run all tests (unit + integration)"
+	@echo "  test-unit         	- Run unit tests only"
+	@echo "  test-integration  	- Run integration tests only"
+	@echo "  test-medical      	- Run medical RAG tests only"
+	@echo "  test-quick        	- Run tests excluding slow ones"
+	@echo "  test-coverage     	- Run tests with coverage report"
+	@echo "  test-all          	- Run comprehensive test suite"
 	@echo ""
 	@echo "Environment Variables:"
 	@echo "  TEMPORAL_DB_PATH  	- Path for Temporal database (default: ./temporal_data/temporal.db)"
@@ -221,6 +231,56 @@ temporal-fresh:
 	@echo "   • Fresh worker processes with updated code"
 	@echo "   • No leftover Temporal cache or data"
 	@echo "============================================"
+
+# ============================================================================
+# Testing targets
+# ============================================================================
+
+# Run all tests (unit + integration)
+test:
+	@echo "🧪 Running all tests..."
+	uv run pytest tests/ -v
+	@echo "✅ All tests completed"
+
+# Run unit tests only (exclude integration and slow tests)
+test-unit:
+	@echo "🧪 Running unit tests only..."
+	uv run pytest tests/ -v -m "not integration and not slow"
+	@echo "✅ Unit tests completed"
+
+# Run integration tests only
+test-integration:
+	@echo "🧪 Running integration tests only..."
+	uv run pytest tests/ -v -m integration
+	@echo "✅ Integration tests completed"
+
+# Run medical RAG tests only
+test-medical:
+	@echo "🧪 Running medical RAG tests..."
+	uv run pytest tests/ -v -m medical
+	@echo "✅ Medical tests completed"
+
+# Run tests excluding slow ones
+test-quick:
+	@echo "🧪 Running quick tests (excluding slow ones)..."
+	uv run pytest tests/ -v -m "not slow"
+	@echo "✅ Quick tests completed"
+
+# Run tests with coverage report
+test-coverage:
+	@echo "🧪 Running tests with coverage report..."
+	uv run pytest tests/ --cov=app --cov-report=term-missing --cov-report=html:htmlcov -v
+	@echo "✅ Coverage report generated"
+	@echo "📄 HTML coverage report available at: htmlcov/index.html"
+
+# Run comprehensive test suite with all options
+test-all:
+	@echo "🧪 Running comprehensive test suite..."
+	@echo "📊 This includes all tests with coverage and detailed output..."
+	uv run pytest tests/ --cov=app --cov-report=term-missing --cov-report=html:htmlcov --cov-report=xml -v --tb=short
+	@echo "✅ Comprehensive test suite completed"
+	@echo "📄 HTML coverage report available at: htmlcov/index.html"
+	@echo "📄 XML coverage report available at: coverage.xml"
 
 # ============================================================================
 # Activity monitoring
