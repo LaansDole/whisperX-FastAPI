@@ -58,17 +58,17 @@ dev:
 	@echo "Waiting for worker to initialize..."
 	uv run python scripts/wait_for_worker.py
 	$(MAKE) server
-	@echo "✓ Full application started"
+	@echo "Full application started"
 
 # Start FastAPI server only
 server:
 	uv run python -m start_server
-	@echo "✓ FastAPI server started"
+	@echo "FastAPI server started"
 
 # Start Temporal server + worker
 worker: stop start-temporal
 	uv run python -m app.temporal.worker &
-	@echo "✓ Temporal worker started"
+	@echo "Temporal worker started"
 
 # ============================================================================
 # Temporal server management
@@ -85,11 +85,11 @@ start-temporal:
 		mkdir -p $$(dirname "$(TEMPORAL_DB_PATH)") 2>/dev/null || true; \
 		temporal server start-dev --db-filename "$(TEMPORAL_DB_PATH)" & \
 		sleep 5; \
-		echo "✓ Temporal server started on port 7233"; \
-		echo "📁 Database location: $(TEMPORAL_DB_PATH)"; \
+		echo "Temporal server started on port 7233"; \
+		echo "Database location: $(TEMPORAL_DB_PATH)"; \
 	else \
-		echo "✓ Temporal server already running on port 7233"; \
-		echo "📁 Database location: $(TEMPORAL_DB_PATH)"; \
+		echo "Temporal server already running on port 7233"; \
+		echo "Database location: $(TEMPORAL_DB_PATH)"; \
 	fi
 
 # ============================================================================
@@ -112,7 +112,7 @@ stop:
 	@pkill -f "python.*app" || true
 	@echo "Stopping any remaining uvicorn processes..."
 	@pkill -f "uvicorn" || true
-	@echo "✓ All processes stopped"
+	@echo "All processes stopped"
 	@echo ""
 	@echo "Cleanup complete. All related processes have been terminated."
 
@@ -238,49 +238,49 @@ temporal-fresh:
 
 # Run all tests (unit + integration)
 test:
-	@echo "🧪 Running all tests..."
+	@echo "Running all tests..."
 	uv run pytest tests/ -v
-	@echo "✅ All tests completed"
+	@echo "All tests completed"
 
 # Run unit tests only (exclude integration and slow tests)
 test-unit:
-	@echo "🧪 Running unit tests only..."
+	@echo "Running unit tests only..."
 	uv run pytest tests/ -v -m "not integration and not slow"
-	@echo "✅ Unit tests completed"
+	@echo "Unit tests completed"
 
 # Run integration tests only
 test-integration:
-	@echo "🧪 Running integration tests only..."
+	@echo "Running integration tests only..."
 	uv run pytest tests/ -v -m integration
-	@echo "✅ Integration tests completed"
+	@echo "Integration tests completed"
 
 # Run medical RAG tests only
 test-medical:
-	@echo "🧪 Running medical RAG tests..."
+	@echo "Running medical RAG tests..."
 	uv run pytest tests/ -v -m medical
-	@echo "✅ Medical tests completed"
+	@echo "Medical tests completed"
 
 # Run tests excluding slow ones
 test-quick:
-	@echo "🧪 Running quick tests (excluding slow ones)..."
+	@echo "Running quick tests (excluding slow ones)..."
 	uv run pytest tests/ -v -m "not slow"
-	@echo "✅ Quick tests completed"
+	@echo "Quick tests completed"
 
 # Run tests with coverage report
 test-coverage:
-	@echo "🧪 Running tests with coverage report..."
+	@echo "Running tests with coverage report..."
 	uv run pytest tests/ --cov=app --cov-report=term-missing --cov-report=html:htmlcov -v
-	@echo "✅ Coverage report generated"
-	@echo "📄 HTML coverage report available at: htmlcov/index.html"
+	@echo "Coverage report generated"
+	@echo "HTML coverage report available at: htmlcov/index.html"
 
 # Run comprehensive test suite with all options
 test-all:
-	@echo "🧪 Running comprehensive test suite..."
-	@echo "📊 This includes all tests with coverage and detailed output..."
+	@echo "Running comprehensive test suite..."
+	@echo "This includes all tests with coverage and detailed output..."
 	uv run pytest tests/ --cov=app --cov-report=term-missing --cov-report=html:htmlcov --cov-report=xml -v --tb=short
-	@echo "✅ Comprehensive test suite completed"
-	@echo "📄 HTML coverage report available at: htmlcov/index.html"
-	@echo "📄 XML coverage report available at: coverage.xml"
+	@echo "Comprehensive test suite completed"
+	@echo "HTML coverage report available at: htmlcov/index.html"
+	@echo "XML coverage report available at: coverage.xml"
 
 # ============================================================================
 # Activity monitoring
@@ -288,39 +288,39 @@ test-all:
 
 # Check running Temporal activities via CLI
 check-activities:
-	@echo "🔍 CHECKING TEMPORAL ACTIVITIES"
+	@echo "CHECKING TEMPORAL ACTIVITIES"
 	@echo "================================="
 	@echo ""
-	@echo "1️⃣  Checking Temporal CLI connection..."
+	@echo "1. Checking Temporal CLI connection..."
 	@if ! temporal --version > /dev/null 2>&1; then \
-		echo "❌ Temporal CLI not available"; \
+		echo "Temporal CLI not available"; \
 		exit 1; \
 	fi
-	@echo "✅ Temporal CLI available"
+	@echo "Temporal CLI available"
 	@echo ""
-	@echo "2️⃣  Checking workflows..."
+	@echo "2. Checking workflows..."
 	@if temporal workflow list --namespace default > /dev/null 2>&1; then \
 		WORKFLOW_COUNT=$$(temporal workflow list --namespace default 2>/dev/null | grep -c "running\|completed\|failed" || echo "0"); \
 		if [ "$$WORKFLOW_COUNT" -eq 0 ]; then \
-			echo "✅ No workflows found in default namespace"; \
+			echo "No workflows found in default namespace"; \
 		else \
-			echo "📊 Found $$WORKFLOW_COUNT workflow(s):"; \
+			echo "Found $$WORKFLOW_COUNT workflow(s):"; \
 			echo ""; \
 			temporal workflow list --namespace default --output table || echo "   (Could not format as table)"; \
 		fi; \
 	else \
-		echo "❌ Could not connect to Temporal server"; \
-		echo "   💡 Make sure Temporal server is running: make start-temporal"; \
+		echo "Could not connect to Temporal server"; \
+		echo "   Make sure Temporal server is running: make start-temporal"; \
 	fi
 	@echo ""
-	@echo "3️⃣  Checking task queues..."
+	@echo "3. Checking task queues..."
 	@if temporal task-queue list --namespace default > /dev/null 2>&1; then \
-		echo "✅ Task queues available"; \
+		echo "Task queues available"; \
 		temporal task-queue list --namespace default 2>/dev/null | head -5 || echo "   (Could not list task queues)"; \
 	else \
-		echo "ℹ️  Could not list task queues"; \
+		echo "Could not list task queues"; \
 	fi
 	@echo ""
 	@echo "================================="
-	@echo "🎯 ACTIVITY CHECK COMPLETED"
+	@echo "ACTIVITY CHECK COMPLETED"
 	@echo "================================="
