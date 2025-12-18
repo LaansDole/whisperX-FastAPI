@@ -385,7 +385,7 @@ ENABLE_SOAP_GENERATION=true               # Enable SOAP notes
 
 - **Setup Guide**: `docs/setup/lm-studio-installation.md`
 - **Implementation Plan**: [`plans/lm-studio-medical-rag-implementation.md`](plans/lm-studio-medical-rag-implementation.md)
-- **Architecture Decision**: [`docs/adr/006-lm-studio-integration-strategy.md`](docs/adr/006-lm-studio-integration-strategy.md)
+- **Architecture Decision**: [`docs/adr/002-lm-studio-integration-strategy.md`](docs/adr/002-lm-studio-integration-strategy.md)
 - **Cost Analysis**: [`docs/adr/005-cost-effective-infrastructure.md`](docs/adr/005-cost-effective-infrastructure.md)
 
 ### API Endpoints
