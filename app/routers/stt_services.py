@@ -107,6 +107,7 @@ async def align(
     validate_extension(transcript.filename, {".json"})
     try:
         transcript_data = Transcript(**json.loads(transcript.file.read()))
+        logger.info("Transcript loaded with %d segments", len(transcript_data.segments))
     except ValidationError as e:
         logger.error("Invalid JSON content in transcript file: %s", str(e))
         raise HTTPException(status_code=400, detail=f"Invalid JSON content. {str(e)}")

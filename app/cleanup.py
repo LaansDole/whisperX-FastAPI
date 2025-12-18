@@ -6,7 +6,6 @@ import atexit
 import threading
 import gc
 import logging
-import os
 from .warnings_filter import filter_warnings
 
 logger = logging.getLogger(__name__)

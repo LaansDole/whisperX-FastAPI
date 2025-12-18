@@ -60,7 +60,7 @@ def main():
         current_dir = os.path.basename(os.getcwd())
         if current_dir != "whisperX-FastAPI":
             os.chdir("whisperX-FastAPI")
-            print(f"Changed directory to whisperX-FastAPI")
+            print("Changed directory to whisperX-FastAPI")
         else:
             print("Already in whisperX-FastAPI directory")
             

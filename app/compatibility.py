@@ -6,12 +6,10 @@ versions of libraries, and provides helpful messages for resolving issues.
 """
 
 import importlib
-import logging
 import os
 import platform
 import subprocess
-import sys
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 from .logger import logger
 

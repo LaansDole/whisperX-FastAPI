@@ -24,8 +24,6 @@ class TemporalConfig:
     DIARIZATION_TIMEOUT_MINUTES = int(os.getenv("DIARIZATION_TIMEOUT", "10"))
     SPEAKER_ASSIGNMENT_TIMEOUT_MINUTES = int(os.getenv("SPEAKER_ASSIGNMENT_TIMEOUT", "5"))
 
-from temporalio.common import RetryPolicy
-from datetime import timedelta
 
 def get_default_retry_policy() -> RetryPolicy:
     """Get default retry policy for temporal activities."""

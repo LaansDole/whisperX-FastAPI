@@ -2,7 +2,6 @@
 
 import logging
 import os
-from tempfile import NamedTemporaryFile
 
 from fastapi import HTTPException
 

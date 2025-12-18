@@ -128,6 +128,8 @@ dependencies = [
     "soundfile==0.13.1",
     "speechbrain==1.0.3",
     "sqlalchemy==2.0.41",
+    "faiss-cpu==1.9.0",
+    "cryptography==44.0.0",
     "starlette==0.46.2",
     "sympy==1.13.3",
     "tabulate==0.9.0",
@@ -146,6 +148,8 @@ dependencies = [
     "urllib3==2.5.0",
     "virtualenv==20.31.2",
     "yarl==1.20.1",
+    "python-jose[cryptography]>=3.5.0",
+    "passlib[bcrypt]>=1.7.4",
 ]
 
 [project.optional-dependencies]
