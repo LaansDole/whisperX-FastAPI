@@ -4,18 +4,17 @@ from .warnings_filter import filter_warnings
 
 filter_warnings()
 
-import time  # noqa: E402
-from contextlib import asynccontextmanager  # noqa: E402
+import time 
+from contextlib import asynccontextmanager 
 
-from dotenv import load_dotenv  # noqa: E402
-from fastapi import FastAPI, status  # noqa: E402
-from fastapi.responses import JSONResponse, RedirectResponse  # noqa: E402
+from dotenv import load_dotenv 
+from fastapi import FastAPI, status 
+from fastapi.responses import JSONResponse, RedirectResponse 
 
-from .config import Config  # noqa: E402
-from .docs import save_openapi_json  # noqa: E402
-from .routers import stt, stt_services, temporal_tasks  # noqa: E402
+from .config import Config 
+from .routers import stt, stt_services, temporal_tasks, medical 
 from .temporal.manager import temporal_manager
-from .trace_middleware import TraceMiddleware  # noqa: E402
+from .trace_middleware import TraceMiddleware 
 
 # Load environment variables from .env
 load_dotenv()
@@ -31,7 +30,6 @@ async def lifespan(app: FastAPI):
         app (FastAPI): The FastAPI application instance.
     """
     await temporal_manager.get_client()
-    save_openapi_json(app)
     yield
 
 
@@ -92,6 +90,7 @@ app.add_middleware(TraceMiddleware)
 app.include_router(stt.stt_router)
 app.include_router(stt_services.service_router)
 app.include_router(temporal_tasks.temporal_router)
+app.include_router(medical.router)
 
 @app.get("/", include_in_schema=False)
 async def index():
