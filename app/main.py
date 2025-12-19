@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI, status
 from fastapi.responses import JSONResponse, RedirectResponse
+from scalar_fastapi import get_scalar_api_reference
 
 from .config import Config
 from .routers import stt, stt_services, temporal_tasks, medical
@@ -36,51 +37,168 @@ async def lifespan(app: FastAPI):
 tags_metadata = [
     {
         "name": "Speech-2-Text",
-        "description": "Operations related to transcript",
+        "description": """Complete speech-to-text processing pipeline with transcription, alignment, and diarization.
+        
+**Primary Endpoints:**
+- `/speech-to-text` - Upload audio/video files for processing
+- `/speech-to-text-url` - Process files from URLs
+
+**Supported Formats:** MP3, WAV, M4A, FLAC, OGG, MP4, AVI, MOV
+
+**Features:**
+- Automatic speech recognition using WhisperX
+- Word-level alignment with timestamps
+- Speaker diarization (who spoke when)
+- Multi-language support (60+ languages)
+- Temporal workflow orchestration for reliability
+        """,
     },
     {
         "name": "Speech-2-Text services",
-        "description": "Individual services for transcript",
+        "description": """Individual processing services for granular control.
+        
+Use these endpoints when you need specific processing steps rather than the full pipeline:
+- **Transcribe** - Convert speech to text
+- **Align** - Add precise word-level timestamps
+- **Diarize** - Identify different speakers
+- **Combine** - Merge transcription with speaker labels
+        """,
     },
     {
         "name": "Tasks Management",
-        "description": "Manage tasks.",
+        "description": """Monitor and manage Temporal workflow tasks.
+        
+**Capabilities:**
+- Check workflow status and progress
+- Retrieve completed results
+- Query task history
+- Monitor processing workflows
+
+All speech-to-text operations return a workflow ID that can be used with these endpoints.
+        """,
+    },
+    {
+        "name": "Medical",
+        "description": """Medical transcript processing with HIPAA compliance features.
+        
+**Features:**
+- PHI (Protected Health Information) detection
+- Medical entity extraction (diagnoses, medications, procedures)
+- SOAP note generation from consultations
+- RAG-powered medical chatbot
+- Vector similarity search for consultations
+- HIPAA audit logging
+
+**Security:** All operations include access control and comprehensive audit trails.
+        """,
     },
     {
         "name": "Health",
-        "description": "Health check endpoints to monitor application status",
+        "description": """Health check endpoints for monitoring and orchestration.
+        
+- `/health` - Simple health check
+- `/health/live` - Kubernetes liveness probe
+- `/health/ready` - Readiness check with dependency validation
+        """,
     },
 ]
 
 app = FastAPI(
-    title="whisperX REST service",
+    title="WhisperX API - Advanced Speech Processing",
     description=f"""
-    # whisperX RESTful API
+# WhisperX RESTful API
 
-    Welcome to the whisperX RESTful API! This API provides a suite of audio processing services to enhance and analyze your audio content.
+Welcome to the **WhisperX API** - a powerful, production-ready service for advanced speech-to-text processing with transcription, alignment, diarization, and medical document analysis.
 
-    ## Documentation:
+## Quick Start
 
-    For detailed information on request and response formats, consult the [WhisperX Documentation](https://github.com/m-bain/whisperX).
+### Basic Transcription Example
 
-    ## Services:
+```bash
+# Upload an audio file for processing
+curl -X POST "http://localhost:8000/speech-to-text" \\
+  -F "file=@audio.mp3" \\
+  -F "language=en" \\
+  -F "model=base"
 
-    Speech-2-Text provides a suite of audio processing services to enhance and analyze your audio content. The following services are available:
+# Response: {{"identifier": "whisperx-workflow-abc123", "message": "Workflow started"}}
 
-    1. Transcribe: Transcribe an audio/video  file into text.
-    2. Align: Align the transcript to the audio/video file.
-    3. Diarize: Diarize an audio/video file into speakers.
-    4. Combine Transcript and Diarization: Combine the transcript and diarization results.
+# Check workflow status
+curl "http://localhost:8000/temporal/workflow/whisperx-workflow-abc123"
+```
 
-    ## Supported file extensions:
-    AUDIO_EXTENSIONS = {Config.AUDIO_EXTENSIONS}
+### Process from URL
 
-    VIDEO_EXTENSIONS = {Config.VIDEO_EXTENSIONS}
+```bash
+curl -X POST "http://localhost:8000/speech-to-text-url" \\
+  -F "url=https://example.com/audio.mp3" \\
+  -F "language=vi"
+```
 
+## Key Features
+
+### Speech Processing
+- **Multi-language Support** - 60+ languages including Vietnamese, English, Spanish, and more
+- **High Accuracy** - Powered by WhisperX state-of-the-art models
+- **Word-level Timestamps** - Precise alignment for subtitles and analytics
+- **Speaker Diarization** - Automatic speaker identification and separation
+- **Temporal Workflows** - Reliable, fault-tolerant processing
+
+### Medical Processing
+- **PHI Detection** - HIPAA-compliant Protected Health Information detection
+- **Medical NER** - Extract diagnoses, medications, procedures, and symptoms
+- **SOAP Notes** - Auto-generate structured clinical documentation
+- **RAG Chatbot** - Query patient records with AI-powered search
+- **Audit Logging** - Complete HIPAA audit trail
+
+## Supported Formats
+
+**Audio:** {", ".join(Config.AUDIO_EXTENSIONS)}
+
+**Video:** {", ".join(Config.VIDEO_EXTENSIONS)}
+
+## Architecture
+
+This API uses Temporal.io for workflow orchestration, ensuring:
+- Automatic retries on failures
+- Progress tracking and monitoring
+- Horizontal scalability
+- Fault tolerance
+
+## Resources
+
+- [WhisperX GitHub](https://github.com/m-bain/whisperX) - Core processing engine
+- [API Documentation](/scalar) - Interactive API explorer
+- [Swagger UI](/docs) - Traditional OpenAPI documentation
+
+## Security & Compliance
+
+- HIPAA-compliant medical processing
+- Access control and authentication
+- Comprehensive audit logging
+- PHI detection and de-identification
+
+---
+
+**Version:** 0.0.1 | **License:** MIT
     """,
     version="0.0.1",
+    contact={
+        "name": "WhisperX API Support",
+        "url": "https://github.com/m-bain/whisperX",
+    },
+    license_info={
+        "name": "MIT",
+        "url": "https://opensource.org/licenses/MIT",
+    },
     openapi_tags=tags_metadata,
     lifespan=lifespan,
+    swagger_ui_parameters={
+        "defaultModelsExpandDepth": -1,  # Hide schemas section by default
+        "displayRequestDuration": True,  # Show request duration
+        "filter": True,  # Enable filtering
+        "tryItOutEnabled": True,  # Enable Try it out by default
+    },
 )
 
 # Add trace middleware
@@ -95,8 +213,17 @@ app.include_router(medical.router)
 
 @app.get("/", include_in_schema=False)
 async def index():
-    """Redirect to the documentation."""
-    return RedirectResponse(url="/docs", status_code=307)
+    """Redirect to the modern Scalar API documentation."""
+    return RedirectResponse(url="/scalar", status_code=307)
+
+
+@app.get("/scalar", include_in_schema=False)
+async def scalar_html():
+    """Scalar API Documentation - Modern, interactive API explorer."""
+    return get_scalar_api_reference(
+        openapi_url=app.openapi_url,
+        title=app.title,
+    )
 
 
 # Health check endpoints
