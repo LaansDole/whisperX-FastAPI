@@ -150,6 +150,8 @@ dependencies = [
     "yarl==1.20.1",
     "python-jose[cryptography]>=3.5.0",
     "passlib[bcrypt]>=1.7.4",
+    "pytest-env>=1.1.5",
+    "scalar-fastapi>=1.5.0",
 ]
 
 [project.optional-dependencies]
@@ -177,6 +179,16 @@ gpu = [
     "nvidia-nvtx-cu12==12.6.77",
     "triton==3.3.1",
 ]
+
+[tool.ruff]
+# Ruff linting configuration
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+# Ignore E402: module level import not at top of file
+# This is often needed when imports must occur after certain initialization code
+ignore = ["E402"]
 
 [tool.isort]
 profile = "black"

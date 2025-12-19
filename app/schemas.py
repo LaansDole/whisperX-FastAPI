@@ -204,15 +204,9 @@ class ASROptions(BaseModel):
             description="Number of beams to keep in beam search, only applicable when temperature is zero",
         )
     )
-    patience: float = Field(
-        Query(1.0, description="Optional patience value to use in beam decoding")
-    )
-    length_penalty: float = Field(
-        Query(1.0, description="Optional token length penalty coefficient")
-    )
-    temperatures: float = Field(
-        Query(0.0, description="Temperature to use for sampling")
-    )
+    patience: float = Field(Query(1.0, description="Optional patience value to use in beam decoding"))
+    length_penalty: float = Field(Query(1.0, description="Optional token length penalty coefficient"))
+    temperatures: float = Field(Query(0.0, description="Temperature to use for sampling"))
     compression_ratio_threshold: float = Field(
         Query(
             2.4,
@@ -309,35 +303,27 @@ class WhisperModelParams(BaseModel):
             description="Device to use for PyTorch inference",
         )
     )
-    device_index: int = Field(
-        Query(0, description="Device index to use for FasterWhisper inference")
-    )
+    device_index: int = Field(Query(0, description="Device index to use for FasterWhisper inference"))
     threads: int = Field(
         Query(
             0,
             description="Number of threads used by torch for CPU inference; supersedes MKL_NUM_THREADS/OMP_NUM_THREADS",
         )
     )
-    batch_size: int = Field(
-        Query(8, description="The preferred batch size for inference")
-    )
+    batch_size: int = Field(Query(8, description="The preferred batch size for inference"))
     chunk_size: int = Field(
         Query(
             20,
             description="Chunk size for merging VAD segments. Default is 20, reduce this if the chunk is too long.",
         )
     )
-    compute_type: ComputeType = Field(
-        Query("int8", description="Type of computation")
-    )
+    compute_type: ComputeType = Field(Query("int8", description="Type of computation"))
 
 
 class AlignmentParams(BaseModel):
     """Model for alignment parameters."""
 
-    align_model: Optional[str] = Field(
-        Query(None, description="Name of phoneme-level ASR model to do alignment")
-    )
+    align_model: Optional[str] = Field(Query(None, description="Name of phoneme-level ASR model to do alignment"))
     interpolate_method: InterpolateMethod = Field(
         Query(
             "nearest",
@@ -367,12 +353,8 @@ class AlignmentParams(BaseModel):
 class DiarizationParams(BaseModel):
     """Model for diarization parameters."""
 
-    min_speakers: Optional[int] = Field(
-        Query(None, description="Minimum number of speakers to in audio file")
-    )
-    max_speakers: Optional[int] = Field(
-        Query(None, description="Maximum number of speakers to in audio file")
-    )
+    min_speakers: Optional[int] = Field(Query(None, description="Minimum number of speakers to in audio file"))
+    max_speakers: Optional[int] = Field(Query(None, description="Maximum number of speakers to in audio file"))
     device: Device = Field(
         Query(
             default="cpu",

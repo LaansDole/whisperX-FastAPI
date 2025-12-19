@@ -110,11 +110,11 @@ async def speech_to_text_url(
         # This ensures files are accessible across containers
         uploads_dir = "/tmp/uploads"
         os.makedirs(uploads_dir, exist_ok=True)
-        
+
         # Create a unique filename with original extension
         unique_filename = f"{uuid.uuid4()}{original_extension}"
         temp_audio_file_path = os.path.join(uploads_dir, unique_filename)
-        
+
         # Save the file to the shared location
         with open(temp_audio_file_path, "wb") as temp_file:
             for chunk in response.iter_content(chunk_size=8192):

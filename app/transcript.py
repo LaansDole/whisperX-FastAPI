@@ -36,7 +36,5 @@ def filter_aligned_transcription(
                 words=filtered_words,
             )
             filtered_segments.append(filtered_segment)
-    filtered_transcription = AlignedTranscription(
-        segments=filtered_segments, word_segments=[]
-    )
+    filtered_transcription = AlignedTranscription(segments=filtered_segments, word_segments=[])
     return filtered_transcription

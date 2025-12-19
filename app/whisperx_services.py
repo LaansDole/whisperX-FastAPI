@@ -87,9 +87,7 @@ def transcribe_with_whisper(
             threads=faster_whisper_threads,
         )
         logger.debug("Transcription model loaded successfully")
-        result = model.transcribe(
-            audio=audio, batch_size=batch_size, chunk_size=chunk_size, language=language
-        )
+        result = model.transcribe(audio=audio, batch_size=batch_size, chunk_size=chunk_size, language=language)
     except Exception as e:
         logger.error(f"Error during transcription model loading or inference: {e}")
         if "401" in str(e) or "authorization" in str(e).lower():
@@ -154,7 +152,7 @@ def diarize(audio, device: str = device, min_speakers=None, max_speakers=None):
         result = model(audio=audio, min_speakers=min_speakers, max_speakers=max_speakers)
     except Exception as e:
         logger.error(f"Error during diarization model loading from Hugging Face Hub: {e}")
-        
+
         # If download fails, try loading from the local path if provided
         if DIARIZATION_MODEL_PATH:
             logger.info(f"Attempting to load diarization model from local path: {DIARIZATION_MODEL_PATH}")
@@ -178,7 +176,6 @@ def diarize(audio, device: str = device, min_speakers=None, max_speakers=None):
                     "Could not download the diarization model. This might be due to a network issue or because you have not accepted the model's terms of service on the Hugging Face Hub for 'pyannote/speaker-diarization-3.1'. See README for troubleshooting."
                 ) from e
             raise e
-
 
     # Log GPU memory before cleanup
     if torch.cuda.is_available():
@@ -243,9 +240,7 @@ def align_whisper_output(
         interpolate_method,
         return_char_alignments,
     )
-    align_model, align_metadata = load_align_model(
-        language_code=language_code, device=device, model_name=align_model
-    )
+    align_model, align_metadata = load_align_model(language_code=language_code, device=device, model_name=align_model)
 
     result = align(
         transcript,
@@ -277,6 +272,3 @@ def align_whisper_output(
 
     logger.debug("Completed alignment")
     return result
-
-
-

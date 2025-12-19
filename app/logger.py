@@ -37,16 +37,19 @@ with open(config_path, "w") as f:
 logger = logging.getLogger("whisperX")
 logger.setLevel(log_level)
 
+
 class TraceFormatter(logging.Formatter):
     """Custom formatter that includes trace ID in log messages."""
-    
+
     def format(self, record):
         from .trace_middleware import get_trace_id
+
         trace_id = get_trace_id()
         if trace_id:
             record.trace_id = trace_id
             record.msg = f"[{trace_id[:8]}] {record.msg}"
         return super().format(record)
+
 
 # Log environment variables
 logger.info(f"Environment: {env}")
