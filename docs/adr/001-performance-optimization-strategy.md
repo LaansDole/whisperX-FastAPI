@@ -39,7 +39,6 @@ We will implement a **phased, optimized approach** with parallel processing and 
    - Faster than training/loading custom models manually
    - Easier to iterate and improve with prompt engineering
    - Switch models via LM Studio UI without code changes
-   - See [ADR 006: LM Studio Integration](006-lm-studio-integration-strategy.md)
 
 ### Phase 2: Performance Optimization (Target: 5 min)
 - Cache medical terminology lookups

@@ -386,7 +386,6 @@ ENABLE_SOAP_GENERATION=true               # Enable SOAP notes
 - **Setup Guide**: `docs/setup/lm-studio-installation.md`
 - **Implementation Plan**: [`plans/lm-studio-medical-rag-implementation.md`](plans/lm-studio-medical-rag-implementation.md)
 - **Architecture Decision**: [`docs/adr/006-lm-studio-integration-strategy.md`](docs/adr/006-lm-studio-integration-strategy.md)
-- **Cost Analysis**: [`docs/adr/005-cost-effective-infrastructure.md`](docs/adr/005-cost-effective-infrastructure.md)
 
 ### API Endpoints
 
@@ -417,15 +416,6 @@ curl http://localhost:1234/v1/models
 # 1. Open LM Studio
 # 2. Go to "Local Server" tab
 # 3. Click "Stop Server" then "Start Server"
-```
-
-**Model not loaded**:
-```bash
-# Verify model is loaded in LM Studio
-# Check "Local Server" tab shows your medical model
-
-# Preload models before starting
-python scripts/preload_lm_studio_models.py
 ```
 
 **Slow processing**:

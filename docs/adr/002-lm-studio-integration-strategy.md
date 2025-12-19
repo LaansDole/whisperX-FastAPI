@@ -1,9 +1,9 @@
-# ADR 006: LM Studio Integration for Local Medical LLM Operations
+# ADR 002: LM Studio Integration for Local Medical LLM Operations
 
 **Date**: 2025-12-13  
 **Status**: Proposed  
 **Decision Makers**: ML Engineering & Architecture Teams  
-**Related**: [ADR 001](001-performance-optimization-strategy.md), [ADR 002](002-medical-nlp-model-selection.md), [ADR 004](004-hipaa-compliance-opensource.md)
+**Related**: [ADR 001](001-performance-optimization-strategy.md), [ADR 004](004-hipaa-compliance-opensource.md)
 
 ## Context
 
