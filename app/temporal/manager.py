@@ -12,15 +12,10 @@ class TemporalManager:
     async def get_client(self) -> Client | None:
         if self._client is None:
             try:
-                self._client = await Client.connect(
-                    config.TEMPORAL_SERVER_URL, namespace=config.TEMPORAL_NAMESPACE
-                )
+                self._client = await Client.connect(config.TEMPORAL_SERVER_URL, namespace=config.TEMPORAL_NAMESPACE)
                 logger.info("Successfully connected to Temporal.")
             except Exception as e:
-                logger.warning(
-                    "Failed to connect to Temporal. "
-                    f"Temporal-dependent features will not be available: {e}"
-                )
+                logger.warning(f"Failed to connect to Temporal. Temporal-dependent features will not be available: {e}")
                 self._client = None  # Explicitly set to None on failure
         return self._client
 

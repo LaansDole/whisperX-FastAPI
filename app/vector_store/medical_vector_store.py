@@ -17,10 +17,7 @@ class MedicalDocumentVectorStore:
     """Simplified vector store using FAISS + SQLite for medical consultations."""
 
     def __init__(
-        self,
-        storage_dir: str = "./vector_storage",
-        embedding_dim: int = 768,
-        index_type: str = "IndexFlatL2"
+        self, storage_dir: str = "./vector_storage", embedding_dim: int = 768, index_type: str = "IndexFlatL2"
     ):
         """
         Initialize vector store.
@@ -170,7 +167,7 @@ class MedicalDocumentVectorStore:
         encounter_date: str,
         transcript: str,
         embedding: np.ndarray,
-        metadata: Dict[str, Any] = None
+        metadata: Dict[str, Any] = None,
     ) -> int:
         """
         Store consultation embedding and metadata.
@@ -199,22 +196,25 @@ class MedicalDocumentVectorStore:
             transcript_hash = self._generate_transcript_hash(transcript)
 
             cursor = self.conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT OR REPLACE INTO consultations
                 (consultation_id, patient_id_encrypted, provider_id, encounter_date,
                  transcript_hash, transcript_length, vector_id, metadata_json, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                consultation_id,
-                patient_id_encrypted,
-                provider_id,
-                encounter_date,
-                transcript_hash,
-                len(transcript),
-                vector_id,
-                json.dumps(metadata or {}),
-                datetime.now().isoformat()
-            ))
+            """,
+                (
+                    consultation_id,
+                    patient_id_encrypted,
+                    provider_id,
+                    encounter_date,
+                    transcript_hash,
+                    len(transcript),
+                    vector_id,
+                    json.dumps(metadata or {}),
+                    datetime.now().isoformat(),
+                ),
+            )
 
             self.conn.commit()
             logger.info(f"Stored consultation {consultation_id} with vector_id {vector_id}")
@@ -226,11 +226,7 @@ class MedicalDocumentVectorStore:
             self.conn.rollback()
             raise
 
-    async def store_medical_entities(
-        self,
-        consultation_id: str,
-        entities: List[Dict[str, Any]]
-    ):
+    async def store_medical_entities(self, consultation_id: str, entities: List[Dict[str, Any]]):
         """
         Store medical entities for a consultation.
 
@@ -242,21 +238,24 @@ class MedicalDocumentVectorStore:
             cursor = self.conn.cursor()
 
             for entity in entities:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO medical_entities
                     (consultation_id, entity_type, entity_text, normalized_text,
                      icd_code, confidence, start_position, end_position)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    consultation_id,
-                    entity.get("type"),
-                    entity.get("text"),
-                    entity.get("normalized"),
-                    entity.get("code"),
-                    entity.get("confidence"),
-                    entity.get("start"),
-                    entity.get("end")
-                ))
+                """,
+                    (
+                        consultation_id,
+                        entity.get("type"),
+                        entity.get("text"),
+                        entity.get("normalized"),
+                        entity.get("code"),
+                        entity.get("confidence"),
+                        entity.get("start"),
+                        entity.get("end"),
+                    ),
+                )
 
             self.conn.commit()
             logger.info(f"Stored {len(entities)} medical entities for {consultation_id}")
@@ -266,11 +265,7 @@ class MedicalDocumentVectorStore:
             self.conn.rollback()
             raise
 
-    async def store_phi_detections(
-        self,
-        consultation_id: str,
-        phi_entities: List[Dict[str, Any]]
-    ):
+    async def store_phi_detections(self, consultation_id: str, phi_entities: List[Dict[str, Any]]):
         """
         Store PHI detections for a consultation.
 
@@ -282,19 +277,22 @@ class MedicalDocumentVectorStore:
             cursor = self.conn.cursor()
 
             for phi in phi_entities:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO phi_detections
                     (consultation_id, phi_type, phi_text, start_position,
                      end_position, confidence)
                     VALUES (?, ?, ?, ?, ?, ?)
-                """, (
-                    consultation_id,
-                    phi.get("type"),
-                    phi.get("text"),
-                    phi.get("start"),
-                    phi.get("end"),
-                    phi.get("confidence")
-                ))
+                """,
+                    (
+                        consultation_id,
+                        phi.get("type"),
+                        phi.get("text"),
+                        phi.get("start"),
+                        phi.get("end"),
+                        phi.get("confidence"),
+                    ),
+                )
 
             self.conn.commit()
             logger.info(f"Stored {len(phi_entities)} PHI detections for {consultation_id}")
@@ -309,7 +307,7 @@ class MedicalDocumentVectorStore:
         consultation_id: str,
         structured_doc: Dict[str, Any],
         soap_note: Dict[str, str] = None,
-        clinical_summary: str = None
+        clinical_summary: str = None,
     ):
         """
         Store structured medical document.
@@ -323,17 +321,20 @@ class MedicalDocumentVectorStore:
         try:
             cursor = self.conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT OR REPLACE INTO structured_documents
                 (consultation_id, document_json, soap_note_json, clinical_summary, updated_at)
                 VALUES (?, ?, ?, ?, ?)
-            """, (
-                consultation_id,
-                json.dumps(structured_doc),
-                json.dumps(soap_note) if soap_note else None,
-                clinical_summary,
-                datetime.now().isoformat()
-            ))
+            """,
+                (
+                    consultation_id,
+                    json.dumps(structured_doc),
+                    json.dumps(soap_note) if soap_note else None,
+                    clinical_summary,
+                    datetime.now().isoformat(),
+                ),
+            )
 
             self.conn.commit()
             logger.info(f"Stored structured document for {consultation_id}")
@@ -348,7 +349,7 @@ class MedicalDocumentVectorStore:
         query_embedding: np.ndarray,
         patient_id_encrypted: str = None,
         limit: int = 10,
-        similarity_threshold: float = 0.7
+        similarity_threshold: float = 0.7,
     ) -> List[Dict[str, Any]]:
         """
         Search for similar consultations.
@@ -371,10 +372,7 @@ class MedicalDocumentVectorStore:
             if k == 0:
                 return []
 
-            distances, indices = self.index.search(
-                query_normalized.reshape(1, -1),
-                k
-            )
+            distances, indices = self.index.search(query_normalized.reshape(1, -1), k)
 
             # Get metadata from SQLite
             results = []
@@ -417,7 +415,7 @@ class MedicalDocumentVectorStore:
                         "transcript_hash": row[4],
                         "transcript_length": row[5],
                         "created_at": row[6],
-                        "metadata": json.loads(row[7]) if row[7] else {}
+                        "metadata": json.loads(row[7]) if row[7] else {},
                     }
                     results.append(result)
 
@@ -439,7 +437,7 @@ class MedicalDocumentVectorStore:
         consultation_id: str,
         include_entities: bool = True,
         include_phi: bool = False,
-        include_structured: bool = True
+        include_structured: bool = True,
     ) -> Dict[str, Any]:
         """
         Get complete consultation details.
@@ -457,9 +455,12 @@ class MedicalDocumentVectorStore:
             cursor = self.conn.cursor()
 
             # Get basic consultation info
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT * FROM consultations WHERE consultation_id = ?
-            """, (consultation_id,))
+            """,
+                (consultation_id,),
+            )
 
             consultation_row = cursor.fetchone()
             if not consultation_row:
@@ -474,18 +475,21 @@ class MedicalDocumentVectorStore:
                 "transcript_length": consultation_row[6],
                 "created_at": consultation_row[7],
                 "vector_id": consultation_row[9],
-                "metadata": json.loads(consultation_row[10]) if consultation_row[10] else {}
+                "metadata": json.loads(consultation_row[10]) if consultation_row[10] else {},
             }
 
             # Get medical entities
             if include_entities:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT entity_type, entity_text, normalized_text, icd_code,
                            confidence, start_position, end_position
                     FROM medical_entities
                     WHERE consultation_id = ?
                     ORDER BY start_position
-                """, (consultation_id,))
+                """,
+                    (consultation_id,),
+                )
 
                 result["medical_entities"] = [
                     {
@@ -495,19 +499,22 @@ class MedicalDocumentVectorStore:
                         "icd_code": row[3],
                         "confidence": row[4],
                         "start_position": row[5],
-                        "end_position": row[6]
+                        "end_position": row[6],
                     }
                     for row in cursor.fetchall()
                 ]
 
             # Get PHI detections (only if explicitly requested)
             if include_phi:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT phi_type, phi_text, start_position, end_position, confidence
                     FROM phi_detections
                     WHERE consultation_id = ?
                     ORDER BY start_position
-                """, (consultation_id,))
+                """,
+                    (consultation_id,),
+                )
 
                 result["phi_detections"] = [
                     {
@@ -515,18 +522,21 @@ class MedicalDocumentVectorStore:
                         "text": row[1],
                         "start_position": row[2],
                         "end_position": row[3],
-                        "confidence": row[4]
+                        "confidence": row[4],
                     }
                     for row in cursor.fetchall()
                 ]
 
             # Get structured document
             if include_structured:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT document_json, soap_note_json, clinical_summary
                     FROM structured_documents
                     WHERE consultation_id = ?
-                """, (consultation_id,))
+                """,
+                    (consultation_id,),
+                )
 
                 structured_row = cursor.fetchone()
                 if structured_row:
@@ -541,10 +551,7 @@ class MedicalDocumentVectorStore:
             return None
 
     async def get_patient_consultations(
-        self,
-        patient_id_encrypted: str,
-        limit: int = 50,
-        offset: int = 0
+        self, patient_id_encrypted: str, limit: int = 50, offset: int = 0
     ) -> List[Dict[str, Any]]:
         """
         Get all consultations for a specific patient.
@@ -560,14 +567,17 @@ class MedicalDocumentVectorStore:
         try:
             cursor = self.conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT consultation_id, provider_id, encounter_date,
                        transcript_length, created_at, metadata_json
                 FROM consultations
                 WHERE patient_id_encrypted = ?
                 ORDER BY encounter_date DESC
                 LIMIT ? OFFSET ?
-            """, (patient_id_encrypted, limit, offset))
+            """,
+                (patient_id_encrypted, limit, offset),
+            )
 
             consultations = []
             for row in cursor.fetchall():
@@ -577,7 +587,7 @@ class MedicalDocumentVectorStore:
                     "encounter_date": row[2],
                     "transcript_length": row[3],
                     "created_at": row[4],
-                    "metadata": json.loads(row[5]) if row[5] else {}
+                    "metadata": json.loads(row[5]) if row[5] else {},
                 }
                 consultations.append(consultation)
 
@@ -615,7 +625,7 @@ class MedicalDocumentVectorStore:
                 "embedding_dimension": self.embedding_dim,
                 "index_type": self.index_type,
                 "entity_counts": entity_counts,
-                "storage_path": str(self.storage_dir)
+                "storage_path": str(self.storage_dir),
             }
 
         except Exception as e:

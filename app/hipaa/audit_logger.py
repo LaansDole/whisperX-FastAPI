@@ -53,14 +53,10 @@ class HIPAAAuditLogger:
             self.logger.removeHandler(handler)
 
         # Create file handler with append-only mode
-        handler = logging.FileHandler(
-            self.log_file,
-            mode='a',
-            encoding='utf-8'
-        )
+        handler = logging.FileHandler(self.log_file, mode="a", encoding="utf-8")
 
         # Set formatter (JSON format)
-        handler.setFormatter(logging.Formatter('%(message)s'))
+        handler.setFormatter(logging.Formatter("%(message)s"))
         self.logger.addHandler(handler)
 
         # Prevent propagation to avoid duplicate logs
@@ -90,7 +86,7 @@ class HIPAAAuditLogger:
             return None
 
         try:
-            with open(log_file, 'r', encoding='utf-8') as f:
+            with open(log_file, "r", encoding="utf-8") as f:
                 lines = f.readlines()
                 if lines:
                     # Get last non-empty line
@@ -111,13 +107,13 @@ class HIPAAAuditLogger:
         entry_copy.pop("hash", None)
 
         # Convert to sorted JSON string for consistent ordering
-        entry_str = json.dumps(entry_copy, sort_keys=True, separators=(',', ':'))
+        entry_str = json.dumps(entry_copy, sort_keys=True, separators=(",", ":"))
 
         # Combine with previous hash
         combined = f"{self.previous_hash}{entry_str}"
 
         # Compute SHA-256 hash
-        return hashlib.sha256(combined.encode('utf-8')).hexdigest()
+        return hashlib.sha256(combined.encode("utf-8")).hexdigest()
 
     def _write_entry(self, entry: Dict[str, Any]) -> str:
         """Write audit entry to log file."""
@@ -131,7 +127,7 @@ class HIPAAAuditLogger:
             entry["hash"] = self._compute_hash(entry)
 
             # Write entry
-            entry_json = json.dumps(entry, separators=(',', ':'))
+            entry_json = json.dumps(entry, separators=(",", ":"))
             self.logger.info(entry_json)
 
             # Update state
@@ -156,13 +152,7 @@ class HIPAAAuditLogger:
         self.entries_today = 0
 
     def log_phi_access(
-        self,
-        user_id: str,
-        patient_id: str,
-        action: str,
-        resource: str,
-        result: str = "success",
-        **kwargs
+        self, user_id: str, patient_id: str, action: str, resource: str, result: str = "success", **kwargs
     ):
         """
         Log PHI access with complete audit trail.
@@ -187,7 +177,7 @@ class HIPAAAuditLogger:
             "user_agent": kwargs.get("user_agent"),
             "session_id": kwargs.get("session_id"),
             "access_reason": kwargs.get("access_reason"),
-            "previous_hash": self.previous_hash
+            "previous_hash": self.previous_hash,
         }
 
         # Add any additional fields
@@ -197,12 +187,7 @@ class HIPAAAuditLogger:
 
         self._write_entry(entry)
 
-    def log_system_event(
-        self,
-        event_type: str,
-        user_id: str = None,
-        details: Dict[str, Any] = None
-    ):
+    def log_system_event(self, event_type: str, user_id: str = None, details: Dict[str, Any] = None):
         """
         Log system events.
 
@@ -216,7 +201,7 @@ class HIPAAAuditLogger:
             "event_type": event_type,
             "user_id": user_id,
             "details": details or {},
-            "previous_hash": self.previous_hash
+            "previous_hash": self.previous_hash,
         }
 
         self._write_entry(entry)
@@ -227,7 +212,7 @@ class HIPAAAuditLogger:
         event_type: str,  # login, logout, failed_login, token_expired
         ip_address: str = None,
         user_agent: str = None,
-        success: bool = True
+        success: bool = True,
     ):
         """
         Log authentication events.
@@ -247,7 +232,7 @@ class HIPAAAuditLogger:
             "success": success,
             "ip_address": ip_address,
             "user_agent": user_agent,
-            "previous_hash": self.previous_hash
+            "previous_hash": self.previous_hash,
         }
 
         self._write_entry(entry)
@@ -258,7 +243,7 @@ class HIPAAAuditLogger:
         action: str,  # create, update, delete
         resource_type: str,  # consultation, patient, entity, etc.
         resource_id: str,
-        changes: Dict[str, Any] = None
+        changes: Dict[str, Any] = None,
     ):
         """
         Log data modification events.
@@ -278,18 +263,13 @@ class HIPAAAuditLogger:
             "resource_type": resource_type,
             "resource_id": resource_id,
             "changes": changes or {},
-            "previous_hash": self.previous_hash
+            "previous_hash": self.previous_hash,
         }
 
         self._write_entry(entry)
 
     def log_export_event(
-        self,
-        user_id: str,
-        export_type: str,
-        record_count: int,
-        destination: str,
-        patient_ids: List[str] = None
+        self, user_id: str, export_type: str, record_count: int, destination: str, patient_ids: List[str] = None
     ):
         """
         Log data export events.
@@ -309,17 +289,13 @@ class HIPAAAuditLogger:
             "record_count": record_count,
             "destination": destination,
             "patient_ids": patient_ids or [],
-            "previous_hash": self.previous_hash
+            "previous_hash": self.previous_hash,
         }
 
         self._write_entry(entry)
 
     def log_breach_attempt(
-        self,
-        description: str,
-        ip_address: str,
-        user_id: str = None,
-        details: Dict[str, Any] = None
+        self, description: str, ip_address: str, user_id: str = None, details: Dict[str, Any] = None
     ):
         """
         Log security breach attempts.
@@ -338,7 +314,7 @@ class HIPAAAuditLogger:
             "user_id": user_id,
             "details": details or {},
             "severity": "high",
-            "previous_hash": self.previous_hash
+            "previous_hash": self.previous_hash,
         }
 
         self._write_entry(entry)
@@ -350,7 +326,7 @@ class HIPAAAuditLogger:
         user_id: str = None,
         patient_id: str = None,
         event_type: str = None,
-        limit: int = 1000
+        limit: int = 1000,
     ) -> List[Dict[str, Any]]:
         """
         Search audit logs with filters.
@@ -379,14 +355,9 @@ class HIPAAAuditLogger:
         while current_date <= end_date.date():
             log_file = self.log_dir / f"audit_{current_date.isoformat()}.log"
             if log_file.exists():
-                results.extend(self._search_log_file(
-                    log_file, start_date, end_date, user_id, patient_id, event_type
-                ))
+                results.extend(self._search_log_file(log_file, start_date, end_date, user_id, patient_id, event_type))
 
-            current_date = datetime.combine(
-                current_date,
-                datetime.min.time()
-            ) + timedelta(days=1)
+            current_date = datetime.combine(current_date, datetime.min.time()) + timedelta(days=1)
 
             if len(results) >= limit:
                 break
@@ -400,13 +371,13 @@ class HIPAAAuditLogger:
         end_date: datetime,
         user_id: str = None,
         patient_id: str = None,
-        event_type: str = None
+        event_type: str = None,
     ) -> List[Dict[str, Any]]:
         """Search a specific log file."""
         results = []
 
         try:
-            with open(log_file, 'r', encoding='utf-8') as f:
+            with open(log_file, "r", encoding="utf-8") as f:
                 for line_num, line in enumerate(f, 1):
                     try:
                         entry = json.loads(line.strip())
@@ -453,7 +424,7 @@ class HIPAAAuditLogger:
             "total_entries": 0,
             "date_range": None,
             "first_entry_hash": None,
-            "last_entry_hash": None
+            "last_entry_hash": None,
         }
 
         try:
@@ -491,13 +462,15 @@ class HIPAAAuditLogger:
                     # Update previous hash for next file
                     previous_hash = self._get_last_hash_from_file(log_file) or previous_hash
 
-            verification_result.update({
-                "total_entries": entry_count,
-                "date_range": {
-                    "start": first_date.isoformat() if first_date else None,
-                    "end": last_date.isoformat() if last_date else None
+            verification_result.update(
+                {
+                    "total_entries": entry_count,
+                    "date_range": {
+                        "start": first_date.isoformat() if first_date else None,
+                        "end": last_date.isoformat() if last_date else None,
+                    },
                 }
-            })
+            )
 
         except Exception as e:
             verification_result["verified"] = False
@@ -510,7 +483,7 @@ class HIPAAAuditLogger:
         errors = []
 
         try:
-            with open(log_file, 'r', encoding='utf-8') as f:
+            with open(log_file, "r", encoding="utf-8") as f:
                 previous_hash = expected_previous_hash
                 line_number = 0
 
@@ -542,9 +515,7 @@ class HIPAAAuditLogger:
                                 )
                             previous_hash = stored_hash
                         else:
-                            errors.append(
-                                f"Missing hash in {log_file.name} line {line_number}"
-                            )
+                            errors.append(f"Missing hash in {log_file.name} line {line_number}")
 
                     except json.JSONDecodeError:
                         errors.append(f"Invalid JSON in {log_file.name} line {line_number}")
@@ -557,7 +528,7 @@ class HIPAAAuditLogger:
     def _count_file_entries(self, log_file: Path) -> int:
         """Count valid entries in a log file."""
         try:
-            with open(log_file, 'r', encoding='utf-8') as f:
+            with open(log_file, "r", encoding="utf-8") as f:
                 return sum(1 for line in f if line.strip())
         except IOError:
             return 0
@@ -583,15 +554,17 @@ class HIPAAAuditLogger:
 
         try:
             # Log operation start
-            entry_hash = self._write_entry({
-                "timestamp": start_time.isoformat(),
-                "event_type": "OPERATION_START",
-                "user_id": user_id,
-                "operation": operation,
-                "resource": resource,
-                "status": "started",
-                "previous_hash": self.previous_hash
-            })
+            entry_hash = self._write_entry(
+                {
+                    "timestamp": start_time.isoformat(),
+                    "event_type": "OPERATION_START",
+                    "user_id": user_id,
+                    "operation": operation,
+                    "resource": resource,
+                    "status": "started",
+                    "previous_hash": self.previous_hash,
+                }
+            )
 
             yield
 
@@ -599,34 +572,38 @@ class HIPAAAuditLogger:
             end_time = datetime.now(timezone.utc)
             duration_ms = (end_time - start_time).total_seconds() * 1000
 
-            self._write_entry({
-                "timestamp": end_time.isoformat(),
-                "event_type": "OPERATION_COMPLETE",
-                "user_id": user_id,
-                "operation": operation,
-                "resource": resource,
-                "status": "success",
-                "duration_ms": duration_ms,
-                "started_entry_hash": entry_hash,
-                "previous_hash": self.previous_hash
-            })
+            self._write_entry(
+                {
+                    "timestamp": end_time.isoformat(),
+                    "event_type": "OPERATION_COMPLETE",
+                    "user_id": user_id,
+                    "operation": operation,
+                    "resource": resource,
+                    "status": "success",
+                    "duration_ms": duration_ms,
+                    "started_entry_hash": entry_hash,
+                    "previous_hash": self.previous_hash,
+                }
+            )
 
         except Exception as e:
             # Log operation failure
             end_time = datetime.now(timezone.utc)
             duration_ms = (end_time - start_time).total_seconds() * 1000
 
-            self._write_entry({
-                "timestamp": end_time.isoformat(),
-                "event_type": "OPERATION_FAILED",
-                "user_id": user_id,
-                "operation": operation,
-                "resource": resource,
-                "status": "failed",
-                "error": str(e),
-                "duration_ms": duration_ms,
-                "started_entry_hash": entry_hash,
-                "previous_hash": self.previous_hash
-            })
+            self._write_entry(
+                {
+                    "timestamp": end_time.isoformat(),
+                    "event_type": "OPERATION_FAILED",
+                    "user_id": user_id,
+                    "operation": operation,
+                    "resource": resource,
+                    "status": "failed",
+                    "error": str(e),
+                    "duration_ms": duration_ms,
+                    "started_entry_hash": entry_hash,
+                    "previous_hash": self.previous_hash,
+                }
+            )
 
             raise

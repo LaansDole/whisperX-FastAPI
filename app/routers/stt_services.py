@@ -84,12 +84,8 @@ async def transcribe(
     name="2. Align Transcript",
 )
 async def align(
-    transcript: UploadFile = File(
-        ..., description="Whisper style transcript json file"
-    ),
-    file: UploadFile = File(
-        ..., description="Audio/video file which has been transcribed"
-    ),
+    transcript: UploadFile = File(..., description="Whisper style transcript json file"),
+    file: UploadFile = File(..., description="Audio/video file which has been transcribed"),
     device: Device = Query(
         default=device,
         description="Device to use for PyTorch inference",
@@ -132,9 +128,7 @@ async def align(
     return Response(identifier=handle.id, message="Workflow started")
 
 
-@service_router.post(
-    "/service/diarize", tags=["Speech-2-Text services"], name="3. Diarize"
-)
+@service_router.post("/service/diarize", tags=["Speech-2-Text services"], name="3. Diarize")
 async def diarize(
     file: UploadFile = File(...),
     device: Device = Query(
@@ -204,7 +198,13 @@ async def combine(
     workflow_id = f"whisperx-workflow-{uuid.uuid4()}"
     handle = await client.start_workflow(
         WhisperXWorkflow.run,
-        args=[None, {"diarization_segments": [s.model_dump() for s in diarization_segments], "transcript": transcript.model_dump()}],
+        args=[
+            None,
+            {
+                "diarization_segments": [s.model_dump() for s in diarization_segments],
+                "transcript": transcript.model_dump(),
+            },
+        ],
         id=workflow_id,
         task_queue=config.TEMPORAL_TASK_QUEUE,
     )

@@ -8,6 +8,7 @@ from app.schemas import Response
 
 temporal_router = APIRouter()
 
+
 @temporal_router.post("/temporal/workflow", tags=["Temporal"])
 async def start_workflow(audio_path: str, params: dict):
     client = await temporal_manager.get_client()
@@ -20,6 +21,7 @@ async def start_workflow(audio_path: str, params: dict):
         task_queue=config.TEMPORAL_TASK_QUEUE,
     )
     return Response(identifier=handle.id, message="Workflow started")
+
 
 @temporal_router.get("/temporal/workflow/{workflow_id}", tags=["Temporal"])
 async def get_workflow_status(workflow_id: str):

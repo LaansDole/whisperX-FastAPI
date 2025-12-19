@@ -37,8 +37,7 @@ class HIPAAEncryption:
         key_b64 = os.environ.get("HIPAA_ENCRYPTION_KEY")
         if not key_b64:
             raise ValueError(
-                "HIPAA_ENCRYPTION_KEY environment variable not set. "
-                "This is required for HIPAA compliance."
+                "HIPAA_ENCRYPTION_KEY environment variable not set. This is required for HIPAA compliance."
             )
         try:
             return base64.b64decode(key_b64)
@@ -68,11 +67,11 @@ class HIPAAEncryption:
             length=32,  # 256-bit key
             salt=salt,
             iterations=100000,  # OWASP recommended minimum
-            backend=self.backend
+            backend=self.backend,
         )
 
         # Combine master key with context for domain separation
-        context_data = self.master_key + context.encode('utf-8')
+        context_data = self.master_key + context.encode("utf-8")
         derived_key = kdf.derive(context_data)
 
         return derived_key, salt
@@ -96,24 +95,20 @@ class HIPAAEncryption:
             iv = os.urandom(12)
 
             # Create cipher
-            cipher = Cipher(
-                algorithms.AES(key),
-                modes.GCM(iv),
-                backend=self.backend
-            )
+            cipher = Cipher(algorithms.AES(key), modes.GCM(iv), backend=self.backend)
             encryptor = cipher.encryptor()
 
             # Encrypt data
-            ciphertext = encryptor.update(plaintext.encode('utf-8')) + encryptor.finalize()
+            ciphertext = encryptor.update(plaintext.encode("utf-8")) + encryptor.finalize()
 
             # Return encrypted components
             return {
-                "ciphertext": base64.b64encode(ciphertext).decode('utf-8'),
-                "iv": base64.b64encode(iv).decode('utf-8'),
-                "tag": base64.b64encode(encryptor.tag).decode('utf-8'),
-                "salt": base64.b64encode(salt).decode('utf-8'),
+                "ciphertext": base64.b64encode(ciphertext).decode("utf-8"),
+                "iv": base64.b64encode(iv).decode("utf-8"),
+                "tag": base64.b64encode(encryptor.tag).decode("utf-8"),
+                "salt": base64.b64encode(salt).decode("utf-8"),
                 "algorithm": "AES-256-GCM",
-                "key_derivation": "PBKDF2-SHA256"
+                "key_derivation": "PBKDF2-SHA256",
             }
 
         except Exception as e:
@@ -148,17 +143,13 @@ class HIPAAEncryption:
             key, _ = self._derive_key(context, salt)
 
             # Create cipher for decryption
-            cipher = Cipher(
-                algorithms.AES(key),
-                modes.GCM(iv, tag),
-                backend=self.backend
-            )
+            cipher = Cipher(algorithms.AES(key), modes.GCM(iv, tag), backend=self.backend)
             decryptor = cipher.decryptor()
 
             # Decrypt data
             plaintext = decryptor.update(ciphertext) + decryptor.finalize()
 
-            return plaintext.decode('utf-8')
+            return plaintext.decode("utf-8")
 
         except Exception as e:
             logger.error(f"PHI decryption failed: {e}")
@@ -179,7 +170,7 @@ class HIPAAEncryption:
 
         # Return combined encrypted representation
         combined = f"{encrypted['ciphertext']}:{encrypted['iv']}:{encrypted['tag']}:{encrypted['salt']}"
-        return base64.b64encode(combined.encode('utf-8')).decode('utf-8')
+        return base64.b64encode(combined.encode("utf-8")).decode("utf-8")
 
     def decrypt_patient_id(self, encrypted_patient_id: str) -> str:
         """
@@ -193,18 +184,13 @@ class HIPAAEncryption:
         """
         try:
             # Decode combined format
-            combined = base64.b64decode(encrypted_patient_id).decode('utf-8')
-            parts = combined.split(':')
+            combined = base64.b64decode(encrypted_patient_id).decode("utf-8")
+            parts = combined.split(":")
 
             if len(parts) != 4:
                 raise ValueError("Invalid encrypted patient ID format")
 
-            encrypted_data = {
-                "ciphertext": parts[0],
-                "iv": parts[1],
-                "tag": parts[2],
-                "salt": parts[3]
-            }
+            encrypted_data = {"ciphertext": parts[0], "iv": parts[1], "tag": parts[2], "salt": parts[3]}
 
             # Decrypt to get patient ID, then use it as context
             patient_id = self.decrypt_phi(encrypted_data, "patient_id_unknown")
@@ -232,7 +218,7 @@ class HIPAAEncryption:
             Secure identifier string
         """
         random_bytes = os.urandom(length)
-        identifier = hashlib.sha256(random_bytes).hexdigest()[:length * 2]
+        identifier = hashlib.sha256(random_bytes).hexdigest()[: length * 2]
         return f"{prefix}{identifier}" if prefix else identifier
 
     def hash_phi(self, phi_text: str, salt: str = None) -> str:
@@ -247,11 +233,11 @@ class HIPAAEncryption:
             SHA-256 hash of PHI
         """
         if salt is None:
-            salt = base64.b64encode(self.salt).decode('utf-8')
+            salt = base64.b64encode(self.salt).decode("utf-8")
 
         # Combine PHI with salt for hashing
         combined = f"{phi_text}{salt}"
-        return hashlib.sha256(combined.encode('utf-8')).hexdigest()
+        return hashlib.sha256(combined.encode("utf-8")).hexdigest()
 
     def verify_phi_hash(self, phi_text: str, stored_hash: str, salt: str = None) -> bool:
         """
@@ -277,7 +263,7 @@ class HIPAAEncryption:
             Base64-encoded master key (32 bytes)
         """
         master_key = os.urandom(32)
-        return base64.b64encode(master_key).decode('utf-8')
+        return base64.b64encode(master_key).decode("utf-8")
 
     def validate_encryption_integrity(self, encrypted_data: Dict[str, str]) -> bool:
         """

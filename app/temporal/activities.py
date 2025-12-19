@@ -10,6 +10,7 @@ from .monitoring import TemporalMetrics
 
 logging.basicConfig(level=logging.INFO)
 
+
 @activity.defn
 async def transcribe_activity(
     audio_path: str,
@@ -26,7 +27,7 @@ async def transcribe_activity(
     model_params_obj = WhisperModelParams(**model_params)
     asr_options_obj = ASROptions(**asr_options)
     vad_options_obj = VADOptions(**vad_options)
-    
+
     async with TemporalMetrics.activity_timer("transcription", audio_path):
         try:
             result = transcribe_with_whisper(
@@ -47,18 +48,17 @@ async def transcribe_activity(
         except Exception as e:
             raise TemporalErrorHandler.create_application_error(e, "Transcription")
 
+
 @activity.defn
-async def align_activity(
-    transcript: dict, audio_path: str, align_params: dict
-) -> dict:
+async def align_activity(transcript: dict, audio_path: str, align_params: dict) -> dict:
     """Activity to align transcript."""
     from app.audio import process_audio_file
     from app.whisperx_services import align_whisper_output
     from app.schemas import AlignmentParams
-    
+
     audio = process_audio_file(audio_path)
     align_params_obj = AlignmentParams(**align_params)
-    
+
     async with TemporalMetrics.activity_timer("alignment", audio_path):
         try:
             result = align_whisper_output(
@@ -74,6 +74,7 @@ async def align_activity(
         except Exception as e:
             raise TemporalErrorHandler.create_application_error(e, "Alignment")
 
+
 @activity.defn
 async def diarize_activity(audio_path: str, diarize_params: dict) -> dict:
     """Activity to diarize audio."""
@@ -83,7 +84,7 @@ async def diarize_activity(audio_path: str, diarize_params: dict) -> dict:
 
     audio = process_audio_file(audio_path)
     diarize_params_obj = DiarizationParams(**diarize_params)
-    
+
     async with TemporalMetrics.activity_timer("diarization", audio_path):
         try:
             result = diarize(
@@ -99,31 +100,31 @@ async def diarize_activity(audio_path: str, diarize_params: dict) -> dict:
                 "metadata": {
                     "min_speakers": diarize_params_obj.min_speakers,
                     "max_speakers": diarize_params_obj.max_speakers,
-                }
+                },
             }
         except Exception as e:
             raise TemporalErrorHandler.create_application_error(e, "Diarization")
 
+
 @activity.defn
-async def assign_speakers_activity(
-    diarization_segments: dict, transcript: dict
-) -> dict:
+async def assign_speakers_activity(diarization_segments: dict, transcript: dict) -> dict:
     """Activity to assign speakers."""
     import whisperx
     import pandas as pd
-    
+
     async with TemporalMetrics.activity_timer("speaker_assignment"):
         try:
             # Extract the segments list from the diarization result
             segments_list = diarization_segments.get("segments", [])
-            
+
             # Convert back to DataFrame format that whisperx.assign_word_speakers expects
             segments_df = pd.DataFrame(segments_list)
-            
+
             result = whisperx.assign_word_speakers(segments_df, transcript)
             return result
         except Exception as e:
             raise TemporalErrorHandler.create_application_error(e, "Speaker assignment")
+
 
 @activity.defn
 async def phi_detection_activity(transcript: str, consultation_id: str) -> dict:
@@ -161,12 +162,13 @@ async def phi_detection_activity(transcript: str, consultation_id: str) -> dict:
                 "consultation_id": consultation_id,
                 "phi_detected": phi_result.get("phi_detected", False),
                 "entities": phi_result.get("entities", []),
-                "processed_at": datetime.now().isoformat()
+                "processed_at": datetime.now().isoformat(),
             }
 
         except Exception as e:
             logging.error(f"PHI detection failed: {e}")
             raise TemporalErrorHandler.create_application_error(e, "PHI Detection")
+
 
 @activity.defn
 async def medical_entity_extraction_activity(transcript: str, consultation_id: str) -> dict:
@@ -204,12 +206,13 @@ async def medical_entity_extraction_activity(transcript: str, consultation_id: s
                 "consultation_id": consultation_id,
                 "entities": entities,
                 "entity_count": len(entities),
-                "processed_at": datetime.now().isoformat()
+                "processed_at": datetime.now().isoformat(),
             }
 
         except Exception as e:
             logging.error(f"Medical entity extraction failed: {e}")
             raise TemporalErrorHandler.create_application_error(e, "Medical Entity Extraction")
+
 
 @activity.defn
 async def soap_generation_activity(transcript: str, consultation_id: str) -> dict:
@@ -246,19 +249,17 @@ async def soap_generation_activity(transcript: str, consultation_id: str) -> dic
             return {
                 "consultation_id": consultation_id,
                 "soap_note": soap_note,
-                "processed_at": datetime.now().isoformat()
+                "processed_at": datetime.now().isoformat(),
             }
 
         except Exception as e:
             logging.error(f"SOAP generation failed: {e}")
             raise TemporalErrorHandler.create_application_error(e, "SOAP Generation")
 
+
 @activity.defn
 async def document_structuring_activity(
-    transcript: str,
-    consultation_id: str,
-    phi_data: dict = None,
-    entities: list = None
+    transcript: str, consultation_id: str, phi_data: dict = None, entities: list = None
 ) -> dict:
     """Activity to structure medical document from components."""
     from app.config import Config
@@ -288,9 +289,7 @@ async def document_structuring_activity(
 
             # Structure document
             structured_doc = await service.structure_medical_document(
-                transcript=transcript,
-                phi_data=phi_data or {},
-                entities=entities or []
+                transcript=transcript, phi_data=phi_data or {}, entities=entities or []
             )
 
             # Generate clinical summary
@@ -302,12 +301,13 @@ async def document_structuring_activity(
             return {
                 "consultation_id": consultation_id,
                 "structured_document": structured_doc,
-                "processed_at": datetime.now().isoformat()
+                "processed_at": datetime.now().isoformat(),
             }
 
         except Exception as e:
             logging.error(f"Document structuring failed: {e}")
             raise TemporalErrorHandler.create_application_error(e, "Document Structuring")
+
 
 @activity.defn
 async def embedding_generation_activity(transcript: str, consultation_id: str) -> dict:
@@ -341,12 +341,13 @@ async def embedding_generation_activity(transcript: str, consultation_id: str) -
                 "embedding": embedding,
                 "embedding_dimension": len(embedding),
                 "model": Config.EMBEDDING_MODEL,
-                "processed_at": datetime.now().isoformat()
+                "processed_at": datetime.now().isoformat(),
             }
 
         except Exception as e:
             logging.error(f"Embedding generation failed: {e}")
             raise TemporalErrorHandler.create_application_error(e, "Embedding Generation")
+
 
 @activity.defn
 async def vector_storage_activity(
@@ -358,7 +359,7 @@ async def vector_storage_activity(
     embedding: list,
     phi_data: dict = None,
     medical_entities: list = None,
-    structured_document: dict = None
+    structured_document: dict = None,
 ) -> dict:
     """Activity to store consultation in vector database."""
     from app.config import Config
@@ -374,7 +375,7 @@ async def vector_storage_activity(
             vector_store = MedicalDocumentVectorStore(
                 storage_dir=Config.VECTOR_DB_PATH,
                 embedding_dim=Config.EMBEDDING_DIMENSION,
-                index_type=Config.VECTOR_INDEX_TYPE
+                index_type=Config.VECTOR_INDEX_TYPE,
             )
 
             # Convert embedding to numpy array
@@ -390,8 +391,8 @@ async def vector_storage_activity(
                 embedding=embedding_array,
                 metadata={
                     "processing_timestamp": datetime.now().isoformat(),
-                    "embedding_model": Config.EMBEDDING_MODEL
-                }
+                    "embedding_model": Config.EMBEDDING_MODEL,
+                },
             )
 
             # Store medical entities if available
@@ -416,7 +417,7 @@ async def vector_storage_activity(
             result = {
                 "consultation_id": consultation_id,
                 "vector_id": vector_id,
-                "stored_at": datetime.now().isoformat()
+                "stored_at": datetime.now().isoformat(),
             }
 
             vector_store.close()
@@ -426,6 +427,7 @@ async def vector_storage_activity(
             logging.error(f"Vector storage failed: {e}")
             raise TemporalErrorHandler.create_application_error(e, "Vector Storage")
 
+
 @activity.defn
 async def comprehensive_medical_processing_activity(
     transcript: str,
@@ -433,7 +435,7 @@ async def comprehensive_medical_processing_activity(
     patient_id_encrypted: str = None,
     provider_id: str = None,
     encounter_date: str = None,
-    processing_options: dict = None
+    processing_options: dict = None,
 ) -> dict:
     """Activity for comprehensive medical processing with parallel execution."""
     from app.config import Config
@@ -449,29 +451,31 @@ async def comprehensive_medical_processing_activity(
             results = {
                 "consultation_id": consultation_id,
                 "processing_started": datetime.now().isoformat(),
-                "parallel_processing": enable_parallel
+                "parallel_processing": enable_parallel,
             }
 
             if enable_parallel:
                 # Execute PHI detection and entity extraction in parallel
-                phi_task = asyncio.create_task(
-                    phi_detection_activity(transcript, consultation_id)
-                )
-                entity_task = asyncio.create_task(
-                    medical_entity_extraction_activity(transcript, consultation_id)
-                )
-                embedding_task = asyncio.create_task(
-                    embedding_generation_activity(transcript, consultation_id)
-                )
+                phi_task = asyncio.create_task(phi_detection_activity(transcript, consultation_id))
+                entity_task = asyncio.create_task(medical_entity_extraction_activity(transcript, consultation_id))
+                embedding_task = asyncio.create_task(embedding_generation_activity(transcript, consultation_id))
 
                 # Wait for parallel tasks
                 phi_result, entity_result, embedding_result = await asyncio.gather(
                     phi_task, entity_task, embedding_task, return_exceptions=True
                 )
 
-                results["phi_detection"] = phi_result if not isinstance(phi_result, Exception) else {"error": str(phi_result)}
-                results["medical_entities"] = entity_result if not isinstance(entity_result, Exception) else {"error": str(entity_result)}
-                results["embedding"] = embedding_result if not isinstance(embedding_result, Exception) else {"error": str(embedding_result)}
+                results["phi_detection"] = (
+                    phi_result if not isinstance(phi_result, Exception) else {"error": str(phi_result)}
+                )
+                results["medical_entities"] = (
+                    entity_result if not isinstance(entity_result, Exception) else {"error": str(entity_result)}
+                )
+                results["embedding"] = (
+                    embedding_result
+                    if not isinstance(embedding_result, Exception)
+                    else {"error": str(embedding_result)}
+                )
 
             else:
                 # Sequential processing
@@ -481,7 +485,11 @@ async def comprehensive_medical_processing_activity(
 
             # Document structuring (depends on previous results)
             phi_data = results["phi_detection"] if results["phi_detection"].get("phi_detected", False) else None
-            entities = results["medical_entities"].get("entities", []) if not results["medical_entities"].get("skipped") else []
+            entities = (
+                results["medical_entities"].get("entities", [])
+                if not results["medical_entities"].get("skipped")
+                else []
+            )
 
             results["document_structuring"] = await document_structuring_activity(
                 transcript, consultation_id, phi_data, entities
@@ -491,10 +499,9 @@ async def comprehensive_medical_processing_activity(
             results["soap_note"] = await soap_generation_activity(transcript, consultation_id)
 
             # Vector storage (if enabled and we have all required data)
-            if Config.ENABLE_VECTOR_STORAGE and all([
-                patient_id_encrypted, provider_id, encounter_date,
-                not results["embedding"].get("skipped")
-            ]):
+            if Config.ENABLE_VECTOR_STORAGE and all(
+                [patient_id_encrypted, provider_id, encounter_date, not results["embedding"].get("skipped")]
+            ):
                 embedding_data = results["embedding"].get("embedding", [])
                 results["vector_storage"] = await vector_storage_activity(
                     consultation_id=consultation_id,
@@ -505,20 +512,34 @@ async def comprehensive_medical_processing_activity(
                     embedding=embedding_data,
                     phi_data=results["phi_detection"],
                     medical_entities=entities,
-                    structured_document=results["document_structuring"].get("structured_document")
+                    structured_document=results["document_structuring"].get("structured_document"),
                 )
 
             results["processing_completed"] = datetime.now().isoformat()
 
             # Calculate processing summary
             successful_tasks = [
-                task for task, result in results.items()
+                task
+                for task, result in results.items()
                 if isinstance(result, dict) and "error" not in result and not result.get("skipped")
             ]
             results["summary"] = {
-                "total_tasks": len([k for k in results.keys() if k not in ["consultation_id", "processing_started", "parallel_processing", "processing_completed", "summary"]]),
+                "total_tasks": len(
+                    [
+                        k
+                        for k in results.keys()
+                        if k
+                        not in [
+                            "consultation_id",
+                            "processing_started",
+                            "parallel_processing",
+                            "processing_completed",
+                            "summary",
+                        ]
+                    ]
+                ),
                 "successful_tasks": len(successful_tasks),
-                "task_list": successful_tasks
+                "task_list": successful_tasks,
             }
 
             return results

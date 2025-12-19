@@ -18,9 +18,7 @@ class Config:
     DEVICE = os.getenv("DEVICE", "cpu")  # Default to CPU for stability
     COMPUTE_TYPE = os.getenv("COMPUTE_TYPE", "int8")  # Default to int8 for CPU compatibility
     ENVIRONMENT = os.getenv("ENVIRONMENT", "production").lower()
-    LOG_LEVEL = os.getenv(
-        "LOG_LEVEL", "DEBUG" if ENVIRONMENT == "development" else "INFO"
-    ).upper()
+    LOG_LEVEL = os.getenv("LOG_LEVEL", "DEBUG" if ENVIRONMENT == "development" else "INFO").upper()
 
     AUDIO_EXTENSIONS = {
         ".mp3",

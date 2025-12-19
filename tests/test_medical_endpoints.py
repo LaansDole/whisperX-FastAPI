@@ -40,6 +40,7 @@ SAMPLE_TRANSCRIPT_ASTHMA = (
 # Health Check Tests
 # ============================================================================
 
+
 @pytest.mark.integration
 def test_lm_studio_health():
     """Test LM Studio health check endpoint."""
@@ -58,7 +59,7 @@ def test_medical_health():
     assert response.status_code in [200, 503]
     data = response.json()
     assert "components" in data or "detail" in data
-    
+
     # If successful, verify structure
     if response.status_code == 200:
         assert "medical_rag_enabled" in data
@@ -69,6 +70,7 @@ def test_medical_health():
 # Process Transcript Tests
 # ============================================================================
 
+
 @pytest.mark.medical
 def test_process_transcript_basic():
     """Test basic transcript processing without vector storage."""
@@ -78,13 +80,13 @@ def test_process_transcript_basic():
             "transcript": SAMPLE_TRANSCRIPT_DIABETES,
             "patient_id": "test_patient_001",
             "provider_id": "test_provider_001",
-            "enable_vector_storage": "false"
-        }
+            "enable_vector_storage": "false",
+        },
     )
-    
+
     assert response.status_code == 200
     data = response.json()
-    
+
     # Verify response structure
     assert "consultation_id" in data
     assert "patient_id_encrypted" in data
@@ -96,11 +98,9 @@ def test_process_transcript_basic():
 def test_process_transcript_with_phi_detection():
     """Test that PHI detection works correctly."""
     transcript_with_phi = (
-        "Patient John Doe reports chronic pain. "
-        "DOB: 01/15/1980. MRN: 123456. "
-        "Prescribed tramadol 50mg."
+        "Patient John Doe reports chronic pain. DOB: 01/15/1980. MRN: 123456. Prescribed tramadol 50mg."
     )
-    
+
     response = client.post(
         "/medical/process-transcript",
         params={
@@ -108,13 +108,13 @@ def test_process_transcript_with_phi_detection():
             "patient_id": "test_patient_phi",
             "provider_id": "test_provider",
             "enable_phi_detection": "true",
-            "enable_vector_storage": "false"
-        }
+            "enable_vector_storage": "false",
+        },
     )
-    
+
     assert response.status_code == 200
     data = response.json()
-    
+
     # Check PHI detection ran
     phi_result = data["steps"]["phi_detection"]
     assert phi_result.get("success") is True or phi_result.get("skipped") is False
@@ -129,13 +129,13 @@ def test_process_transcript_entity_extraction():
             "patient_id": "test_patient_htn",
             "provider_id": "test_provider",
             "enable_entity_extraction": "true",
-            "enable_vector_storage": "false"
-        }
+            "enable_vector_storage": "false",
+        },
     )
-    
+
     assert response.status_code == 200
     data = response.json()
-    
+
     # Check entity extraction
     entity_result = data["steps"]["entity_extraction"]
     assert entity_result.get("success") is True or entity_result.get("skipped") is False
@@ -149,16 +149,16 @@ def test_process_transcript_with_vector_storage():
             "transcript": SAMPLE_TRANSCRIPT_ASTHMA,
             "patient_id": "test_patient_asthma",
             "provider_id": "test_provider",
-            "enable_vector_storage": "true"
-        }
+            "enable_vector_storage": "true",
+        },
     )
-    
+
     assert response.status_code == 200
     data = response.json()
-    
+
     # Check all steps completed
     assert data["summary"]["total_steps"] >= 4
-    
+
     # Verify embedding generation
     embedding_result = data["steps"].get("embedding_generation")
     if embedding_result:
@@ -173,9 +173,9 @@ def test_process_transcript_missing_params():
         params={
             "transcript": "Test transcript"
             # Missing patient_id and provider_id
-        }
+        },
     )
-    
+
     assert response.status_code == 422  # Validation error
 
 
@@ -190,10 +190,10 @@ def test_process_transcript_disabled_features():
             "enable_phi_detection": "false",
             "enable_entity_extraction": "false",
             "enable_soap_generation": "false",
-            "enable_vector_storage": "false"
-        }
+            "enable_vector_storage": "false",
+        },
     )
-    
+
     # Should still succeed but skip most processing
     assert response.status_code in [200, 503]
 
@@ -202,18 +202,16 @@ def test_process_transcript_disabled_features():
 # Chatbot Endpoint Tests
 # ============================================================================
 
+
 def test_chatbot_query():
     """Test RAG chatbot query endpoint."""
     response = client.post(
         "/medical/chat",
-        params={
-            "query": "What is the patient's diagnosis?",
-            "patient_id_encrypted": "test_encrypted_id_123"
-        }
+        params={"query": "What is the patient's diagnosis?", "patient_id_encrypted": "test_encrypted_id_123"},
     )
-    
+
     assert response.status_code in [200, 503]  # 503 if no data in vector store
-    
+
     if response.status_code == 200:
         data = response.json()
         assert "response" in data
@@ -228,18 +226,18 @@ def test_chatbot_missing_query():
         params={
             "patient_id_encrypted": "test_id"
             # Missing query
-        }
+        },
     )
-    
+
     assert response.status_code == 422
 
 
 def test_chatbot_clear_session():
     """Test clearing a chat session."""
     session_id = "test_session_to_clear"
-    
+
     response = client.delete(f"/medical/chat/session/{session_id}")
-    
+
     assert response.status_code == 200
     data = response.json()
     assert "message" in data
@@ -250,15 +248,16 @@ def test_chatbot_clear_session():
 # Statistics Endpoint Tests
 # ============================================================================
 
+
 def test_medical_stats():
     """Test medical statistics endpoint."""
     response = client.get("/medical/stats")
-    
+
     assert response.status_code in [200, 503]  # 503 if vector storage disabled
-    
+
     if response.status_code == 200:
         data = response.json()
-        
+
         # Verify statistics structure
         assert "total_consultations" in data
         assert "unique_patients" in data
@@ -271,6 +270,7 @@ def test_medical_stats():
 # Integration Test
 # ============================================================================
 
+
 def test_end_to_end_pipeline():
     """Test complete pipeline: process transcript -> store -> query chatbot."""
     # Step 1: Process and store a transcript
@@ -280,32 +280,29 @@ def test_end_to_end_pipeline():
             "transcript": SAMPLE_TRANSCRIPT_DIABETES,
             "patient_id": "integration_test_patient",
             "provider_id": "integration_test_provider",
-            "enable_vector_storage": "true"
-        }
+            "enable_vector_storage": "true",
+        },
     )
-    
+
     assert process_response.status_code == 200
     process_data = process_response.json()
-    
+
     # Verify successful storage
     patient_id_encrypted = process_data["patient_id_encrypted"]
-    
+
     # Step 2: Query the chatbot about the stored data
     chat_response = client.post(
         "/medical/chat",
-        params={
-            "query": "What is this patient's HbA1c level?",
-            "patient_id_encrypted": patient_id_encrypted
-        }
+        params={"query": "What is this patient's HbA1c level?", "patient_id_encrypted": patient_id_encrypted},
     )
-    
+
     assert chat_response.status_code in [200, 503]
-    
+
     if chat_response.status_code == 200:
         chat_data = chat_response.json()
         assert "response" in chat_data
         assert "sources" in chat_data
-    
+
     # Step 3: Verify stats were updated
     stats_response = client.get("/medical/stats")
     assert stats_response.status_code in [200, 503]

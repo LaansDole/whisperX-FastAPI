@@ -4,17 +4,17 @@ from .warnings_filter import filter_warnings
 
 filter_warnings()
 
-import time 
-from contextlib import asynccontextmanager 
+import time
+from contextlib import asynccontextmanager
 
-from dotenv import load_dotenv 
-from fastapi import FastAPI, status 
-from fastapi.responses import JSONResponse, RedirectResponse 
+from dotenv import load_dotenv
+from fastapi import FastAPI, status
+from fastapi.responses import JSONResponse, RedirectResponse
 
-from .config import Config 
-from .routers import stt, stt_services, temporal_tasks, medical 
+from .config import Config
+from .routers import stt, stt_services, temporal_tasks, medical
 from .temporal.manager import temporal_manager
-from .trace_middleware import TraceMiddleware 
+from .trace_middleware import TraceMiddleware
 
 # Load environment variables from .env
 load_dotenv()
@@ -91,6 +91,7 @@ app.include_router(stt.stt_router)
 app.include_router(stt_services.service_router)
 app.include_router(temporal_tasks.temporal_router)
 app.include_router(medical.router)
+
 
 @app.get("/", include_in_schema=False)
 async def index():

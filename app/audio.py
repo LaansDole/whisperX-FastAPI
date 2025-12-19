@@ -23,12 +23,13 @@ def convert_video_to_audio(file):
     # This ensures files are accessible across containers
     uploads_dir = "/tmp/uploads"
     os.makedirs(uploads_dir, exist_ok=True)
-    
+
     # Create a unique filename with .wav extension
     import uuid
+
     unique_filename = f"{uuid.uuid4()}.wav"
     temp_filename = os.path.join(uploads_dir, unique_filename)
-    
+
     subprocess.call(
         [
             "ffmpeg",
@@ -60,11 +61,11 @@ def process_audio_file(audio_file):
     # Get the file extension
     _, file_extension = os.path.splitext(audio_file)
     file_extension = file_extension.lower()
-    
+
     # Convert video to audio if needed
     if file_extension in VIDEO_EXTENSIONS:
         audio_file = convert_video_to_audio(audio_file)
-    
+
     return load_audio(audio_file)
 
 

@@ -25,9 +25,7 @@ DEFAULT_RETRY_DELAY = 2  # seconds
 DEFAULT_BACKOFF_FACTOR = 2  # exponential backoff factor
 
 # Error messages
-INTERNET_CONNECTION_MSG = (
-    "Could not download model files. Please check your internet connection."
-)
+INTERNET_CONNECTION_MSG = "Could not download model files. Please check your internet connection."
 HF_TOKEN_MSG = (
     "Could not access the model. Make sure your Hugging Face token (HF_TOKEN) "
     "is valid and has permission to access this model."
@@ -200,12 +198,7 @@ def safe_snapshot_download(
             repo_id,
             revision or "default",
         )
-        return snapshot_download(
-            repo_id=repo_id, 
-            revision=revision, 
-            cache_dir=cache_dir, 
-            **kwargs
-        )
+        return snapshot_download(repo_id=repo_id, revision=revision, cache_dir=cache_dir, **kwargs)
     except RepositoryNotFoundError:
         logger.error("Repository not found: %s", repo_id)
         raise ValueError(MODEL_NOT_FOUND_MSG)
@@ -229,7 +222,7 @@ def safe_snapshot_download(
 def validate_huggingface_token() -> bool:
     """
     Validate that the Hugging Face token is set and working.
-    
+
     Returns:
         bool: True if token is valid, False otherwise
     """
@@ -237,23 +230,16 @@ def validate_huggingface_token() -> bool:
     if not token:
         logger.warning("HF_TOKEN environment variable is not set")
         return False
-    
+
     # Test token with a simple API call
     try:
         headers = {"Authorization": f"Bearer {token}"}
-        response = requests.get(
-            "https://huggingface.co/api/whoami",
-            headers=headers,
-            timeout=5
-        )
-        
+        response = requests.get("https://huggingface.co/api/whoami", headers=headers, timeout=5)
+
         if response.status_code == 200:
             return True
-        
-        logger.warning(
-            "HF_TOKEN validation failed with status code %d", 
-            response.status_code
-        )
+
+        logger.warning("HF_TOKEN validation failed with status code %d", response.status_code)
         return False
     except requests.exceptions.RequestException as e:
         logger.warning("Error validating HF_TOKEN: %s", str(e))
@@ -263,7 +249,7 @@ def validate_huggingface_token() -> bool:
 def preload_models(models: list, token: Optional[str] = None) -> None:
     """
     Preload multiple models to ensure they're available in the cache.
-    
+
     Args:
         models: List of model repo IDs to preload
         token: Optional Hugging Face token
@@ -271,10 +257,7 @@ def preload_models(models: list, token: Optional[str] = None) -> None:
     for model in models:
         try:
             logger.info("Preloading model: %s", model)
-            safe_snapshot_download(
-                repo_id=model,
-                token=token or os.environ.get("HF_TOKEN")
-            )
+            safe_snapshot_download(repo_id=model, token=token or os.environ.get("HF_TOKEN"))
             logger.info("Successfully preloaded model: %s", model)
         except Exception as e:
             logger.error("Failed to preload model %s: %s", model, str(e))

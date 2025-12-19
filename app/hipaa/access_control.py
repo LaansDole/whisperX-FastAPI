@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 class HealthcareRole(str, Enum):
     """Healthcare provider roles with different access levels."""
+
     PHYSICIAN = "physician"
     NURSE = "nurse"
     RESIDENT = "resident"
@@ -28,18 +29,19 @@ class HealthcareRole(str, Enum):
 
 class Permission(str, Enum):
     """Individual permissions for PHI access."""
-    READ_PHI = "read_phi"                    # Read PHI for treatment
-    WRITE_PHI = "write_phi"                  # Create/modify PHI
-    DELETE_PHI = "delete_phi"                # Delete PHI (rare, audit required)
-    REVEAL_PHI = "reveal_phi"                # Remove anonymization for treatment
-    EXPORT_PHI = "export_phi"                # Export PHI from system
-    SEARCH_PHI = "search_phi"                # Search across patient records
-    VIEW_AUDIT_LOG = "view_audit_log"        # Access audit logs
-    MANAGE_USERS = "manage_users"            # User account management
-    SYSTEM_CONFIG = "system_config"          # System configuration
-    RESEARCH_ACCESS = "research_access"      # Access anonymized data for research
-    QUALITY_REVIEW = "quality_review"        # Quality assurance and review
-    EMERGENCY_ACCESS = "emergency_access"    # Break-glass emergency access
+
+    READ_PHI = "read_phi"  # Read PHI for treatment
+    WRITE_PHI = "write_phi"  # Create/modify PHI
+    DELETE_PHI = "delete_phi"  # Delete PHI (rare, audit required)
+    REVEAL_PHI = "reveal_phi"  # Remove anonymization for treatment
+    EXPORT_PHI = "export_phi"  # Export PHI from system
+    SEARCH_PHI = "search_phi"  # Search across patient records
+    VIEW_AUDIT_LOG = "view_audit_log"  # Access audit logs
+    MANAGE_USERS = "manage_users"  # User account management
+    SYSTEM_CONFIG = "system_config"  # System configuration
+    RESEARCH_ACCESS = "research_access"  # Access anonymized data for research
+    QUALITY_REVIEW = "quality_review"  # Quality assurance and review
+    EMERGENCY_ACCESS = "emergency_access"  # Break-glass emergency access
 
 
 # Role-based permission matrix
@@ -125,9 +127,7 @@ class HIPAAAccessControl:
             self.secret_key = "default_change_in_production"
 
         self.algorithm = os.environ.get("JWT_ALGORITHM", "HS256")
-        self.access_token_expire_minutes = int(
-            os.environ.get("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "30")
-        )
+        self.access_token_expire_minutes = int(os.environ.get("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 
     def create_access_token(self, user_data: Dict[str, Any]) -> str:
         """
@@ -149,11 +149,7 @@ class HIPAAAccessControl:
 
         # Add expiration time
         expire = datetime.utcnow() + timedelta(minutes=self.access_token_expire_minutes)
-        to_encode.update({
-            "exp": expire,
-            "iat": datetime.utcnow(),
-            "type": "access_token"
-        })
+        to_encode.update({"exp": expire, "iat": datetime.utcnow(), "type": "access_token"})
 
         # Create JWT token
         encoded_jwt = jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
@@ -198,10 +194,7 @@ class HIPAAAccessControl:
         return permission in role_permissions
 
     def check_context_permissions(
-        self,
-        user_role: HealthcareRole,
-        context: str,
-        additional_permissions: List[Permission] = None
+        self, user_role: HealthcareRole, context: str, additional_permissions: List[Permission] = None
     ) -> bool:
         """
         Check if user role has permissions for specific context.
@@ -231,56 +224,55 @@ class HIPAAAccessControl:
         Returns:
             Decorator function
         """
+
         def decorator(func):
             # Import here to avoid circular import
             from functools import wraps
-            
+
             @wraps(func)
             async def wrapper(*args, **kwargs):
                 # Check if authentication is disabled (for development/testing)
                 enable_auth = os.environ.get("ENABLE_AUTHENTICATION", "false").lower() == "true"
-                
+
                 if not enable_auth:
                     # Bypass authentication - use default admin user for development
                     kwargs["current_user"] = {
                         "user_id": "dev_user",
                         "username": "developer",
                         "role": "physician",
-                        "full_name": "Development User"
+                        "full_name": "Development User",
                     }
                     return await func(*args, **kwargs)
-                
+
                 # Authentication enabled - require token
                 from fastapi import Request
+
                 request = None
                 for arg in args:
                     if isinstance(arg, Request):
                         request = arg
                         break
-                
+
                 # Get token from Authorization header
                 auth_header = None
                 if request:
                     auth_header = request.headers.get("Authorization", "")
-                
+
                 if not auth_header or not auth_header.startswith("Bearer "):
                     raise HTTPException(
                         status_code=status.HTTP_401_UNAUTHORIZED,
                         detail="Not authenticated",
                         headers={"WWW-Authenticate": "Bearer"},
                     )
-                
+
                 token = auth_header.replace("Bearer ", "")
                 user_data = self.verify_token(token)
                 user_role = HealthcareRole(user_data.get("role"))
 
                 if not self.check_permission(user_role, permission):
-                    logger.warning(
-                        f"Permission denied: {user_role} lacks {permission}"
-                    )
+                    logger.warning(f"Permission denied: {user_role} lacks {permission}")
                     raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail=f"Insufficient permissions: {permission} required"
+                        status_code=status.HTTP_403_FORBIDDEN, detail=f"Insufficient permissions: {permission} required"
                     )
 
                 # Add user info to kwargs for downstream use
@@ -288,6 +280,7 @@ class HIPAAAccessControl:
                 return await func(*args, **kwargs)
 
             return wrapper
+
         return decorator
 
     def require_context(self, context: str):
@@ -300,18 +293,16 @@ class HIPAAAccessControl:
         Returns:
             Decorator function
         """
+
         def decorator(func):
             async def wrapper(*args, token: str = Depends(self.oauth2_scheme), **kwargs):
                 user_data = self.verify_token(token)
                 user_role = HealthcareRole(user_data.get("role"))
 
                 if not self.check_context_permissions(user_role, context):
-                    logger.warning(
-                        f"Context permission denied: {user_role} lacks access for {context}"
-                    )
+                    logger.warning(f"Context permission denied: {user_role} lacks access for {context}")
                     raise HTTPException(
-                        status_code=status.HTTP_403_FORBIDDEN,
-                        detail=f"Insufficient permissions for context: {context}"
+                        status_code=status.HTTP_403_FORBIDDEN, detail=f"Insufficient permissions for context: {context}"
                     )
 
                 kwargs["current_user"] = user_data
@@ -319,6 +310,7 @@ class HIPAAAccessControl:
                 return await func(*args, **kwargs)
 
             return wrapper
+
         return decorator
 
     def hash_password(self, password: str) -> str:
@@ -347,11 +339,7 @@ class HIPAAAccessControl:
         return self.pwd_context.verify(plain_password, hashed_password)
 
     def can_access_patient_record(
-        self,
-        user_role: HealthcareRole,
-        user_id: str,
-        patient_id: str,
-        access_reason: str = "treatment"
+        self, user_role: HealthcareRole, user_id: str, patient_id: str, access_reason: str = "treatment"
     ) -> bool:
         """
         Check if user can access specific patient record.
@@ -380,10 +368,7 @@ class HIPAAAccessControl:
         return True
 
     def get_minimum_necessary_fields(
-        self,
-        user_role: HealthcareRole,
-        access_context: str,
-        requested_fields: List[str]
+        self, user_role: HealthcareRole, access_context: str, requested_fields: List[str]
     ) -> List[str]:
         """
         Filter requested fields to minimum necessary for role and context.
@@ -399,21 +384,38 @@ class HIPAAAccessControl:
         # Define minimum necessary fields by role and context
         minimum_fields_map = {
             (HealthcareRole.PHYSICIAN, "patient_treatment"): [
-                "patient_id", "name", "dob", "medical_history",
-                "current_medications", "allergies", "vital_signs",
-                "diagnosis", "treatment_plan"
+                "patient_id",
+                "name",
+                "dob",
+                "medical_history",
+                "current_medications",
+                "allergies",
+                "vital_signs",
+                "diagnosis",
+                "treatment_plan",
             ],
             (HealthcareRole.NURSE, "patient_treatment"): [
-                "patient_id", "name", "dob", "current_medications",
-                "allergies", "vital_signs", "care_instructions"
+                "patient_id",
+                "name",
+                "dob",
+                "current_medications",
+                "allergies",
+                "vital_signs",
+                "care_instructions",
             ],
             (HealthcareRole.RESEARCHER, "research"): [
-                "anonymized_id", "age_range", "diagnosis",
-                "treatment_outcome", "procedures_performed"
+                "anonymized_id",
+                "age_range",
+                "diagnosis",
+                "treatment_outcome",
+                "procedures_performed",
             ],
             (HealthcareRole.ADMINISTRATOR, "billing"): [
-                "patient_id", "name", "insurance_info",
-                "services_rendered", "charges"
+                "patient_id",
+                "name",
+                "insurance_info",
+                "services_rendered",
+                "charges",
             ],
         }
 
@@ -430,7 +432,7 @@ class HIPAAAccessControl:
         resource: str,
         action: str,
         success: bool,
-        additional_context: Dict[str, Any] = None
+        additional_context: Dict[str, Any] = None,
     ):
         """
         Log access attempt for audit trail.
@@ -471,11 +473,7 @@ class HIPAAAccessControl:
         """
         to_encode = user_data.copy()
         expire = datetime.utcnow() + timedelta(days=7)  # Refresh tokens valid for 7 days
-        to_encode.update({
-            "exp": expire,
-            "iat": datetime.utcnow(),
-            "type": "refresh_token"
-        })
+        to_encode.update({"exp": expire, "iat": datetime.utcnow(), "type": "refresh_token"})
 
         return jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
 
@@ -495,13 +493,7 @@ class HIPAAAccessControl:
         try:
             payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
             if payload.get("type") != "refresh_token":
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid token type"
-                )
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type")
             return payload
         except JWTError:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid refresh token"
-            )
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")

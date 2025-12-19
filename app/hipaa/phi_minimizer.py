@@ -32,7 +32,7 @@ class PHIMinimizer:
         "ip_address": "IP addresses",
         "biometric_id": "Biometric identifiers",
         "photo": "Full face photographic images",
-        "other_id": "Other unique identifying numbers"
+        "other_id": "Other unique identifying numbers",
     }
 
     def __init__(self):
@@ -44,86 +44,58 @@ class PHIMinimizer:
         self.patterns: Dict[str, Pattern] = {
             # Dates (various formats)
             "date": re.compile(
-                r'\b(?:\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|'
-                r'\d{4}[-/]\d{1,2}[-/]\d{1,2}|'
-                r'(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4}|'
-                r'\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?,?\s+\d{4})\b',
-                re.IGNORECASE
+                r"\b(?:\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|"
+                r"\d{4}[-/]\d{1,2}[-/]\d{1,2}|"
+                r"(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4}|"
+                r"\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?,?\s+\d{4})\b",
+                re.IGNORECASE,
             ),
-
             # Phone numbers (US format)
-            "phone": re.compile(
-                r'\b(?:\+?1[-.\s]?)?\(?(\d{3})\)?[-.\s]?(\d{3})[-.\s]?(\d{4})\b'
-            ),
-
+            "phone": re.compile(r"\b(?:\+?1[-.\s]?)?\(?(\d{3})\)?[-.\s]?(\d{3})[-.\s]?(\d{4})\b"),
             # Social Security Numbers
-            "ssn": re.compile(
-                r'\b\d{3}-\d{2}-\d{4}\b'
-            ),
-
+            "ssn": re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),
             # Email addresses
-            "email": re.compile(
-                r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
-            ),
-
+            "email": re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"),
             # Medical Record Numbers
             "mrn": re.compile(
-                r'\b(?:MRN|Patient\s+ID|Medical\s+Record\s+Number)?\s*[:#]?\s*([A-Z]{0,2}\d{6,10})\b',
-                re.IGNORECASE
+                r"\b(?:MRN|Patient\s+ID|Medical\s+Record\s+Number)?\s*[:#]?\s*([A-Z]{0,2}\d{6,10})\b", re.IGNORECASE
             ),
-
             # URLs
-            "url": re.compile(
-                r'\bhttps?://[^\s<>"]+|www\.[^\s<>"]+\b'
-            ),
-
+            "url": re.compile(r'\bhttps?://[^\s<>"]+|www\.[^\s<>"]+\b'),
             # IP addresses
             "ip_address": re.compile(
-                r'\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}'
-                r'(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b'
+                r"\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}"
+                r"(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b"
             ),
-
             # Address patterns (simplified)
             "address": re.compile(
-                r'\b\d+\s+([A-Z][a-z]*\s*)+(?:Street|St|Avenue|Ave|Road|Rd|'
-                r'Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Way|Place|Pl)\b',
-                re.IGNORECASE
+                r"\b\d+\s+([A-Z][a-z]*\s*)+(?:Street|St|Avenue|Ave|Road|Rd|"
+                r"Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Way|Place|Pl)\b",
+                re.IGNORECASE,
             ),
-
             # License/certificate numbers
             "certificate_number": re.compile(
-                r'\b(?:License|Cert|Certificate)\s*#?\s*([A-Z]{1,3}\d{4,8})\b',
-                re.IGNORECASE
+                r"\b(?:License|Cert|Certificate)\s*#?\s*([A-Z]{1,3}\d{4,8})\b", re.IGNORECASE
             ),
-
             # Vehicle identifiers
             "vehicle_id": re.compile(
-                r'\b[A-Z0-9]{17}\b'  # VIN format
+                r"\b[A-Z0-9]{17}\b"  # VIN format
             ),
-
             # Account numbers
-            "account_number": re.compile(
-                r'\bAccount\s*#?\s*(\d{6,12})\b',
-                re.IGNORECASE
-            ),
+            "account_number": re.compile(r"\bAccount\s*#?\s*(\d{6,12})\b", re.IGNORECASE),
         }
 
         # Name patterns (more complex)
         self.name_patterns = [
             # Doctor/Provider titles
-            re.compile(r'\b(?:Dr|Doctor|MD|DO|RN|LPN|PA|NP|CRNP)\.?\s+([A-Z][a-z]+\s+[A-Z][a-z]+)', re.IGNORECASE),
+            re.compile(r"\b(?:Dr|Doctor|MD|DO|RN|LPN|PA|NP|CRNP)\.?\s+([A-Z][a-z]+\s+[A-Z][a-z]+)", re.IGNORECASE),
             # Patient name patterns
-            re.compile(r'\b(?:Patient|Name|Pt)\s*[:\-]?\s*([A-Z][a-z]+\s+[A-Z][a-z]+)', re.IGNORECASE),
+            re.compile(r"\b(?:Patient|Name|Pt)\s*[:\-]?\s*([A-Z][a-z]+\s+[A-Z][a-z]+)", re.IGNORECASE),
             # Common name patterns (capitalize first letter)
-            re.compile(r'\b[A-Z][a-z]+\s+[A-Z][a-z]+(?=\s+(?:is|was|has|presents|reports|complains))'),
+            re.compile(r"\b[A-Z][a-z]+\s+[A-Z][a-z]+(?=\s+(?:is|was|has|presents|reports|complains))"),
         ]
 
-    def anonymize_for_research(
-        self,
-        text: str,
-        keep_year_only: bool = True,
-        age_threshold: int = 89
-    ) -> str:
+    def anonymize_for_research(self, text: str, keep_year_only: bool = True, age_threshold: int = 89) -> str:
         """
         Anonymize text for research use (HIPAA Safe Harbor).
 
@@ -143,11 +115,12 @@ class PHIMinimizer:
             def date_replacer(match):
                 date_str = match.group()
                 # Extract 4-digit year
-                year_match = re.search(r'\b(19|20)\d{2}\b', date_str)
+                year_match = re.search(r"\b(19|20)\d{2}\b", date_str)
                 if year_match:
                     return f"[DATE: {year_match.group()}]"
                 else:
                     return "[DATE]"
+
             anonymized = self.patterns["date"].sub(date_replacer, anonymized)
         else:
             anonymized = self.patterns["date"].sub("[DATE]", anonymized)
@@ -196,8 +169,10 @@ class PHIMinimizer:
 
         # Apply name patterns
         for pattern in self.name_patterns:
+
             def name_replacer(match):
                 return "[NAME]"
+
             anonymized = pattern.sub(name_replacer, anonymized)
 
         return anonymized
@@ -206,8 +181,7 @@ class PHIMinimizer:
         """Remove ages above HIPAA threshold (89)."""
         # Pattern for ages
         age_pattern = re.compile(
-            r'\b(?:age|aged?)(?:\s+is|:)?\s*(\d{1,3})\s*(?:years?|yrs?|yo|year-old|year\s+old)?\b',
-            re.IGNORECASE
+            r"\b(?:age|aged?)(?:\s+is|:)?\s*(\d{1,3})\s*(?:years?|yrs?|yo|year-old|year\s+old)?\b", re.IGNORECASE
         )
 
         def age_replacer(match):
@@ -240,13 +214,15 @@ class PHIMinimizer:
         for phi_type, pattern in self.patterns.items():
             matches = []
             for match in pattern.finditer(text):
-                matches.append({
-                    "type": phi_type,
-                    "text": match.group(),
-                    "start": match.start(),
-                    "end": match.end(),
-                    "confidence": 0.8  # Base confidence for regex matches
-                })
+                matches.append(
+                    {
+                        "type": phi_type,
+                        "text": match.group(),
+                        "start": match.start(),
+                        "end": match.end(),
+                        "confidence": 0.8,  # Base confidence for regex matches
+                    }
+                )
 
             if matches:
                 phi_entities[phi_type] = matches
@@ -255,13 +231,15 @@ class PHIMinimizer:
         name_matches = []
         for pattern in self.name_patterns:
             for match in pattern.finditer(text):
-                name_matches.append({
-                    "type": "name",
-                    "text": match.group(),
-                    "start": match.start(),
-                    "end": match.end(),
-                    "confidence": 0.6  # Lower confidence for name patterns
-                })
+                name_matches.append(
+                    {
+                        "type": "name",
+                        "text": match.group(),
+                        "start": match.start(),
+                        "end": match.end(),
+                        "confidence": 0.6,  # Lower confidence for name patterns
+                    }
+                )
 
         if name_matches:
             phi_entities["name"] = name_matches
@@ -269,10 +247,7 @@ class PHIMinimizer:
         return phi_entities
 
     def check_minimum_necessary(
-        self,
-        requested_fields: List[str],
-        user_role: HealthcareRole,
-        purpose: str
+        self, requested_fields: List[str], user_role: HealthcareRole, purpose: str
     ) -> List[str]:
         """
         Filter fields to minimum necessary for purpose.
@@ -288,25 +263,50 @@ class PHIMinimizer:
         # Define minimum necessary fields by role and purpose
         minimum_fields_map = {
             (HealthcareRole.PHYSICIAN, "treatment"): [
-                "patient_id", "name", "dob", "medical_history",
-                "current_medications", "allergies", "vital_signs",
-                "diagnosis", "treatment_plan", "progress_notes"
+                "patient_id",
+                "name",
+                "dob",
+                "medical_history",
+                "current_medications",
+                "allergies",
+                "vital_signs",
+                "diagnosis",
+                "treatment_plan",
+                "progress_notes",
             ],
             (HealthcareRole.NURSE, "treatment"): [
-                "patient_id", "name", "dob", "current_medications",
-                "allergies", "vital_signs", "care_instructions", "mar_status"
+                "patient_id",
+                "name",
+                "dob",
+                "current_medications",
+                "allergies",
+                "vital_signs",
+                "care_instructions",
+                "mar_status",
             ],
             (HealthcareRole.RESEARCHER, "research"): [
-                "anonymized_id", "age_range", "diagnosis", "treatment_outcome",
-                "procedures", "medications", "comorbidities"
+                "anonymized_id",
+                "age_range",
+                "diagnosis",
+                "treatment_outcome",
+                "procedures",
+                "medications",
+                "comorbidities",
             ],
             (HealthcareRole.ADMINISTRATOR, "billing"): [
-                "patient_id", "name", "insurance_info", "services_rendered",
-                "charges", "billing_codes"
+                "patient_id",
+                "name",
+                "insurance_info",
+                "services_rendered",
+                "charges",
+                "billing_codes",
             ],
             (HealthcareRole.AUDITOR, "auditing"): [
-                "patient_id", "access_log", "modification_history",
-                "audit_trail", "compliance_status"
+                "patient_id",
+                "access_log",
+                "modification_history",
+                "audit_trail",
+                "compliance_status",
             ],
         }
 
@@ -345,7 +345,7 @@ class PHIMinimizer:
         patient_id_field: str = "patient_id",
         name_fields: List[str] = None,
         date_fields: List[str] = None,
-        keep_reference_ids: bool = False
+        keep_reference_ids: bool = False,
     ) -> List[Dict[str, any]]:
         """
         De-identify a dataset of records.
@@ -389,14 +389,10 @@ class PHIMinimizer:
             # Anonymize date fields (keep year only)
             for field in date_fields:
                 if field in deidentified_record and deidentified_record[field]:
-                    deidentified_record[field] = self._anonymize_date_year_only(
-                        deidentified_record[field]
-                    )
+                    deidentified_record[field] = self._anonymize_date_year_only(deidentified_record[field])
 
             # Remove other PHI fields
-            phi_fields_to_remove = [
-                "ssn", "mrn", "phone", "email", "address", "ip_address"
-            ]
+            phi_fields_to_remove = ["ssn", "mrn", "phone", "email", "address", "ip_address"]
             for field in phi_fields_to_remove:
                 if field in deidentified_record:
                     del deidentified_record[field]
@@ -421,11 +417,11 @@ class PHIMinimizer:
         """Extract year from date string."""
         try:
             # Try to parse as datetime and extract year
-            date_obj = datetime.fromisoformat(date_value.replace('Z', '+00:00'))
+            date_obj = datetime.fromisoformat(date_value.replace("Z", "+00:00"))
             return date_obj.year
         except (ValueError, AttributeError):
             # Fallback to regex extraction
-            year_match = re.search(r'\b(19|20)\d{2}\b', str(date_value))
+            year_match = re.search(r"\b(19|20)\d{2}\b", str(date_value))
             if year_match:
                 return year_match.group()
             else:
@@ -452,15 +448,9 @@ class PHIMinimizer:
         medium_risk_types = ["date", "mrn", "account_number"]
         low_risk_types = ["url", "ip_address"]
 
-        high_risk_count = sum(
-            len(phi_entities.get(t, [])) for t in high_risk_types if t in phi_entities
-        )
-        medium_risk_count = sum(
-            len(phi_entities.get(t, [])) for t in medium_risk_types if t in phi_entities
-        )
-        low_risk_count = sum(
-            len(phi_entities.get(t, [])) for t in low_risk_types if t in phi_entities
-        )
+        high_risk_count = sum(len(phi_entities.get(t, [])) for t in high_risk_types if t in phi_entities)
+        medium_risk_count = sum(len(phi_entities.get(t, [])) for t in medium_risk_types if t in phi_entities)
+        low_risk_count = sum(len(phi_entities.get(t, [])) for t in low_risk_types if t in phi_entities)
 
         # Determine risk level
         if high_risk_count >= 3:
@@ -479,7 +469,7 @@ class PHIMinimizer:
             "high_risk_count": high_risk_count,
             "medium_risk_count": medium_risk_count,
             "low_risk_count": low_risk_count,
-            "recommendations": self._get_risk_recommendations(risk_level, phi_types_found)
+            "recommendations": self._get_risk_recommendations(risk_level, phi_types_found),
         }
 
     def _get_risk_recommendations(self, risk_level: str, phi_types: List[str]) -> List[str]:
@@ -487,25 +477,27 @@ class PHIMinimizer:
         recommendations = []
 
         if risk_level == "HIGH":
-            recommendations.extend([
-                "Immediate de-identification required",
-                "Remove all high-risk identifiers",
-                "Consider full anonymization",
-                "Review data handling procedures"
-            ])
+            recommendations.extend(
+                [
+                    "Immediate de-identification required",
+                    "Remove all high-risk identifiers",
+                    "Consider full anonymization",
+                    "Review data handling procedures",
+                ]
+            )
         elif risk_level == "MEDIUM":
-            recommendations.extend([
-                "Partial de-identification required",
-                "Remove medium-risk identifiers",
-                "Apply minimum necessary principle",
-                "Implement access controls"
-            ])
+            recommendations.extend(
+                [
+                    "Partial de-identification required",
+                    "Remove medium-risk identifiers",
+                    "Apply minimum necessary principle",
+                    "Implement access controls",
+                ]
+            )
         elif risk_level == "LOW":
-            recommendations.extend([
-                "Apply PHI minimization",
-                "Consider anonymization for research",
-                "Document data use purpose"
-            ])
+            recommendations.extend(
+                ["Apply PHI minimization", "Consider anonymization for research", "Document data use purpose"]
+            )
         else:
             recommendations.append("Low PHI risk, but maintain security practices")
 

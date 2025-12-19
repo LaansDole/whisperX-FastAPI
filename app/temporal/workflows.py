@@ -13,6 +13,7 @@ from .monitoring import TemporalMetrics
 
 logging.basicConfig(level=logging.INFO)
 
+
 @workflow.defn
 class WhisperXWorkflow:
     @workflow.run
@@ -87,7 +88,7 @@ class WhisperXWorkflow:
 
             TemporalMetrics.log_workflow_progress("completed", audio_path)
             return final_result
-            
+
         except ActivityError as e:
             logging.error(f"Activity failed in workflow for {audio_path}: {e}")
             # Check if it's a non-retryable error
@@ -100,6 +101,7 @@ class WhisperXWorkflow:
         except Exception as e:
             logging.error(f"Unexpected error in workflow for {audio_path}: {e}")
             raise e
+
 
 @workflow.defn
 class MedicalRAGWorkflow:
@@ -131,7 +133,7 @@ class MedicalRAGWorkflow:
                 "consultation_id": consultation_id,
                 "workflow_type": "medical_rag",
                 "started_at": datetime.now().isoformat(),
-                "transcription_performed": False
+                "transcription_performed": False,
             }
 
             # Step 1: Get transcript (either provided or transcribe audio)
@@ -178,7 +180,7 @@ class MedicalRAGWorkflow:
                     input_params.get("patient_id_encrypted"),
                     input_params.get("provider_id"),
                     input_params.get("encounter_date", datetime.now().date().isoformat()),
-                    medical_options
+                    medical_options,
                 ],
                 start_to_close_timeout=timedelta(minutes=Config.MEDICAL_WORKFLOW_TIMEOUT_MINUTES),
                 retry_policy=RetryPolicy(
@@ -220,14 +222,14 @@ class MedicalRAGWorkflow:
             "workflow_type": results["workflow_type"],
             "success": True,
             "processing_stages": {},
-            "key_outputs": {}
+            "key_outputs": {},
         }
 
         # Analyze each processing stage
         if "transcription_performed" in results:
             summary["processing_stages"]["transcription"] = {
                 "performed": results["transcription_performed"],
-                "success": "transcription_result" in results
+                "success": "transcription_result" in results,
             }
 
         # Medical processing stages
@@ -237,7 +239,7 @@ class MedicalRAGWorkflow:
                 "performed": not phi_result.get("skipped", False),
                 "phi_detected": phi_result.get("phi_detected", False),
                 "entities_found": len(phi_result.get("entities", [])),
-                "success": "error" not in phi_result
+                "success": "error" not in phi_result,
             }
 
         if "medical_entities" in results:
@@ -245,34 +247,32 @@ class MedicalRAGWorkflow:
             summary["processing_stages"]["entity_extraction"] = {
                 "performed": not entity_result.get("skipped", False),
                 "entities_extracted": entity_result.get("entity_count", 0),
-                "success": "error" not in entity_result
+                "success": "error" not in entity_result,
             }
 
         if "soap_note" in results:
             soap_result = results["soap_note"]
             summary["processing_stages"]["soap_generation"] = {
                 "performed": not soap_result.get("skipped", False),
-                "success": "error" not in soap_result
+                "success": "error" not in soap_result,
             }
 
         if "vector_storage" in results:
             vector_result = results["vector_storage"]
             summary["processing_stages"]["vector_storage"] = {
                 "performed": not vector_result.get("skipped", False),
-                "success": "error" not in vector_result
+                "success": "error" not in vector_result,
             }
 
         # Key outputs for easy access
         if results.get("medical_entities", {}).get("entities"):
             summary["key_outputs"]["diagnoses"] = [
-                e for e in results["medical_entities"]["entities"]
-                if e.get("type") == "diagnosis"
+                e for e in results["medical_entities"]["entities"] if e.get("type") == "diagnosis"
             ]
 
         if results.get("medical_entities", {}).get("entities"):
             summary["key_outputs"]["medications"] = [
-                e for e in results["medical_entities"]["entities"]
-                if e.get("type") == "medication"
+                e for e in results["medical_entities"]["entities"] if e.get("type") == "medication"
             ]
 
         if results.get("soap_note", {}).get("soap_note"):
@@ -302,7 +302,7 @@ class HybridAudioMedicalWorkflow:
                 "consultation_id": consultation_id,
                 "workflow_type": "hybrid_audio_medical",
                 "started_at": datetime.now().isoformat(),
-                "audio_path": audio_path
+                "audio_path": audio_path,
             }
 
             # Stage 1: WhisperX processing (transcription, alignment, diarization)
@@ -381,6 +381,7 @@ class HybridAudioMedicalWorkflow:
 
             # Stage 2: Medical RAG processing
             from app.config import Config
+
             if Config.is_medical_processing_enabled():
                 TemporalMetrics.log_workflow_progress("medical_processing_started", consultation_id)
 
@@ -393,7 +394,7 @@ class HybridAudioMedicalWorkflow:
                     "patient_id_encrypted": params.get("patient_id_encrypted"),
                     "provider_id": params.get("provider_id"),
                     "encounter_date": params.get("encounter_date", datetime.now().date().isoformat()),
-                    "medical_options": params.get("medical_options", {})
+                    "medical_options": params.get("medical_options", {}),
                 }
 
                 medical_result = await workflow.execute_activity(
@@ -404,7 +405,7 @@ class HybridAudioMedicalWorkflow:
                         medical_params["patient_id_encrypted"],
                         medical_params["provider_id"],
                         medical_params["encounter_date"],
-                        medical_params["medical_options"]
+                        medical_params["medical_options"],
                     ],
                     start_to_close_timeout=timedelta(minutes=Config.MEDICAL_WORKFLOW_TIMEOUT_MINUTES),
                     retry_policy=RetryPolicy(
@@ -439,7 +440,7 @@ class HybridAudioMedicalWorkflow:
             "workflow_type": results["workflow_type"],
             "success": True,
             "stages_completed": [],
-            "final_outputs": {}
+            "final_outputs": {},
         }
 
         # WhisperX stage
