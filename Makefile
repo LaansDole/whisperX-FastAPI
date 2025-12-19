@@ -1,5 +1,5 @@
 .PHONY: help install-prod install-prod-gpu install-dev install-dev-gpu \
-	dev server worker start-temporal \
+	dev server worker start-temporal lint format \
 	start-temporal stop-temporal stop test-api temporal-fresh check-activities \
 	test test-unit test-integration test-medical test-coverage test-all test-quick
 
@@ -18,6 +18,10 @@ help:
 	@echo "  stop              		- Stop all running processes (pkill)"
 	@echo "  temporal-fresh     	- Clean Temporal data and start fresh"
 	@echo "  check-activities  	- Check running Temporal activities via CLI"
+	@echo ""
+	@echo "Code quality targets:"
+	@echo "  lint              	- Run all linting checks (ruff, yamllint, etc.)"
+	@echo "  format            	- Format code with ruff"
 	@echo ""
 	@echo "Testing targets:"
 	@echo "  test              	- Run all tests (unit + integration)"
@@ -46,6 +50,33 @@ install-dev:
 
 install-dev-gpu:
 	uv sync --extra gpu
+
+# ============================================================================
+# Code quality targets
+# ============================================================================
+
+# Run all linting checks based on .pre-commit-config.yaml
+lint:
+	@echo "Running linting checks..."
+	@echo "✓ Running ruff linter (required)..."
+	uv run ruff check app/ tests/ --config pyproject.toml
+	@echo ""
+	@echo "✓ Running optional linters..."
+	@echo "  - yamllint (YAML files)..."
+	@uv run yamllint -d "{extends: relaxed, rules: {line-length: disable}}" -s . 2>/dev/null || echo "    ⚠ yamllint not installed (optional)"
+	@echo "  - pydocstyle (docstrings)..."
+	@uv run pydocstyle app/ 2>/dev/null || echo "    ⚠ pydocstyle not installed (optional)"
+	@echo "  - codespell (spelling)..."
+	@uv run codespell app/ tests/ 2>/dev/null || echo "    ⚠ codespell not installed (optional)"
+	@echo ""
+	@echo "✅ All linting checks completed!"
+
+# Format code with ruff
+format:
+	@echo "Formatting code with ruff..."
+	uv run ruff check app/ tests/ --fix --config pyproject.toml
+	uv run ruff format app/ tests/ --config pyproject.toml
+	@echo "Code formatting completed"
 
 # ============================================================================
 # Run targets

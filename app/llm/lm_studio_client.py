@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 class LMStudioConfig(BaseModel):
     """Configuration for LM Studio connection."""
+
     base_url: str = Field(default="http://localhost:1234/v1", description="LM Studio API base URL")
     timeout: int = Field(default=120, description="Request timeout in seconds")
     max_retries: int = Field(default=3, description="Maximum number of retries")
@@ -35,7 +36,7 @@ class LMStudioClient:
         self.client = httpx.AsyncClient(
             base_url=self.config.base_url,
             timeout=httpx.Timeout(self.config.timeout),
-            limits=httpx.Limits(max_keepalive_connections=5, max_connections=10)
+            limits=httpx.Limits(max_keepalive_connections=5, max_connections=10),
         )
 
     async def chat_completion(
@@ -100,14 +101,14 @@ class LMStudioClient:
                 logger.warning(f"HTTP error on attempt {attempt + 1}: {e}")
                 if attempt == self.config.max_retries - 1:
                     raise
-                await asyncio.sleep(2 ** attempt)
+                await asyncio.sleep(2**attempt)
 
             except httpx.RequestError as e:
                 logger.warning(f"Request error on attempt {attempt + 1}: {e}")
                 if attempt == self.config.max_retries - 1:
                     raise
 
-                await asyncio.sleep(2 ** attempt)
+                await asyncio.sleep(2**attempt)
 
             except Exception as e:
                 logger.error(f"Unexpected error in chat completion: {e}")
@@ -142,14 +143,10 @@ class LMStudioClient:
             if "data" not in result or not result["data"]:
                 raise ValueError("Invalid embedding response format")
 
-            return result["data"][0]["embedding"]
-
             first_data = result["data"][0]
             if not isinstance(first_data, dict) or "embedding" not in first_data:
                 raise ValueError("Invalid embedding response format: missing 'embedding' key")
             return first_data["embedding"]
-            logger.error(f"Embedding generation HTTP error: {e}")
-            raise
         except Exception as e:
             logger.error(f"Unexpected error in embedding generation: {e}")
             raise

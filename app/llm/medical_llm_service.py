@@ -59,13 +59,13 @@ Be precise with character positions. Set confidence based on certainty."""
         try:
             messages = [
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Detect PHI in this medical text:\n\n{text}"}
+                {"role": "user", "content": f"Detect PHI in this medical text:\n\n{text}"},
             ]
 
             response = await self.client.chat_completion(
                 messages=messages,
                 temperature=0.0,  # Deterministic for PHI detection
-                max_tokens=2048
+                max_tokens=2048,
             )
 
             return self._parse_phi_response(response)
@@ -116,7 +116,7 @@ Use standard medical terminology and coding systems."""
         try:
             messages = [
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Extract medical entities:\n\n{text}"}
+                {"role": "user", "content": f"Extract medical entities:\n\n{text}"},
             ]
 
             response = await self.client.chat_completion(messages=messages)
@@ -156,31 +156,19 @@ Guidelines:
         try:
             messages = [
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Generate SOAP note for:\n\n{transcript}"}
+                {"role": "user", "content": f"Generate SOAP note for:\n\n{transcript}"},
             ]
 
-            response = await self.client.chat_completion(
-                messages=messages,
-                max_tokens=3072
-            )
+            response = await self.client.chat_completion(messages=messages, max_tokens=3072)
 
             return self._parse_soap_response(response)
 
         except Exception as e:
             logger.error(f"SOAP note generation failed: {e}")
-            return {
-                "subjective": "",
-                "objective": "",
-                "assessment": "",
-                "plan": "",
-                "error": str(e)
-            }
+            return {"subjective": "", "objective": "", "assessment": "", "plan": "", "error": str(e)}
 
     async def structure_medical_document(
-        self,
-        transcript: str,
-        phi_data: Dict = None,
-        entities: List[Dict] = None
+        self, transcript: str, phi_data: Dict = None, entities: List[Dict] = None
     ) -> Dict[str, Any]:
         """
         Create structured medical document from consultation components.
@@ -242,15 +230,9 @@ Return structured JSON:
 Extract all clinically relevant information and organize it properly."""
 
         try:
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": context}
-            ]
+            messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": context}]
 
-            response = await self.client.chat_completion(
-                messages=messages,
-                max_tokens=4096
-            )
+            response = await self.client.chat_completion(messages=messages, max_tokens=4096)
 
             return self._parse_structured_document(response)
 
@@ -261,13 +243,10 @@ Extract all clinically relevant information and organize it properly."""
                 "timestamp": datetime.now().isoformat(),
                 "error": str(e),
                 "sections": {},
-                "summary": "Document structuring failed"
+                "summary": "Document structuring failed",
             }
 
-    async def generate_clinical_summary(
-        self,
-        structured_document: Dict[str, Any]
-    ) -> str:
+    async def generate_clinical_summary(self, structured_document: Dict[str, Any]) -> str:
         """
         Generate a concise clinical summary from structured document.
 
@@ -300,15 +279,12 @@ Focus on:
 2. Key findings and assessment
 3. Treatment plan and follow-up
 
-Use professional medical language and be clinically precise."""
+Use professional medical language and be clinically precise.""",
                 },
-                {"role": "user", "content": f"Generate clinical summary:\n\n{context}"}
+                {"role": "user", "content": f"Generate clinical summary:\n\n{context}"},
             ]
 
-            return await self.client.chat_completion(
-                messages=messages,
-                max_tokens=1024
-            )
+            return await self.client.chat_completion(messages=messages, max_tokens=1024)
 
         except Exception as e:
             logger.error(f"Clinical summary generation failed: {e}")
@@ -323,11 +299,13 @@ Use professional medical language and be clinically precise."""
             # Try to extract JSON from markdown code blocks
             extracted = self._extract_json_from_markdown(response)
             if not extracted:
-                logger.error(f"Failed to parse PHI response as JSON or extract JSON from markdown. Response: {response!r}")
+                logger.error(
+                    f"Failed to parse PHI response as JSON or extract JSON from markdown. Response: {response!r}"
+                )
                 return {
                     "error": "Failed to parse PHI response as JSON or extract JSON from markdown.",
                     "details": str(e),
-                    "raw_response": response
+                    "raw_response": response,
                 }
             return extracted
 
@@ -342,25 +320,21 @@ Use professional medical language and be clinically precise."""
             extracted = self._extract_json_from_markdown(response)
             if isinstance(extracted, dict):
                 return extracted.get("entities", [])
-            logger.warning("Failed to parse entities from LLM response. Returning empty list. Response was: %r", response)
+            logger.warning(
+                "Failed to parse entities from LLM response. Returning empty list. Response was: %r", response
+            )
             return []
 
     def _parse_soap_response(self, response: str) -> Dict[str, str]:
         """Parse SOAP note sections."""
-        sections = {
-            "subjective": "",
-            "objective": "",
-            "assessment": "",
-            "plan": ""
-        }
+        sections = {"subjective": "", "objective": "", "assessment": "", "plan": ""}
 
         # Parse sections using both markdown and plain text patterns
         current_section = None
-        lines = response.split('\n')
+        lines = response.split("\n")
 
         for line in lines:
             line_stripped = line.strip()
-            line_lower = line_stripped.lower()
 
             # Detect section headers (various formats, only at line start)
             if re.match(r"^(?:\*\*|#+\s*)?subjective(?:\*\*)?:?\s*$", line_stripped, re.IGNORECASE):
@@ -379,8 +353,8 @@ Use professional medical language and be clinically precise."""
             # Add content to current section
             if current_section and line_stripped:
                 # Clean up markdown formatting
-                clean_line = re.sub(r'^\*\*([^*]+)\*\*:\s*', r'\1: ', line_stripped)
-                clean_line = re.sub(r'^#+\s*', '', clean_line)
+                clean_line = re.sub(r"^\*\*([^*]+)\*\*:\s*", r"\1: ", line_stripped)
+                clean_line = re.sub(r"^#+\s*", "", clean_line)
 
                 if sections[current_section]:
                     sections[current_section] += "\n" + clean_line
@@ -404,7 +378,7 @@ Use professional medical language and be clinically precise."""
                 "timestamp": datetime.now().isoformat(),
                 "raw_response": response,
                 "sections": {},
-                "summary": "Document parsing required manual intervention"
+                "summary": "Document parsing required manual intervention",
             }
 
     def _format_entities_summary(self, entities: List[Dict]) -> str:
@@ -450,7 +424,7 @@ Use professional medical language and be clinically precise."""
     def _extract_json_from_markdown(self, text: str) -> Dict:
         """Extract JSON from markdown code blocks or plain text."""
         # Pattern 1: Match content inside triple backticks (with or without 'json' label)
-        code_block_pattern = r'```(?:json)?\s*([\s\S]*?)\s*```'
+        code_block_pattern = r"```(?:json)?\s*([\s\S]*?)\s*```"
         matches = re.findall(code_block_pattern, text, re.IGNORECASE)
         for match in matches:
             candidate = match.strip()
@@ -460,7 +434,7 @@ Use professional medical language and be clinically precise."""
                 continue
 
         # Pattern 2: Find any JSON object or array in plain text (non-greedy)
-        json_pattern = r'(\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}|\[[^\[\]]*(?:\[[^\[\]]*\][^\[\]]*)*\])'
+        json_pattern = r"(\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}|\[[^\[\]]*(?:\[[^\[\]]*\][^\[\]]*)*\])"
         matches = re.findall(json_pattern, text, re.DOTALL)
         for match in matches:
             try:
@@ -469,7 +443,7 @@ Use professional medical language and be clinically precise."""
                 continue
 
         # Pattern 3: Last resort - find any {...} or [...] and try to parse
-        simple_pattern = r'(\{.*?\}|\[.*?\])'
+        simple_pattern = r"(\{.*?\}|\[.*?\])"
         matches = re.findall(simple_pattern, text, re.DOTALL)
         for match in matches:
             try:
