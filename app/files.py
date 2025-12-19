@@ -57,9 +57,10 @@ def save_temporary_file(temporary_file, original_filename):
     # This ensures files are accessible across containers
     uploads_dir = "/tmp/uploads"
     os.makedirs(uploads_dir, exist_ok=True)
-    
+
     # Create a unique filename with original extension
     import uuid
+
     unique_filename = f"{uuid.uuid4()}{original_extension}"
     temp_filename = os.path.join(uploads_dir, unique_filename)
 

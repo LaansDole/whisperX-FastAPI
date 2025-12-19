@@ -1,273 +1,251 @@
-"""Tests for the whisperx_services module."""
+"""Integration tests for WhisperX services.
 
-from unittest.mock import Mock, patch
+Tests the complete STT pipeline with real Vietnamese audio files.
+Requires server running on localhost:8000.
+"""
 
-import pandas as pd
+import httpx
+import os
 import pytest
-import torch
+import time
 
-from app.schemas import (
-    AlignmentParams,
-    ASROptions,
-    ComputeType,
-    Device,
-    DiarizationParams,
-    InterpolateMethod,
-    SpeechToTextProcessingParams,
-    TaskEnum,
-    VADOptions,
-    WhisperModel,
-    WhisperModelParams,
-)
-from app.whisperx_services import (
-    align_whisper_output,
-    device,
-    diarize,
-    process_audio_common,
-    transcribe_with_whisper,
-)
+# Base URL for integration tests
+BASE_URL = "http://localhost:8000"
+client = httpx.Client(base_url=BASE_URL, timeout=300.0)
+
+# Vietnamese audio files
+AUDIO_DIR = "datasets/audios/vn"
+VN_AUDIO_1 = os.path.join(AUDIO_DIR, "vn-1.mp3")  # 2.8MB
+VN_AUDIO_2 = os.path.join(AUDIO_DIR, "vn-2.mp3")  # 1.4MB
+
+# Verify audio files exist
+assert os.path.exists(VN_AUDIO_1), f"Audio file not found: {VN_AUDIO_1}"
+assert os.path.exists(VN_AUDIO_2), f"Audio file not found: {VN_AUDIO_2}"
 
 
-@pytest.fixture
-def audio_data():
-    """Mock audio data for testing."""
-    return torch.randn(
-        16000
-    ).numpy()  # Convert to numpy array - 1 second of audio at 16kHz
+def wait_for_task_completion(workflow_id, max_wait=300, poll_interval=5):
+    """Wait for a workflow to complete by polling its status.
+
+    Args:
+        workflow_id: Workflow identifier
+        max_wait: Maximum wait time in seconds
+        poll_interval: Time between polls in seconds
+
+    Returns:
+        Final workflow result when completed
+
+    Raises:
+        TimeoutError: If workflow doesn't complete within max_wait
+        ValueError: If workflow fails
+    """
+    start_time = time.time()
+
+    while time.time() - start_time < max_wait:
+        # Check workflow status
+        response = client.get(f"/temporal/workflow/{workflow_id}")
+        if response.status_code == 404:
+            raise ValueError(f"Workflow not found: {workflow_id}")
+
+        assert response.status_code == 200, f"Failed to get workflow status: {response.text}"
+
+        data = response.json()
+        status = data.get("status")
+
+        if status == "COMPLETED":
+            # Get the result
+            result_response = client.get(f"/temporal/workflow/{workflow_id}/result")
+            assert result_response.status_code == 200, f"Failed to get workflow result: {result_response.text}"
+            return result_response.json()
+        elif status in ["FAILED", "TERMINATED", "TIMED_OUT", "CANCELED"]:
+            raise ValueError(f"Workflow {status.lower()}")
+
+        time.sleep(poll_interval)
+
+    raise TimeoutError(f"Workflow {workflow_id} did not complete within {max_wait}s")
 
 
-@pytest.fixture
-def mock_whisper_model():
-    """Mock Whisper model for testing."""
-    mock = Mock()
-    mock.transcribe.return_value = {
-        "text": "Test transcription",
-        "segments": [],
-        "language": "en",
-    }
-    return mock
+# ============================================================================
+# Health Check Tests
+# ============================================================================
 
 
-@pytest.fixture
-def mock_align_model():
-    """Mock align model for testing."""
-    return Mock()
+def test_health_check():
+    """Test basic health check."""
+    response = client.get("/health")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ok"
 
 
-@pytest.fixture
-def mock_diarization_pipeline():
-    """Mock diarization pipeline for testing."""
-    mock = Mock()
-    # Create DataFrame with test data
-    mock.return_value = pd.DataFrame(
-        [
-            {
-                "start": 0.0,
-                "end": 1.0,
-                "speaker": "SPEAKER_00",
-                "label": "A",
-                "segment": None,  # Will be removed in processing
-            }
-        ]
-    )
-    return mock
+def test_readiness_check():
+    """Test readiness check."""
+    response = client.get("/health/ready")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ok"
+    assert "temporal" in data  # Changed from "database"
 
 
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
-def test_transcribe_with_whisper_gpu(audio_data, mock_whisper_model):
-    """Test transcribe_with_whisper function with GPU or fallback to CPU."""
-    with patch("app.whisperx_services.load_model", return_value=mock_whisper_model):
-        result = transcribe_with_whisper(
-            audio=audio_data,
-            task="transcribe",
-            asr_options={},
-            vad_options={},
-            language="en",
-            model=WhisperModel.tiny,  # Use string value directly
-            device="cuda",
-            compute_type="float16",
+# ============================================================================
+# Speech-to-Text Tests with Vietnamese Audio
+# ============================================================================
+
+
+def test_speech_to_text_vietnamese_small():
+    """Test STT with smaller Vietnamese audio file."""
+    with open(VN_AUDIO_2, "rb") as audio_file:
+        files = {"file": ("vn-2.mp3", audio_file, "audio/mpeg")}
+        response = client.post(
+            "/speech-to-text",
+            files=files,
+            params={
+                "language": "vi",  # Vietnamese
+                "device": "cpu",
+                "compute_type": "int8",
+            },
         )
 
-        assert result is not None
-        assert "text" in result
+    assert response.status_code == 200
+    data = response.json()
+    assert "identifier" in data
+    assert "Workflow started" in data["message"]  # Changed from "Task queued"
+
+    # Wait for completion
+    workflow_id = data["identifier"]
+    result = wait_for_task_completion(workflow_id, max_wait=180)
+
+    # Verify result structure
+    assert "segments" in result
+
+    # Should have some transcribed text
+    assert len(result["segments"]) > 0
+
+
+@pytest.mark.slow
+def test_transcribe_vietnamese_large():
+    """Test transcription with larger Vietnamese audio file."""
+    with open(VN_AUDIO_1, "rb") as audio_file:
+        files = {"file": ("vn-1.mp3", audio_file, "audio/mpeg")}
+        response = client.post(
+            "/speech-to-text", files=files, params={"language": "vi", "device": "cpu", "compute_type": "int8"}
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "identifier" in data
+
+    # Wait for completion
+    workflow_id = data["identifier"]
+    result = wait_for_task_completion(workflow_id, max_wait=240)
+
+    # Verify transcription
+    assert "segments" in result
+    segments = result["segments"]
+    assert len(segments) > 0
+
+    # Verify segment structure
+    first_segment = segments[0]
+    assert "text" in first_segment
+    assert "start" in first_segment
+    assert "end" in first_segment
+
+
+@pytest.mark.slow
+def test_full_pipeline_vietnamese():
+    """Test complete STT pipeline with Vietnamese audio."""
+    with open(VN_AUDIO_2, "rb") as audio_file:
+        files = {"file": ("vn-2.mp3", audio_file, "audio/mpeg")}
+
+        # Full pipeline request
+        response = client.post(
+            "/speech-to-text", files=files, params={"language": "vi", "device": "cpu", "compute_type": "int8"}
+        )
+
+        assert response.status_code == 200
+        workflow_id = response.json()["identifier"]
+
+        # Wait for full pipeline
+        result = wait_for_task_completion(workflow_id, max_wait=300)
+
+        # Verify all pipeline stages completed
         assert "segments" in result
-        assert "language" in result
+
+        # Check segments
+        segments = result["segments"]
+        if len(segments) > 0:
+            first_segment = segments[0]
+            assert "text" in first_segment
+            assert "start" in first_segment
+            assert "end" in first_segment
 
 
-def test_transcribe_with_whisper_cpu(audio_data, mock_whisper_model):
-    """Test transcribe_with_whisper function with CPU."""
-    with patch("app.whisperx_services.load_model", return_value=mock_whisper_model):
-        result = transcribe_with_whisper(
-            audio=audio_data,
-            task="transcribe",
-            asr_options={},
-            vad_options={},
-            language="en",
-            model=WhisperModel.tiny,  # Use string value directly
-            device="cpu",
-            compute_type="float32",
-        )
+# ============================================================================
+# Task Management Tests
+# ============================================================================
 
-        assert result is not None
-        assert "text" in result
+
+def test_get_workflow_status():
+    """Test getting workflow status."""
+    # Submit a workflow first
+    with open(VN_AUDIO_2, "rb") as audio_file:
+        files = {"file": ("vn-2.mp3", audio_file, "audio/mpeg")}
+        response = client.post("/speech-to-text", files=files)
+
+        assert response.status_code == 200
+        workflow_id = response.json()["identifier"]
+
+    # Get workflow status
+    status_response = client.get(f"/temporal/workflow/{workflow_id}")
+    assert status_response.status_code == 200
+
+    data = status_response.json()
+    assert "status" in data
+    assert "workflow_id" in data
+    assert data["workflow_id"] == workflow_id
+
+
+def test_workflow_not_found():
+    """Test getting non-existent workflow."""
+    response = client.get("/temporal/workflow/non_existent_id")
+    assert response.status_code == 404
+
+
+# ============================================================================
+# Error Handling Tests
+# ============================================================================
+
+
+def test_missing_audio_file():
+    """Test upload without audio file."""
+    response = client.post("/speech-to-text")
+    assert response.status_code == 422  # Validation error
+
+
+@pytest.mark.integration
+def test_invalid_language():
+    """Test with unsupported language code."""
+    with open(VN_AUDIO_2, "rb") as audio_file:
+        files = {"file": ("vn-2.mp3", audio_file, "audio/mpeg")}
+        response = client.post("/speech-to-text", files=files, params={"language": "invalid_lang"})
+
+        # Should still accept but may auto-detect or fail gracefully
+        assert response.status_code in [200, 422]
+
+
+@pytest.mark.slow
+def test_concurrent_requests():
+    """Test handling multiple concurrent requests."""
+    identifiers = []
+
+    # Submit multiple workflows
+    for i in range(2):  # Reduced from 3 to 2 for faster testing
+        with open(VN_AUDIO_2, "rb") as audio_file:
+            files = {"file": (f"vn-2-{i}.mp3", audio_file, "audio/mpeg")}
+            response = client.post("/speech-to-text", files=files, params={"language": "vi"})
+            assert response.status_code == 200
+            identifiers.append(response.json()["identifier"])
+
+    # Wait for all to complete
+    for workflow_id in identifiers:
+        result = wait_for_task_completion(workflow_id, max_wait=300)
         assert "segments" in result
-        assert "language" in result
-
-
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
-def test_diarize_gpu(audio_data, mock_diarization_pipeline):
-    """Test diarize function with GPU."""
-    with patch(
-        "whisperx.diarize.DiarizationPipeline", return_value=mock_diarization_pipeline
-    ):
-        result = diarize(
-            audio=audio_data, device=Device.cuda, min_speakers=1, max_speakers=2
-        )
-
-        assert result is not None
-        assert isinstance(result, pd.DataFrame)
-        assert all(isinstance(segment, pd.Series) for _, segment in result.iterrows())
-        assert "segment" in result.columns  # Check if column exists
-        assert result["segment"].isna().all()  # Verify segment column is all None
-
-
-def test_align_whisper_output(audio_data, mock_align_model):
-    """Test align_whisper_output function."""
-    transcript = [{"text": "Test", "start": 0.0, "end": 1.0}]
-
-    with patch(
-        "app.whisperx_services.load_align_model", return_value=(mock_align_model, {})
-    ):
-        with patch(
-            "app.whisperx_services.align", return_value={"segments": transcript}
-        ):
-            result = align_whisper_output(
-                transcript=transcript,
-                audio=audio_data,
-                language_code="en",
-                device=device,
-                interpolate_method="nearest",
-            )
-
-            assert result is not None
-            assert "segments" in result
-            assert isinstance(result["segments"], list)
-
-
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
-def test_process_audio_common_gpu(
-    audio_data, mock_whisper_model, mock_align_model, mock_diarization_pipeline
-):
-    """Test process_audio_common function with GPU."""
-    params = SpeechToTextProcessingParams(
-        audio=audio_data,  # Already numpy array from fixture
-        identifier="test-123",
-        whisper_model_params=WhisperModelParams(
-            language="en",
-            model=WhisperModel.tiny,  # Use string value directly
-            device=Device.cuda,
-            compute_type=ComputeType.float16,
-            task=TaskEnum.transcribe,
-            threads=0,
-            batch_size=8,
-            chunk_size=20,
-        ),
-        asr_options=ASROptions(
-            beam_size=5,
-            best_of=5,
-            patience=1,
-            length_penalty=1,
-            temperatures=0.0,
-            compression_ratio_threshold=2.4,
-            log_prob_threshold=-1.0,
-            no_speech_threshold=0.6,
-            initial_prompt=None,
-            suppress_tokens=[-1],
-            suppress_numerals=True,
-            hotwords=None,
-        ),
-        vad_options=VADOptions(vad_onset=0.5, vad_offset=0.363),
-        alignment_params=AlignmentParams(
-            align_model=None,
-            interpolate_method=InterpolateMethod.nearest,
-            return_char_alignments=False,
-        ),
-        diarization_params=DiarizationParams(min_speakers=1, max_speakers=2),
-    )
-
-    mock_session = Mock()
-    mock_session.query.return_value.filter_by.return_value.first.return_value = Mock()
-    with patch("app.whisperx_services.load_model", return_value=mock_whisper_model):
-        with patch(
-            "app.whisperx_services.load_align_model",
-            return_value=(mock_align_model, {}),
-        ):
-            with patch(
-                "whisperx.diarize.DiarizationPipeline",
-                return_value=mock_diarization_pipeline,
-            ):
-                with patch(
-                    "app.whisperx_services.align",
-                    return_value={"segments": [], "word_segments": []},
-                ):
-                    with patch(
-                        "app.whisperx_services.assign_word_speakers",
-                        return_value={"segments": [], "word_segments": []},
-                    ):
-                        process_audio_common(params, session=mock_session)
-                        # The function updates task status in DB, no return value to assert
-                        # Success is indicated by no exceptions being raised
-
-
-@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")
-def test_gpu_memory_logging():
-    """Test GPU memory logging when available."""
-    if torch.cuda.is_available():
-        mock_model = Mock()
-        mock_model.transcribe.return_value = {
-            "text": "Test transcription",
-            "segments": [],
-            "language": "en",
-        }
-
-        with patch("app.whisperx_services.logger.debug") as mock_logger:
-            with patch("app.whisperx_services.load_model", return_value=mock_model):
-                audio_data = torch.randn(16000).numpy()  # Convert to numpy array
-                transcribe_with_whisper(
-                    audio=audio_data,
-                    task="transcribe",
-                    asr_options={},
-                    vad_options={},
-                    language="en",
-                    model=WhisperModel.tiny,  # Use string value directly
-                    device=Device.cuda,
-                    compute_type=ComputeType.float16,
-                )
-
-                # Verify that GPU memory logging calls were made
-                # Check if any debug call contains "GPU memory after cleanup"
-                cleanup_calls = [
-                    call_args[0][0]
-                    for call_args in mock_logger.call_args_list
-                    if "GPU memory after cleanup" in call_args[0][0]
-                ]
-                assert len(cleanup_calls) > 0, (
-                    "No GPU memory cleanup logging call found"
-                )
-
-
-def test_error_handling():
-    """Test error handling in whisperx services."""
-    with pytest.raises(ValueError):
-        # Test with invalid compute type for CPU
-        audio_data = torch.randn(16000).numpy()  # Convert to numpy array
-        transcribe_with_whisper(
-            audio=audio_data,
-            task="transcribe",
-            asr_options={},
-            vad_options={},
-            language="en",
-            model=WhisperModel.tiny,  # Use string value directly
-            device=Device.cpu,
-            compute_type=ComputeType.float16,  # This should raise an error on CPU
-        )
