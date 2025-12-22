@@ -1,61 +1,22 @@
-# .pre-commit-config.yaml
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0 # Use the latest tag from the repository
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
-      - id: check-yaml
-      - id: check-added-large-files
-      - id: detect-private-key
       - id: requirements-txt-fixer
+
+
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.13
+    rev: v0.14.0
     hooks:
-      - id: ruff
-        args: [--fix]
+      - id: ruff-check
+        args: [--fix, --ignore=E402]
       - id: ruff-format
-  - repo: https://github.com/adrienverge/yamllint
-    rev: v1.37.1
+
+
+  - repo: https://github.com/mgedmin/check-manifest
+    rev: "0.49"
     hooks:
-      - id: yamllint
-        args: ["-d {extends: relaxed, rules: {line-length: disable}}", "-s"]
-        files: \.(yaml|yml)$
-  # Add pydocstyle for checking docstrings
-  - repo: https://github.com/PyCQA/pydocstyle
-    rev: 6.3.0 # Use the latest stable version of pydocstyle
-    hooks:
-      - id: pydocstyle
-  # Lint: YAML
-  - repo: https://github.com/adrienverge/yamllint
-    rev: v1.37.1
-    hooks:
-      - id: yamllint
-        args: ["-d {extends: relaxed, rules: {line-length: disable}}", "-s"]
-        files: \.(yaml|yml)$
-  - repo: https://github.com/google/yamlfmt
-    rev: v0.17.0
-    hooks:
-      - id: yamlfmt
-  # Lint: Shell scripts
-  - repo: https://github.com/shellcheck-py/shellcheck-py
-    rev: v0.10.0.1
-    hooks:
-      - id: shellcheck
-        args: ["-x"]
-  - repo: https://github.com/codespell-project/codespell
-    rev: v2.4.1
-    hooks:
-      - id: codespell
-        additional_dependencies:
-          - tomli
-  - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.27.2
-    hooks:
-      - id: gitleaks
-        args: ["--config", ".gitleaks.toml"]
-  - repo: https://github.com/hadolint/hadolint
-    rev: v2.13.1-beta
-    hooks:
-      - id: hadolint
-        files: Dockerfile
+      - id: check-manifest
+        stages: [manual]

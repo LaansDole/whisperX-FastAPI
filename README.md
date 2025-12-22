@@ -1,6 +1,8 @@
 # whisperX REST API
 
-The whisperX API is a production-ready tool for enhancing and analyzing audio content using advanced speech processing technologies. This API provides a comprehensive suite of services for processing audio and video files, including transcription, alignment, diarization, and combining transcript with diarization results.
+The whisperX API is a production-ready tool for enhancing and analyzing audio content using advanced speech processing technologies. This API provides a comprehensive suite of services for processing audio and video files, including transcription, alignment, diarization, and **medical RAG integration with local LLMs via LM Studio**.
+
+> **NEW: Medical RAG Integration** - Process medical consultations with local LLMs (MedAlpaca, Meditron) using LM Studio's OpenAI-compatible API for HIPAA-compliant PHI detection, entity extraction, and SOAP note generation. See [Medical RAG Setup](#medical-rag-with-lm-studio) below.
 
 ## System Architecture
 
@@ -18,7 +20,7 @@ graph TB
         STT[Speech-to-Text Routes]
         Services[Individual Services]
         Tasks[Task Management]
-        RAG[RAG Chatbot - Optional]
+        Medical[Medical RAG - LM Studio]
         Health[Health Endpoints]
         Middleware[Trace Middleware]
     end
@@ -66,7 +68,7 @@ graph TB
     Router --> STT
     Router --> Services
     Router --> Tasks
-    Router --> RAG
+    Router --> Medical
     Router --> Health
     Router --> Middleware
     
@@ -108,7 +110,7 @@ graph TB
     classDef infraLayer fill:#f1f8e9
     
     class Client,WebUI clientLayer
-    class Router,STT,Services,Tasks,RAG,Health,Middleware apiLayer
+    class Router,STT,Services,Tasks,Medical,Health,Middleware apiLayer
     class ModelManager,WhisperXService,AudioProcessor,Transcriber,Aligner,Diarizer,Combiner processingLayer
     class TemporalClient,WorkflowEngine,Activities,RetryPolicies,Monitoring workflowLayer
     class ModelCache,TorchCache,FileStorage,HuggingFace storageLayer
@@ -280,6 +282,151 @@ WhisperX supports a comprehensive range of model sizes and specialized variants:
 - Models are automatically downloaded and cached on first use
 - GPU models support `float16` and `float32` precision
 - CPU models require `int8` quantization for optimal performance
+
+## Medical RAG with LM Studio
+
+### Overview
+
+The whisperX-FastAPI system integrates with **LM Studio** to provide local medical LLM capabilities without external API calls or costs. This enables:
+
+- **PHI Detection & Anonymization**: Identify and protect Protected Health Information
+- **Medical Entity Extraction**: Extract diagnoses, medications, procedures, symptoms
+- **SOAP Note Generation**: Automated SOAP (Subjective, Objective, Assessment, Plan) documentation
+- **Document Structuring**: Organize consultation transcripts into structured medical records
+- **RAG Search**: Semantic search across medical consultations using vector embeddings
+
+### Quick Start
+
+#### 1. Install LM Studio
+```bash
+# Download from https://lmstudio.ai/
+# Available for macOS, Windows, and Linux
+```
+
+#### 2. Download Medical Models
+```
+1. Open LM Studio
+2. Go to "Discover" tab
+3. Search "medalpaca" → Download MedAlpaca-7B
+4. Search "nomic" → Download nomic-embed-text-v1.5
+5. Go to "Local Server" tab
+6. Select MedAlpaca-7B
+7. Click "Start Server"
+```
+
+#### 3. Configure Application
+```bash
+# Add to .env
+LM_STUDIO_ENABLED=true
+LM_STUDIO_BASE_URL=http://localhost:1234/v1
+MEDICAL_RAG_ENABLED=true
+
+# Verify LM Studio is running
+curl http://localhost:1234/v1/models
+
+# Start application
+make dev
+```
+
+#### 4. Test Medical Processing
+```python
+# Example API call
+import httpx
+
+response = httpx.post(
+    "http://localhost:8000/medical/process",
+    json={
+        "transcript": "Patient presents with fever and cough...",
+        "patient_id": "PATIENT_123"
+    }
+)
+
+result = response.json()
+# Returns: PHI data, medical entities, SOAP note, structured document
+```
+
+### Recommended Models
+
+| Model | Size | Purpose | Download |
+|-------|------|---------|----------|
+| MedAlpaca-7B | ~15GB | Medical text generation | Search "medalpaca" in LM Studio |
+| Meditron-7B | ~15GB | Clinical reasoning | Search "meditron" in LM Studio |
+| nomic-embed-text-v1.5 | ~800MB | Embeddings for RAG | Search "nomic" in LM Studio |
+
+### Configuration Options
+
+```bash
+# .env configuration
+LM_STUDIO_ENABLED=true                    # Enable LM Studio integration
+LM_STUDIO_BASE_URL=http://localhost:1234/v1  # LM Studio API endpoint
+LM_STUDIO_TIMEOUT=120                     # Request timeout (seconds)
+LM_STUDIO_TEMPERATURE=0.1                 # Low temp for medical accuracy
+LM_STUDIO_MAX_TOKENS=2048                 # Max tokens per response
+
+# Feature flags
+MEDICAL_RAG_ENABLED=true                  # Enable medical RAG features
+ENABLE_PHI_DETECTION=true                 # Enable PHI detection
+ENABLE_ENTITY_EXTRACTION=true             # Enable entity extraction
+ENABLE_SOAP_GENERATION=true               # Enable SOAP notes
+```
+
+### Performance Expectations
+
+**With 7B Model on GPU (RTX 4090 / A10)**:
+- PHI Detection: 2-4 seconds
+- Entity Extraction: 3-6 seconds
+- SOAP Generation: 5-10 seconds
+- **Total**: ~15-25 seconds per consultation
+
+**With 7B Model on CPU**:
+- Total: ~50-90 seconds per consultation
+
+### Documentation
+
+- **Setup Guide**: `docs/setup/lm-studio-installation.md`
+- **Implementation Plan**: [`plans/lm-studio-medical-rag-implementation.md`](plans/lm-studio-medical-rag-implementation.md)
+- **Architecture Decision**: [`docs/adr/002-lm-studio-integration-strategy.md`](docs/adr/002-lm-studio-integration-strategy.md)
+
+### API Endpoints
+
+Once Medical RAG is enabled, new endpoints become available:
+
+```bash
+POST /medical/process
+  - Full medical processing pipeline (PHI, entities, SOAP, structuring)
+
+POST /medical/soap
+  - Generate SOAP note only
+
+POST /medical/entities
+  - Extract medical entities only
+
+GET /health/lm-studio
+  - Check LM Studio service health
+```
+
+### Troubleshooting
+
+**LM Studio not responding**:
+```bash
+# Check if LM Studio is running
+curl http://localhost:1234/v1/models
+
+# Restart LM Studio server
+# 1. Open LM Studio
+# 2. Go to "Local Server" tab
+# 3. Click "Stop Server" then "Start Server"
+```
+
+**Slow processing**:
+```bash
+# Enable response caching
+ENABLE_LLM_CACHING=true
+
+# Use GPU acceleration (if available)
+# LM Studio will automatically use GPU when available
+```
+---
 
 ## Troubleshooting
 
