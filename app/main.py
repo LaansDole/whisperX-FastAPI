@@ -116,10 +116,8 @@ Welcome to the **WhisperX API** - a powerful, production-ready service for advan
 
 ```bash
 # Upload an audio file for processing
-curl -X POST "http://localhost:8000/speech-to-text" \\
-  -F "file=@audio.mp3" \\
-  -F "language=en" \\
-  -F "model=base"
+curl -X POST "http://localhost:8000/speech-to-text?language=en&model=base" \\
+  -F "file=@audio.mp3"
 
 # Response: {{"identifier": "whisperx-workflow-abc123", "message": "Workflow started"}}
 
@@ -130,9 +128,8 @@ curl "http://localhost:8000/temporal/workflow/whisperx-workflow-abc123"
 ### Process from URL
 
 ```bash
-curl -X POST "http://localhost:8000/speech-to-text-url" \\
-  -F "url=https://example.com/audio.mp3" \\
-  -F "language=vi"
+curl -X POST "http://localhost:8000/speech-to-text-url?language=vi" \\
+  -F "url=https://example.com/audio.mp3"
 ```
 
 ## Key Features

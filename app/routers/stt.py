@@ -54,12 +54,8 @@ Upload an audio or video file to transcribe with optional alignment and speaker 
 
 **Example Request:**
 ```bash
-curl -X POST "http://localhost:8000/speech-to-text" \\
-  -F "file=@interview.mp3" \\
-  -F "language=en" \\
-  -F "model=base" \\
-  -F "min_speakers=2" \\
-  -F "max_speakers=3"
+curl -X POST "http://localhost:8000/speech-to-text?language=en&model=base&min_speakers=2&max_speakers=3" \\
+  -F "file=@interview.mp3"
 ```
 
 **Response:**
@@ -136,10 +132,8 @@ Download and process an audio or video file from a publicly accessible URL.
 
 **Example Request:**
 ```bash
-curl -X POST "http://localhost:8000/speech-to-text-url" \\
-  -F "url=https://example.com/meeting-recording.mp3" \\
-  -F "language=vi" \\
-  -F "model=large-v3"
+curl -X POST "http://localhost:8000/speech-to-text-url?language=vi&model=large-v3" \\
+  -F "url=https://example.com/meeting-recording.mp3"
 ```
 
 **Requirements:**
