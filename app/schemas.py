@@ -15,10 +15,21 @@ LANG = os.getenv("DEFAULT_LANG", "en")
 
 
 class Response(BaseModel):
-    """Response model for API responses."""
+    """Response model for API responses.
 
-    identifier: str
-    message: str
+    Returns a workflow identifier that can be used to track processing status.
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {"identifier": "whisperx-workflow-a1b2c3d4-e5f6-7890-abcd-ef1234567890", "message": "Workflow started"}
+            ]
+        }
+    )
+
+    identifier: str = Field(..., description="Unique workflow identifier for tracking processing status")
+    message: str = Field(..., description="Human-readable status message")
 
 
 class Metadata(BaseModel):
@@ -276,89 +287,159 @@ class VADOptions(BaseModel):
 
 
 class WhisperModelParams(BaseModel):
-    """Model for Whisper model parameters."""
+    """Model for Whisper model parameters.
+
+    Configure the speech recognition model and processing settings.
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "language": "en",
+                    "task": "transcribe",
+                    "model": "base",
+                    "device": "cpu",
+                    "device_index": 0,
+                    "threads": 0,
+                    "batch_size": 8,
+                    "chunk_size": 20,
+                    "compute_type": "int8",
+                },
+                {
+                    "language": "vi",
+                    "task": "transcribe",
+                    "model": "large-v3",
+                    "device": "cuda",
+                    "device_index": 0,
+                    "batch_size": 16,
+                    "chunk_size": 30,
+                    "compute_type": "float16",
+                },
+            ]
+        }
+    )
 
     language: str = Field(
         Query(
             default=LANG,
-            description="Language to transcribe",
+            description="Language code for transcription (e.g., 'en', 'vi', 'es', 'fr'). See WhisperX docs for full list.",
             enum=list(utils.LANGUAGES.keys()),
         )
     )
     task: TaskEnum = Field(
         Query(
             default="transcribe",
-            description="Whether to perform X->X speech recognition ('transcribe') or X->English translation ('translate')",
+            description="Processing task: 'transcribe' for same-language or 'translate' for translation to English",
         )
     )
     model: WhisperModel = Field(
         Query(
             default=WHISPER_MODEL,
-            description="Name of the Whisper model to use",
+            description="Whisper model size. Larger models are more accurate but slower. Recommended: 'base' for balanced performance, 'large-v3' for best accuracy.",
         )
     )
     device: Device = Field(
         Query(
             default="cpu",
-            description="Device to use for PyTorch inference",
+            description="Processing device: 'cpu' or 'cuda' for GPU acceleration",
         )
     )
-    device_index: int = Field(Query(0, description="Device index to use for FasterWhisper inference"))
+    device_index: int = Field(Query(0, description="GPU device index when using CUDA (0 for first GPU)"))
     threads: int = Field(
         Query(
             0,
-            description="Number of threads used by torch for CPU inference; supersedes MKL_NUM_THREADS/OMP_NUM_THREADS",
+            description="Number of CPU threads for inference. 0 = auto-detect. Overrides MKL_NUM_THREADS/OMP_NUM_THREADS.",
         )
     )
-    batch_size: int = Field(Query(8, description="The preferred batch size for inference"))
+    batch_size: int = Field(
+        Query(8, description="Batch size for inference. Increase for faster processing on powerful hardware.")
+    )
     chunk_size: int = Field(
         Query(
             20,
-            description="Chunk size for merging VAD segments. Default is 20, reduce this if the chunk is too long.",
+            description="Chunk size (seconds) for merging VAD segments. Reduce if memory issues occur.",
         )
     )
-    compute_type: ComputeType = Field(Query("int8", description="Type of computation"))
+    compute_type: ComputeType = Field(
+        Query("int8", description="Computation precision: 'int8' (fast), 'float16' (balanced), 'float32' (accurate)")
+    )
 
 
 class AlignmentParams(BaseModel):
-    """Model for alignment parameters."""
+    """Model for alignment parameters.
 
-    align_model: Optional[str] = Field(Query(None, description="Name of phoneme-level ASR model to do alignment"))
+    Configure word-level timestamp alignment settings.
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "align_model": None,
+                    "interpolate_method": "nearest",
+                    "return_char_alignments": False,
+                    "return_word_alignments": True,
+                    "device": "cpu",
+                }
+            ]
+        }
+    )
+
+    align_model: Optional[str] = Field(
+        Query(None, description="Phoneme-level ASR model for alignment. Auto-selected by default based on language.")
+    )
     interpolate_method: InterpolateMethod = Field(
         Query(
             "nearest",
-            description="For word .srt, method to assign timestamps to non-aligned words, or merge them into neighboring.",
+            description="Method for assigning timestamps to non-aligned words: 'nearest' (use nearby word), 'linear' (interpolate), 'ignore' (skip)",
         )
     )
     return_char_alignments: bool = Field(
         Query(
             False,
-            description="Return character-level alignments in the output json file",
+            description="Include character-level timestamps in output (useful for precise subtitle timing)",
         )
     )
     return_word_alignments: bool = Field(
         Query(
             False,
-            description="Return word-level alignments in the output json file",
+            description="Include word-level timestamps in output (recommended for most use cases)",
         )
     )
     device: Device = Field(
         Query(
             default="cpu",
-            description="Device to use for PyTorch inference",
+            description="Device to use for alignment processing: 'cpu' or 'cuda'",
         )
     )
 
 
 class DiarizationParams(BaseModel):
-    """Model for diarization parameters."""
+    """Model for diarization parameters.
 
-    min_speakers: Optional[int] = Field(Query(None, description="Minimum number of speakers to in audio file"))
-    max_speakers: Optional[int] = Field(Query(None, description="Maximum number of speakers to in audio file"))
+    Configure speaker identification and separation settings.
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {"min_speakers": None, "max_speakers": None, "device": "cpu"},
+                {"min_speakers": 2, "max_speakers": 4, "device": "cuda"},
+            ]
+        }
+    )
+
+    min_speakers: Optional[int] = Field(
+        Query(None, description="Minimum expected number of speakers. Auto-detect if not provided.")
+    )
+    max_speakers: Optional[int] = Field(
+        Query(None, description="Maximum expected number of speakers. Auto-detect if not provided.")
+    )
     device: Device = Field(
         Query(
             default="cpu",
-            description="Device to use for PyTorch inference",
+            description="Device to use for diarization: 'cpu' or 'cuda' (GPU recommended for faster processing)",
         )
     )
 

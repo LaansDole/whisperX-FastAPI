@@ -35,7 +35,47 @@ stt_router = APIRouter()
 log_compatibility_warnings()
 
 
-@stt_router.post("/speech-to-text", tags=["Speech-2-Text"])
+@stt_router.post(
+    "/speech-to-text",
+    tags=["Speech-2-Text"],
+    response_model=Response,
+    summary="Process audio/video file for speech-to-text",
+    description="""
+Upload an audio or video file to transcribe with optional alignment and speaker diarization.
+
+**Supported Formats:**
+- Audio: MP3, WAV, M4A, FLAC, OGG, OPUS, WEBM
+- Video: MP4, AVI, MOV, MKV, WEBM
+
+**Processing Pipeline:**
+1. **Transcription** - Convert speech to text using WhisperX
+2. **Alignment** - Add precise word-level timestamps (optional)
+3. **Diarization** - Identify different speakers (optional)
+
+**Example Request:**
+```bash
+curl -X POST "http://localhost:8000/speech-to-text?language=en&model=base&min_speakers=2&max_speakers=3" \\
+  -F "file=@interview.mp3"
+```
+
+**Response:**
+```json
+{
+  "identifier": "whisperx-workflow-a1b2c3d4-...",
+  "message": "Workflow started"
+}
+```
+
+**Next Steps:**
+Use the returned workflow ID to check status:
+`GET /temporal/workflow/{workflow_id}`
+
+**Tips:**
+- Use `base` model for balanced speed/accuracy
+- Specify speaker count for better diarization
+- Set `device=cuda` for GPU acceleration (if available)
+    """,
+)
 async def speech_to_text(
     model_params: WhisperModelParams = Depends(),
     align_params: AlignmentParams = Depends(),
@@ -77,7 +117,37 @@ async def speech_to_text(
     return Response(identifier=handle.id, message="Workflow started")
 
 
-@stt_router.post("/speech-to-text-url", tags=["Speech-2-Text"])
+@stt_router.post(
+    "/speech-to-text-url",
+    tags=["Speech-2-Text"],
+    response_model=Response,
+    summary="Process audio/video from URL",
+    description="""
+Download and process an audio or video file from a publicly accessible URL.
+
+**Use Cases:**
+- Process files from cloud storage (S3, Google Cloud, etc.)
+- Transcribe YouTube videos or podcasts
+- Batch processing from web sources
+
+**Example Request:**
+```bash
+curl -X POST "http://localhost:8000/speech-to-text-url?language=vi&model=large-v3" \\
+  -F "url=https://example.com/meeting-recording.mp3"
+```
+
+**Requirements:**
+- URL must be publicly accessible (no authentication required)
+- File must be in supported format
+- Server must have network access to the URL
+
+**Response:**
+Returns a workflow ID for tracking processing status.
+
+**Processing Time:**
+Depends on file size, network speed, and server load. Check workflow status for progress.
+    """,
+)
 async def speech_to_text_url(
     model_params: WhisperModelParams = Depends(),
     align_params: AlignmentParams = Depends(),
