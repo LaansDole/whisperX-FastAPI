@@ -49,7 +49,7 @@ tags_metadata = [
 - Automatic speech recognition using WhisperX
 - Word-level alignment with timestamps
 - Speaker diarization (who spoke when)
-- Multi-language support (60+ languages)
+- Multi-language support (English, Vietnamese, Chinese, Cantonese)
 - Temporal workflow orchestration for reliability
         """,
     },
@@ -135,7 +135,7 @@ curl -X POST "http://localhost:8000/speech-to-text-url?language=vi" \\
 ## Key Features
 
 ### Speech Processing
-- **Multi-language Support** - 60+ languages including Vietnamese, English, Spanish, and more
+- **Multi-language Support** - 4 languages: English (en), Vietnamese (vi), Chinese (zh), and Cantonese (yue)
 - **High Accuracy** - Powered by WhisperX state-of-the-art models
 - **Word-level Timestamps** - Precise alignment for subtitles and analytics
 - **Speaker Diarization** - Automatic speaker identification and separation

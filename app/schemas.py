@@ -13,6 +13,10 @@ from whisperx import utils
 WHISPER_MODEL = os.getenv("WHISPER_MODEL")
 LANG = os.getenv("DEFAULT_LANG", "en")
 
+# Supported languages - restricted to 4 primary languages
+SUPPORTED_LANGUAGES = ["en", "vi", "zh", "yue"]
+
+
 
 class Response(BaseModel):
     """Response model for API responses.
@@ -323,8 +327,8 @@ class WhisperModelParams(BaseModel):
     language: str = Field(
         Query(
             default=LANG,
-            description="Language code for transcription (e.g., 'en', 'vi', 'es', 'fr'). See WhisperX docs for full list.",
-            enum=list(utils.LANGUAGES.keys()),
+            description="Language code for transcription. Supported: English (en), Vietnamese (vi), Chinese (zh), Cantonese (yue).",
+            enum=SUPPORTED_LANGUAGES,
         )
     )
     task: TaskEnum = Field(
