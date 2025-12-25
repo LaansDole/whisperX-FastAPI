@@ -67,13 +67,6 @@ The speech processing pipeline consists of four sequential stages:
 **Ground Truth:** Manual transcription with speaker attribution (D:/P: prefix notation)  
 **Audio Quality:** Professional recording, clear speech, minimal background noise
 
-**Test Sample:**
-- File: RES0029.mp3
-- Scenario: Emergency department presentation with chest pain
-- Duration: 403.3 seconds (6.7 minutes)
-- Size: 2.1 MB
-- Ground Truth Segments: 69 (35 doctor, 34 patient)
-
 ### 2.3 Evaluation Metrics
 
 The following metrics were computed:
@@ -168,13 +161,7 @@ The following metrics were computed:
 | **Actual Doctor** | ✓ 100% | 0% |
 | **Actual Patient** | 0% | ✓ 100% |
 
-**Classification Accuracy: 100%** (Perfect classification across all samples and specialties)
-
-### 3.4 Transcription Quality Analysis
-
-### 3.4 Transcription Quality Analysis
-
-### 3.5 Cross-Sample Performance Consistency
+### 3.4 Cross-Sample Performance Consistency
 
 **Performance by Medical Specialty:**
 
