@@ -1,0 +1,5 @@
+# About Dataset
+
+The dataset presented covers a series of medical conversations in the format of Objective Structured Clinical Examinations (OSCE), with a focus on respiratory cases in audio format and corresponding text documents. These cases were simulated, recorded, transcribed and manually corrected with the underlying aim of providing a comprehensive set of medical conversation data to the academic and industry community. Potential applications include speech recognition detection for speech-to-text errors, training NLP models to extract symptoms, detect diseases, or for educational purposes, including training an avatar to converse with healthcare professional students as a standardized patient during clinical examinations.
+
+https://springernature.figshare.com/collections/A_dataset_of_simulated_patient-physician_medical_interviews_with_a_focus_on_respiratory_cases/5545842/1
