@@ -114,7 +114,7 @@ class TestWhisperXParser:
         assert metadata["total_segments"] == 3
         assert metadata["speaker_count"] == 2
         assert "SPEAKER_00" in metadata["speakers_detected"]
-        assert "SPEAKER_01"] in metadata["speakers_detected"]
+        assert "SPEAKER_01" in metadata["speakers_detected"]
         assert metadata["has_speaker_labels"] is True
         assert metadata["total_duration"] > 0
         assert metadata["avg_confidence"] > 0

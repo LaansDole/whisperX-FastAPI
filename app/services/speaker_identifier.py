@@ -192,29 +192,135 @@ class SpeakerIdentifier:
         first_segment = segments[0] if segments else None
         first_speaker = first_segment.get("speaker_id") if first_segment else None
         
-        # Calculate scores for each speaker
-        speaker_scores = {}
-        for speaker_id in speakers:
-            speaker_segments = [s for s in segments if s.get("speaker_id") == speaker_id]
-            scores = self._calculate_speaker_scores(speaker_segments, speaker_id == first_speaker)
-            speaker_scores[speaker_id] = scores
-        
-        # Assign roles based on scores
+        # Build segment lists per speaker and check for edge cases
         speaker1_id, speaker2_id = speakers[0], speakers[1]
-        speaker1_score = speaker_scores[speaker1_id]["provider_score"]
-        speaker2_score = speaker_scores[speaker2_id]["provider_score"]
+        speaker1_segments = [s for s in segments if s.get("speaker_id") == speaker1_id]
+        speaker2_segments = [s for s in segments if s.get("speaker_id") == speaker2_id]
+        speaker1_has_segments = bool(speaker1_segments)
+        speaker2_has_segments = bool(speaker2_segments)
         
-        # Higher provider score gets doctor role
-        if speaker1_score > speaker2_score:
-            doctor_id, patient_id = speaker1_id, speaker2_id
-            doctor_score, patient_score = speaker1_score, speaker2_score
+        speaker_scores: Dict[str, Dict[str, Any]] = {}
+        
+        # Handle edge cases where one or both speakers have no segments
+        if not speaker1_has_segments and not speaker2_has_segments:
+            logger.warning(
+                "Both speakers have no segments; falling back to low-confidence role assignment."
+            )
+            # Fall back to first_speaker heuristic with very low confidence
+            doctor_id = first_speaker or speaker1_id
+            patient_id = speaker2_id if doctor_id == speaker1_id else speaker1_id
+            # Minimal evidence: explicitly note missing segments
+            speaker_scores[doctor_id] = {
+                "provider_score": 0.0,
+                "patient_score": 0.0,
+                "medical_terms": 0,
+                "questions_asked": 0,
+                "patient_patterns": 0,
+                "speaking_time": 0.0,
+                "segment_count": 0,
+                "is_first_speaker": doctor_id == first_speaker,
+                "reason": "no_segments_for_either_speaker",
+            }
+            speaker_scores[patient_id] = {
+                "provider_score": 0.0,
+                "patient_score": 0.0,
+                "medical_terms": 0,
+                "questions_asked": 0,
+                "patient_patterns": 0,
+                "speaking_time": 0.0,
+                "segment_count": 0,
+                "is_first_speaker": patient_id == first_speaker,
+                "reason": "no_segments_for_either_speaker",
+            }
+            base_confidence = 0.3
+            doctor_score, patient_score = 0.0, 0.0
+            
+        elif speaker1_has_segments and not speaker2_has_segments:
+            logger.warning(
+                "Speaker %s has no segments; assigning roles based on available speaker content.",
+                speaker2_id,
+            )
+            # Compute scores only for the speaker with segments
+            speaker_scores[speaker1_id] = self._calculate_speaker_scores(
+                speaker1_segments, speaker1_id == first_speaker
+            )
+            # For the speaker with no segments, provide default scores
+            speaker_scores[speaker2_id] = {
+                "provider_score": 0.0,
+                "patient_score": 0.0,
+                "medical_terms": 0,
+                "questions_asked": 0,
+                "patient_patterns": 0,
+                "speaking_time": 0.0,
+                "segment_count": 0,
+                "is_first_speaker": speaker2_id == first_speaker,
+                "reason": "no_segments_for_speaker",
+            }
+            # Assign based on the speaker with content
+            if speaker_scores[speaker1_id]["provider_score"] > 0:
+                doctor_id, patient_id = speaker1_id, speaker2_id
+            else:
+                doctor_id, patient_id = speaker2_id, speaker1_id
+            doctor_score = speaker_scores[doctor_id]["provider_score"]
+            patient_score = speaker_scores[patient_id]["patient_score"]
+            score_diff = abs(doctor_score - patient_score)
+            base_confidence = min(0.5 + (score_diff * 0.05), 0.75)
+            
+        elif speaker2_has_segments and not speaker1_has_segments:
+            logger.warning(
+                "Speaker %s has no segments; assigning roles based on available speaker content.",
+                speaker1_id,
+            )
+            speaker_scores[speaker2_id] = self._calculate_speaker_scores(
+                speaker2_segments, speaker2_id == first_speaker
+            )
+            speaker_scores[speaker1_id] = {
+                "provider_score": 0.0,
+                "patient_score": 0.0,
+                "medical_terms": 0,
+                "questions_asked": 0,
+                "patient_patterns": 0,
+                "speaking_time": 0.0,
+                "segment_count": 0,
+                "is_first_speaker": speaker1_id == first_speaker,
+                "reason": "no_segments_for_speaker",
+            }
+            # Assign based on the speaker with content
+            if speaker_scores[speaker2_id]["provider_score"] > 0:
+                doctor_id, patient_id = speaker2_id, speaker1_id
+            else:
+                doctor_id, patient_id = speaker1_id, speaker2_id
+            doctor_score = speaker_scores[doctor_id]["provider_score"]
+            patient_score = speaker_scores[patient_id]["patient_score"]
+            score_diff = abs(doctor_score - patient_score)
+            base_confidence = min(0.5 + (score_diff * 0.05), 0.75)
+            
         else:
-            doctor_id, patient_id = speaker2_id, speaker1_id
-            doctor_score, patient_score = speaker2_score, speaker1_score
-        
-        # Calculate confidence based on score difference
-        score_diff = abs(doctor_score - patient_score)
-        base_confidence = min(0.6 + (score_diff * 0.1), 0.95)
+            # Normal case: both speakers have at least one segment
+            for speaker_id, speaker_segs in (
+                (speaker1_id, speaker1_segments),
+                (speaker2_id, speaker2_segments),
+            ):
+                scores = self._calculate_speaker_scores(
+                    speaker_segs, speaker_id == first_speaker
+                )
+                speaker_scores[speaker_id] = scores
+            
+            # Assign roles based on scores
+            speaker1_score = speaker_scores[speaker1_id]["provider_score"]
+            speaker2_score = speaker_scores[speaker2_id]["provider_score"]
+            
+            # Higher provider score gets doctor role
+            if speaker1_score > speaker2_score:
+                doctor_id, patient_id = speaker1_id, speaker2_id
+                doctor_score, patient_score = speaker1_score, speaker2_score
+            else:
+                doctor_id, patient_id = speaker2_id, speaker1_id
+                doctor_score, patient_score = speaker2_score, speaker1_score
+            
+            # Calculate confidence based on score difference
+            score_diff = abs(doctor_score - patient_score)
+            base_confidence = min(0.6 + (score_diff * 0.1), 0.95)
         
         return {
             doctor_id: {
@@ -268,9 +374,9 @@ class SpeakerIdentifier:
                 role = SpeakerRole.DOCTOR
                 confidence = min(0.4 + scores["provider_score"] * 0.06, 0.75)  # Lower confidence for 3+
             elif scores["patient_score"] > scores["provider_score"]:
-                # High patient score suggests patient
+                # High patient score suggests patient  
                 role = SpeakerRole.PATIENT
-                confidence = min(scores["patient_score"] * 0.08, 0.65)
+                confidence = min(0.35 + (scores["patient_score"] * 0.04), 0.65)
             else:
                 # Unknown - could be family, nurse, etc.
                 role = SpeakerRole.UNKNOWN

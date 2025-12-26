@@ -7,7 +7,7 @@ timing information, and text content.
 
 import logging
 from typing import Dict, List, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +65,7 @@ class WhisperXParser:
                 "metadata": metadata,
                 "raw_segment_count": len(segments),
                 "raw_word_count": len(word_segments),
-                "parsed_at": datetime.utcnow().isoformat(),
+                "parsed_at": datetime.now(timezone.utc).isoformat(),
                 "schema_valid": True
             }
             
