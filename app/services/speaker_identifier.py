@@ -204,13 +204,10 @@ class SpeakerIdentifier:
         # Handle edge cases where one or both speakers have no segments
         if not speaker1_has_segments and not speaker2_has_segments:
             self.logger.warning(
-                "Both speakers have no segments; falling back to low-confidence role assignment."
+                "Both speakers have no segments; assigning UNKNOWN to both speakers."
             )
-            # Fall back to first_speaker heuristic with very low confidence
-            doctor_id = first_speaker or speaker1_id
-            patient_id = speaker2_id if doctor_id == speaker1_id else speaker1_id
-            # Minimal evidence: explicitly note missing segments
-            speaker_scores[doctor_id] = {
+            # Both speakers get UNKNOWN role with minimal evidence
+            speaker_scores[speaker1_id] = {
                 "provider_score": 0.0,
                 "patient_score": 0.0,
                 "medical_terms": 0,
@@ -218,10 +215,10 @@ class SpeakerIdentifier:
                 "patient_patterns": 0,
                 "speaking_time": 0.0,
                 "segment_count": 0,
-                "is_first_speaker": doctor_id == first_speaker,
+                "is_first_speaker": speaker1_id == first_speaker,
                 "reason": "no_segments_for_either_speaker",
             }
-            speaker_scores[patient_id] = {
+            speaker_scores[speaker2_id] = {
                 "provider_score": 0.0,
                 "patient_score": 0.0,
                 "medical_terms": 0,
@@ -229,11 +226,14 @@ class SpeakerIdentifier:
                 "patient_patterns": 0,
                 "speaking_time": 0.0,
                 "segment_count": 0,
-                "is_first_speaker": patient_id == first_speaker,
+                "is_first_speaker": speaker2_id == first_speaker,
                 "reason": "no_segments_for_either_speaker",
             }
-            base_confidence = 0.3
-            doctor_score, patient_score = 0.0, 0.0
+            # Both speakers get UNKNOWN role with very low confidence
+            speaker1_role = SpeakerRole.UNKNOWN
+            speaker2_role = SpeakerRole.UNKNOWN
+            speaker1_confidence = 0.2
+            speaker2_confidence = 0.2
             
         elif speaker1_has_segments and not speaker2_has_segments:
             self.logger.warning(
@@ -256,15 +256,21 @@ class SpeakerIdentifier:
                 "is_first_speaker": speaker2_id == first_speaker,
                 "reason": "no_segments_for_speaker",
             }
-            # Assign based on the speaker with content
-            if speaker_scores[speaker1_id]["provider_score"] > 0:
-                doctor_id, patient_id = speaker1_id, speaker2_id
+            # Assign role to speaker with content based on their scores
+            # Speaker without content always gets UNKNOWN role
+            if speaker_scores[speaker1_id]["provider_score"] > speaker_scores[speaker1_id]["patient_score"]:
+                speaker1_role = SpeakerRole.DOCTOR
+                speaker1_confidence = min(0.5 + (speaker_scores[speaker1_id]["provider_score"] * 0.05), 0.75)
+            elif speaker_scores[speaker1_id]["patient_score"] > 0:
+                speaker1_role = SpeakerRole.PATIENT
+                speaker1_confidence = min(0.4 + (speaker_scores[speaker1_id]["patient_score"] * 0.05), 0.70)
             else:
-                doctor_id, patient_id = speaker2_id, speaker1_id
-            doctor_score = speaker_scores[doctor_id]["provider_score"]
-            patient_score = speaker_scores[patient_id]["patient_score"]
-            score_diff = abs(doctor_score - patient_score)
-            base_confidence = min(0.5 + (score_diff * 0.05), 0.75)
+                speaker1_role = SpeakerRole.UNKNOWN
+                speaker1_confidence = 0.3
+            
+            # Speaker2 has no segments, assign UNKNOWN
+            speaker2_role = SpeakerRole.UNKNOWN
+            speaker2_confidence = 0.2  # Very low confidence for speaker with no content
             
         elif speaker2_has_segments and not speaker1_has_segments:
             self.logger.warning(
@@ -285,15 +291,22 @@ class SpeakerIdentifier:
                 "is_first_speaker": speaker1_id == first_speaker,
                 "reason": "no_segments_for_speaker",
             }
-            # Assign based on the speaker with content
-            if speaker_scores[speaker2_id]["provider_score"] > 0:
-                doctor_id, patient_id = speaker2_id, speaker1_id
+            # Assign role to speaker with content based on their scores
+            # Speaker without content always gets UNKNOWN role
+            if speaker_scores[speaker2_id]["provider_score"] > speaker_scores[speaker2_id]["patient_score"]:
+                speaker2_role = SpeakerRole.DOCTOR
+                speaker2_confidence = min(0.5 + (speaker_scores[speaker2_id]["provider_score"] * 0.05), 0.75)
+            elif speaker_scores[speaker2_id]["patient_score"] > 0:
+                speaker2_role = SpeakerRole.PATIENT
+                speaker2_confidence = min(0.4 + (speaker_scores[speaker2_id]["patient_score"] * 0.05), 0.70)
             else:
-                doctor_id, patient_id = speaker1_id, speaker2_id
-            doctor_score = speaker_scores[doctor_id]["provider_score"]
-            patient_score = speaker_scores[patient_id]["patient_score"]
-            score_diff = abs(doctor_score - patient_score)
-            base_confidence = min(0.5 + (score_diff * 0.05), 0.75)
+                # Speaker2 has no clear patterns
+                speaker2_role = SpeakerRole.UNKNOWN
+                speaker2_confidence = 0.3
+            
+            # Speaker1 has no segments, assign UNKNOWN
+            speaker1_role = SpeakerRole.UNKNOWN
+            speaker1_confidence = 0.2  # Very low confidence for speaker with no content
             
         else:
             # Normal case: both speakers have at least one segment
@@ -321,21 +334,28 @@ class SpeakerIdentifier:
             # Calculate confidence based on score difference
             score_diff = abs(doctor_score - patient_score)
             base_confidence = min(0.6 + (score_diff * 0.1), 0.95)
+            
+            # Set role variables for normal case
+            speaker1_role = SpeakerRole.DOCTOR if doctor_id == speaker1_id else SpeakerRole.PATIENT
+            speaker2_role = SpeakerRole.PATIENT if patient_id == speaker2_id else SpeakerRole.DOCTOR
+            speaker1_confidence = base_confidence if speaker1_role == SpeakerRole.DOCTOR else base_confidence * 0.9
+            speaker2_confidence = base_confidence * 0.9 if speaker2_role == SpeakerRole.PATIENT else base_confidence
         
+        # Build and return speaker mapping using individual role variables
         return {
-            doctor_id: {
-                "role": SpeakerRole.DOCTOR.value,
-                "confidence": round(base_confidence, 3),
-                "confidence_level": self._get_confidence_level(base_confidence).value,
+            speaker1_id: {
+                "role": speaker1_role.value,
+                "confidence": round(speaker1_confidence, 3),
+                "confidence_level": self._get_confidence_level(speaker1_confidence).value,
                 "method": "heuristic",
-                "evidence": speaker_scores[doctor_id]
+                "evidence": speaker_scores[speaker1_id]
             },
-            patient_id: {
-                "role": SpeakerRole.PATIENT.value,
-                "confidence": round(base_confidence * 0.9, 3),  # Slightly lower for patient
-                "confidence_level": self._get_confidence_level(base_confidence * 0.9).value,
+            speaker2_id: {
+                "role": speaker2_role.value,
+                "confidence": round(speaker2_confidence, 3),
+                "confidence_level": self._get_confidence_level(speaker2_confidence).value,
                 "method": "heuristic",
-                "evidence": speaker_scores[patient_id]
+                "evidence": speaker_scores[speaker2_id]
             }
         }
     

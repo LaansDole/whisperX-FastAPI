@@ -6,7 +6,7 @@ timing information, and text content.
 """
 
 import logging
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
@@ -257,10 +257,7 @@ class WhisperXParser:
         # Check for speaker label consistency
         if metadata["has_speaker_labels"]:
             segments_with_speakers = sum(1 for s in segments if s["has_speaker"])
-            if len(segments) > 0:
-                speaker_label_coverage = segments_with_speakers / len(segments)
-            else:
-                speaker_label_coverage = 0.0
+            speaker_label_coverage = segments_with_speakers / len(segments)
             
             # Track coverage in metadata for downstream consumers
             metadata["speaker_label_coverage"] = round(speaker_label_coverage, 4)
