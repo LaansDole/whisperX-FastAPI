@@ -257,10 +257,22 @@ class WhisperXParser:
         # Check for speaker label consistency
         if metadata["has_speaker_labels"]:
             segments_with_speakers = sum(1 for s in segments if s["has_speaker"])
+            if len(segments) > 0:
+                speaker_label_coverage = segments_with_speakers / len(segments)
+            else:
+                speaker_label_coverage = 0.0
+            
+            # Track coverage in metadata for downstream consumers
+            metadata["speaker_label_coverage"] = round(speaker_label_coverage, 4)
+            
             if segments_with_speakers < len(segments) * 0.5:
                 self.logger.warning(
                     f"Only {segments_with_speakers}/{len(segments)} segments have speaker labels"
                 )
+                # Flag partial speaker label coverage
+                metadata["speaker_labels_partial"] = True
+            else:
+                metadata["speaker_labels_partial"] = False
     
     def get_full_transcript(self, parsed_data: Dict[str, Any], include_speakers: bool = True) -> str:
         """Generate full transcript text from parsed data.

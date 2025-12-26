@@ -66,9 +66,9 @@ class SpeakerIdentifier:
     
     # Patient symptom/complaint patterns
     PATIENT_PATTERNS = [
-        r'\b(I feel|I have|I\'ve been|my)\b',
-        r'\b(hurts|painful|ache|sore|uncomfortable)\b',
-        r'\b(started|began|since|for the past)\b',
+        r"\b(I feel|I have|I\'ve been|my)\b",
+        r"\b(hurts|painful|ache|sore|uncomfortable)\b",
+        r"\b(started|began|since|for the past)\b",
     ]
     
     def __init__(self):
@@ -203,7 +203,7 @@ class SpeakerIdentifier:
         
         # Handle edge cases where one or both speakers have no segments
         if not speaker1_has_segments and not speaker2_has_segments:
-            logger.warning(
+            self.logger.warning(
                 "Both speakers have no segments; falling back to low-confidence role assignment."
             )
             # Fall back to first_speaker heuristic with very low confidence
@@ -236,7 +236,7 @@ class SpeakerIdentifier:
             doctor_score, patient_score = 0.0, 0.0
             
         elif speaker1_has_segments and not speaker2_has_segments:
-            logger.warning(
+            self.logger.warning(
                 "Speaker %s has no segments; assigning roles based on available speaker content.",
                 speaker2_id,
             )
@@ -267,7 +267,7 @@ class SpeakerIdentifier:
             base_confidence = min(0.5 + (score_diff * 0.05), 0.75)
             
         elif speaker2_has_segments and not speaker1_has_segments:
-            logger.warning(
+            self.logger.warning(
                 "Speaker %s has no segments; assigning roles based on available speaker content.",
                 speaker1_id,
             )
