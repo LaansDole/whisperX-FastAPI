@@ -13,7 +13,7 @@ Heuristics used:
 
 import logging
 import re
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any
 from enum import Enum
 
 logger = logging.getLogger(__name__)
@@ -39,6 +39,13 @@ class SpeakerIdentifier:
     Uses multiple heuristics to assign roles (doctor vs patient) to speakers
     identified by WhisperX diarization. Returns confidence scores for each assignment.
     """
+    
+    # Scoring weights for role identification
+    FIRST_SPEAKER_BONUS = 2.0
+    MEDICAL_TERM_WEIGHT = 0.5
+    QUESTION_WEIGHT = 0.3
+    PATIENT_PATTERN_WEIGHT = 0.8
+    MEDICAL_TERM_PENALTY = 0.3
     
     # Medical terminology patterns (indicators of healthcare provider)
     MEDICAL_TERMS = [
@@ -259,11 +266,11 @@ class SpeakerIdentifier:
             if idx == 0:
                 # Highest scorer is likely doctor
                 role = SpeakerRole.DOCTOR
-                confidence = min(scores["provider_score"] * 0.08, 0.75)  # Lower confidence for 3+
+                confidence = min(0.4 + scores["provider_score"] * 0.06, 0.75)  # Lower confidence for 3+
             elif scores["patient_score"] > scores["provider_score"]:
                 # High patient score suggests patient
                 role = SpeakerRole.PATIENT
-                confidence = min(scores["patient_score"] * 0.06, 0.65)
+                confidence = min(scores["patient_score"] * 0.08, 0.65)
             else:
                 # Unknown - could be family, nurse, etc.
                 role = SpeakerRole.UNKNOWN
@@ -291,13 +298,13 @@ class SpeakerIdentifier:
         if not segments:
             return {"provider_score": 0, "patient_score": 0}
         
-        # Combine all text
-        all_text = " ".join(s["text"] for s in segments)
+        # Combine all text spoken by this speaker
+        speaker_text = " ".join(s["text"] for s in segments)
         
         # Count pattern matches
-        medical_matches = len(self.medical_regex.findall(all_text))
-        question_matches = len(self.question_regex.findall(all_text))
-        patient_matches = len(self.patient_regex.findall(all_text))
+        medical_matches = len(self.medical_regex.findall(speaker_text))
+        question_matches = len(self.question_regex.findall(speaker_text))
+        patient_matches = len(self.patient_regex.findall(speaker_text))
         
         # Calculate total speaking time
         total_time = sum(s["duration"] for s in segments)
@@ -305,16 +312,16 @@ class SpeakerIdentifier:
         # Provider score calculation
         provider_score = 0.0
         if is_first_speaker:
-            provider_score += 2.0  # First speaker bonus
+            provider_score += self.FIRST_SPEAKER_BONUS
         
-        provider_score += medical_matches * 0.5
-        provider_score += question_matches * 0.3
+        provider_score += medical_matches * self.MEDICAL_TERM_WEIGHT
+        provider_score += question_matches * self.QUESTION_WEIGHT
         
         # Patient score calculation
-        patient_score = patient_matches * 0.8
+        patient_score = patient_matches * self.PATIENT_PATTERN_WEIGHT
         
         # Penalty for medical terminology (unlikely for patient)
-        patient_score -= medical_matches * 0.3
+        patient_score -= medical_matches * self.MEDICAL_TERM_PENALTY
         
         # Normalize scores
         provider_score = max(0, min(provider_score, 10))
