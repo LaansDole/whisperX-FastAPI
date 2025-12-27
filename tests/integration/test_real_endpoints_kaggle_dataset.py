@@ -6,11 +6,18 @@ Tests actual Temporal workflow execution with real audio files.
 import pytest
 import requests
 import time
+import os
 from pathlib import Path
 
 
 BASE_URL = "http://localhost:8000"
-DATASET_DIR = Path("/Users/laansdole/Projects/whisperX-FastAPI/datasets/kaggle-simulated-patient-physician-interviews")
+
+# Make dataset path configurable for different environments
+DATASET_DIR = (
+    Path(os.getenv("KAGGLE_DATASET_DIR"))
+    if os.getenv("KAGGLE_DATASET_DIR")
+    else (Path(__file__).resolve().parents[2] / "datasets" / "kaggle-simulated-patient-physician-interviews")
+)
 
 
 class TestRealEndpointWithHIPAAFilenames:

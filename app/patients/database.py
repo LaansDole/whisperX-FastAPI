@@ -41,7 +41,7 @@ def init_database(fresh_start: bool = True):
             workflow_id TEXT NOT NULL UNIQUE,
             file_path TEXT NOT NULL,
             department TEXT,
-            created_at TEXT NOT NULL,
+            created_at TEXT NOT NULL
         )
     """)
 

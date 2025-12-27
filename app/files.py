@@ -48,7 +48,7 @@ def check_file_extension(file):
 def save_temporary_file(
     temporary_file: SpooledTemporaryFile,
     original_filename: str,
-    patient_id_encrypted: str,
+    patient_name: str = None,
 ) -> str:
     """
     Save a SpooledTemporaryFile to a named temporary file with HIPAA-compliant naming.
@@ -56,11 +56,14 @@ def save_temporary_file(
     Args:
         temporary_file: The SpooledTemporaryFile object to save.
         original_filename: The original filename (used to extract extension).
-        patient_id_encrypted: Required encrypted patient identifier for HIPAA-compliant naming.
+        patient_name: Optional plain text patient name for HIPAA-compliant naming.
+                     If None, a random UUID will be used instead.
 
     Returns:
         The path to the saved temporary file with HIPAA-compliant filename.
     """
+    # Use shared uploads directory for Docker environment
+    # This ensures files are accessible across containers
     uploads_dir = "/tmp/uploads"
     if not os.path.exists(uploads_dir):
         os.makedirs(uploads_dir)
@@ -71,8 +74,8 @@ def save_temporary_file(
     # Import here to avoid circular dependency
     from app.patients.filename_utils import generate_anonymous_audio_filename
 
-    # Generate HIPAA-compliant filename with patient hash
-    unique_filename = generate_anonymous_audio_filename(original_extension, patient_id_encrypted=patient_id_encrypted)
+    # Generate HIPAA-compliant filename with patient hash (or random if no patient)
+    unique_filename = generate_anonymous_audio_filename(original_extension, patient_name=patient_name)
     temp_filename = os.path.join(uploads_dir, unique_filename)
 
     # Write the contents of the SpooledTemporaryFile to the temporary file

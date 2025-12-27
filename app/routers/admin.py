@@ -1,4 +1,19 @@
-"""Admin endpoints for patient workflow monitoring."""
+"""Admin endpoints for patient workflow monitoring.
+
+⚠️  SECURITY WARNING - HIPAA COMPLIANCE REQUIRED ⚠️
+These endpoints expose Protected Health Information (PHI) including plain text patient names
+without authentication or authorization. DO NOT use in production without implementing:
+1. Authentication middleware (JWT, OAuth2, etc.)
+2. Role-based access control (RBAC)
+3. Audit logging for all PHI access
+4. IP whitelisting or VPN restrictions
+"""
+
+# TODO: CRITICAL - Add authentication and authorization before production
+# TODO: See HIPAA Security Rule 164.312(a)(1) - Access Control requirements
+# TODO: Implement role-based access (admin, physician, nurse roles)
+# TODO: Add comprehensive audit logging for all PHI access
+# TODO: Consider adding IP whitelisting for admin endpoints
 
 from fastapi import APIRouter, HTTPException
 from ..logger import logger
