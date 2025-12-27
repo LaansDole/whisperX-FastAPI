@@ -38,7 +38,7 @@ class TestFilenameUtils:
     def test_generate_consultation_filename_basic(self):
         """Test basic consultation filename generation."""
         filename = generate_consultation_filename(
-            patient_id_encrypted="enc_patient_123", date="20251227", department="cardiology", sequence=1
+            patient_name="enc_patient_123", date="20251227", department="cardiology", sequence=1
         )
 
         assert filename.startswith("pt_")
@@ -50,7 +50,7 @@ class TestFilenameUtils:
     def test_generate_consultation_filename_with_spaces(self):
         """Test filename generation sanitizes department names with spaces."""
         filename = generate_consultation_filename(
-            patient_id_encrypted="enc_patient_123",
+            patient_name="enc_patient_123",
             department="Emergency Room",  # Has space
             sequence=1,
         )
@@ -62,7 +62,7 @@ class TestFilenameUtils:
     def test_generate_consultation_filename_special_chars(self):
         """Test filename generation sanitizes special characters."""
         filename = generate_consultation_filename(
-            patient_id_encrypted="enc_patient_123",
+            patient_name="enc_patient_123",
             department="ICU/CCU-Unit#1",  # Special chars
             sequence=1,
         )
@@ -76,7 +76,7 @@ class TestFilenameUtils:
 
     def test_generate_consultation_filename_defaults(self):
         """Test filename generation with default values."""
-        filename = generate_consultation_filename(patient_id_encrypted="enc_patient_123")
+        filename = generate_consultation_filename(patient_name="enc_patient_123")
 
         # Should have today's date
         today = datetime.now().strftime("%Y%m%d")
@@ -87,7 +87,7 @@ class TestFilenameUtils:
 
     def test_generate_consultation_filename_no_sequence(self):
         """Test filename without sequence number."""
-        filename = generate_consultation_filename(patient_id_encrypted="enc_patient_123", sequence=None)
+        filename = generate_consultation_filename(patient_name="enc_patient_123", sequence=None)
 
         # Should not have 3-digit sequence
         parts = filename.replace(".json", "").split("_")
@@ -145,7 +145,7 @@ class TestFilenameUtils:
         """Test storage path generation with subdirectories."""
         path = generate_result_storage_path(
             base_dir="/data/results",
-            patient_id_encrypted="enc_patient_123",
+            patient_name="enc_patient_123",
             filename="pt_a7f3c8e2_20251227_cardiology_001.json",
         )
 
@@ -164,7 +164,7 @@ class TestFilenameUtils:
         patient_name = "John Doe"
         patient_id = f"enc_{patient_name.replace(' ', '_')}"
 
-        filename = generate_consultation_filename(patient_id_encrypted=patient_id, department="Cardiology")
+        filename = generate_consultation_filename(patient_name=patient_id, department="Cardiology")
 
         # Patient name should NOT be in filename
         assert "John" not in filename
@@ -176,11 +176,11 @@ class TestFilenameUtils:
         patient_id = "enc_patient_123"
 
         file1 = generate_consultation_filename(
-            patient_id_encrypted=patient_id, date="20251227", department="cardiology", sequence=1
+            patient_name=patient_id, date="20251227", department="cardiology", sequence=1
         )
 
         file2 = generate_consultation_filename(
-            patient_id_encrypted=patient_id, date="20251227", department="cardiology", sequence=1
+            patient_name=patient_id, date="20251227", department="cardiology", sequence=1
         )
 
         assert file1 == file2  # Should be identical
@@ -190,11 +190,11 @@ class TestFilenameUtils:
         patient_id = "enc_patient_123"
 
         file1 = generate_consultation_filename(
-            patient_id_encrypted=patient_id, date="20251227", department="cardiology", sequence=1
+            patient_name=patient_id, date="20251227", department="cardiology", sequence=1
         )
 
         file2 = generate_consultation_filename(
-            patient_id_encrypted=patient_id, date="20251227", department="cardiology", sequence=2
+            patient_name=patient_id, date="20251227", department="cardiology", sequence=2
         )
 
         assert file1 != file2
