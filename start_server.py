@@ -3,6 +3,21 @@ import os
 import signal
 import sys
 
+# Set flag to clear database on server startup only
+os.environ["DB_FRESH_START"] = "true"
+
+# Security check: Validate HIPAA_SALT is not using default value in production
+env = os.getenv("ENVIRONMENT", "production").lower()
+hipaa_salt = os.getenv("HIPAA_SALT", "default_salt_change_in_production")
+if env != "development" and hipaa_salt == "default_salt_change_in_production":
+    print("=" * 80)
+    print("⚠️  SECURITY WARNING: Using default HIPAA_SALT in production!")
+    print("⚠️  This is a CRITICAL security issue for patient data.")
+    print("⚠️  Set a strong, unique HIPAA_SALT in your environment variables.")
+    print("=" * 80)
+    # TODO: In strict production, consider raising an error instead of just warning
+    # raise RuntimeError("Default HIPAA_SALT not allowed in production")
+
 # Add the current directory to Python path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
@@ -10,16 +25,16 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 try:
     from app.cleanup import setup_cleanup_handlers
     setup_cleanup_handlers()
-    print("✅ Resource cleanup handlers registered")
+    print("Resource cleanup handlers registered")
 except ImportError as e:
-    print(f"⚠️  Warning: Could not import cleanup handlers: {e}")
+    print(f"Warning: Could not import cleanup handlers: {e}")
     print("   Resource cleanup will not be available")
 
 try:
     from app.warnings_filter import filter_warnings
     filter_warnings()
 except ImportError as e:
-    print(f"⚠️  Warning: Could not import warning filters: {e}")
+    print(f"Warning: Could not import warning filters: {e}")
     print("   Warning filters will not be available")
 
 # Function to kill any process using a specific port
