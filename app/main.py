@@ -13,7 +13,9 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from scalar_fastapi import get_scalar_api_reference
 
 from .config import Config
-from .routers import stt, stt_services, temporal_tasks, medical
+from .logger import logger
+from .routers import medical, patient_workflows, stt, stt_services, temporal_tasks
+from .routers import admin
 from .temporal.manager import temporal_manager
 from .trace_middleware import TraceMiddleware
 
@@ -206,6 +208,8 @@ app.include_router(stt.stt_router)
 app.include_router(stt_services.service_router)
 app.include_router(temporal_tasks.temporal_router)
 app.include_router(medical.router)
+app.include_router(patient_workflows.router)
+app.include_router(admin.router)  # Admin endpoints
 
 
 @app.get("/", include_in_schema=False)
