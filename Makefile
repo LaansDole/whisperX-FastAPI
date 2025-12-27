@@ -286,7 +286,8 @@ integration-test:
 	@echo "Running Integration Tests"
 	@echo "========================================"
 	@echo "⚠️  Make sure server is running: make dev"
-	@uv run pytest tests/integration/ -v --tb=short -s "All tests completed"
+	@uv run pytest tests/integration/ -v --tb=short -s
+	@echo "All tests completed"
 
 # Run unit tests only (exclude integration and slow tests)
 test-unit:
