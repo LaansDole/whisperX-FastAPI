@@ -8,14 +8,12 @@ from typing import Any, List, Optional
 import numpy as np
 from fastapi import Query
 from pydantic import BaseModel, Field, field_validator, ConfigDict
-from whisperx import utils
 
 WHISPER_MODEL = os.getenv("WHISPER_MODEL")
 LANG = os.getenv("DEFAULT_LANG", "en")
 
 # Supported languages - restricted to 4 primary languages
 SUPPORTED_LANGUAGES = ["en", "vi", "zh", "yue"]
-
 
 
 class Response(BaseModel):
