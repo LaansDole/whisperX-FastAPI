@@ -21,6 +21,7 @@ graph TB
         Services[Individual Services]
         Tasks[Task Management]
         Medical[Medical RAG - LM Studio]
+        Admin[Admin Endpoints]
         Health[Health Endpoints]
         Middleware[Trace Middleware]
     end
@@ -50,6 +51,7 @@ graph TB
         ModelCache[Model Cache<br/>~/.cache/huggingface]
         TorchCache[PyTorch Cache<br/>~/.cache/torch]
         FileStorage[Temporary File Storage]
+        PatientDB[(Patient Database<br/>SQLite)]
         HuggingFace[Hugging Face Hub]
     end
     
@@ -69,12 +71,15 @@ graph TB
     Router --> Services
     Router --> Tasks
     Router --> Medical
+    Router --> Admin
     Router --> Health
     Router --> Middleware
     
     STT --> TemporalClient
+    STT --> PatientDB
     Services --> WhisperXService
     Tasks --> TemporalClient
+    Admin --> PatientDB
     
     TemporalClient --> WorkflowEngine
     WorkflowEngine --> Activities
@@ -110,10 +115,10 @@ graph TB
     classDef infraLayer fill:#f1f8e9
     
     class Client,WebUI clientLayer
-    class Router,STT,Services,Tasks,Medical,Health,Middleware apiLayer
+    class Router,STT,Services,Tasks,Medical,Admin,Health,Middleware apiLayer
     class ModelManager,WhisperXService,AudioProcessor,Transcriber,Aligner,Diarizer,Combiner processingLayer
     class TemporalClient,WorkflowEngine,Activities,RetryPolicies,Monitoring workflowLayer
-    class ModelCache,TorchCache,FileStorage,HuggingFace storageLayer
+    class ModelCache,TorchCache,FileStorage,PatientDB,HuggingFace storageLayer
     class Docker,GPU,CPU,Logging,HealthChecks infraLayer
 ```
 
