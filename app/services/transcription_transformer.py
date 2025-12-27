@@ -7,7 +7,7 @@ import logging
 from typing import Dict, Any, Optional
 from datetime import datetime, timezone
 
-from .whisperx_parser import WhisperXParser,  WhisperXParseError
+from .whisperx_parser import WhisperXParser, WhisperXParseError
 from .speaker_identifier import SpeakerIdentifier
 from .dialogue_formatter import DialogueFormatter
 
@@ -169,6 +169,11 @@ class TranscriptionTransformer:
                     role,
                     reason="manual_override_via_api"
                 )
+            else:
+                self.logger.warning(
+                    f"Speaker ID '{speaker_id}' in manual_speaker_mapping not found in "
+                    f"speaker_mapping. Available speakers: {list(speaker_mapping.keys())}"
+                )
         
         # Update dialogue with new roles
         dialogue = result.get("dialogue", [])
@@ -181,11 +186,15 @@ class TranscriptionTransformer:
         full_transcript_plain = self.formatter.generate_transcript(dialogue, format="plain")
         full_transcript_markdown = self.formatter.generate_transcript(dialogue, format="markdown")
         
+        # Recalculate statistics to reflect updated speaker roles
+        updated_statistics = self.formatter.calculate_statistics(dialogue)
+        
         # Update result
         result["speaker_mapping"] = speaker_mapping
         result["dialogue"] = dialogue
         result["full_transcript"] = full_transcript_plain
         result["full_transcript_markdown"] = full_transcript_markdown
+        result["statistics"] = updated_statistics
         result["transformation_metadata"]["manual_overrides_applied"] = True
         
         return result
