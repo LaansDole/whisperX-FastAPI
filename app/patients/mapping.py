@@ -7,20 +7,16 @@ from .database import (
     get_patient_by_workflow_db,
     get_workflows_by_patient_hash_db,
     get_patient_name_by_hash_db,
-    get_all_patients_db
+    get_all_patients_db,
 )
 
 
 def store_patient_workflow(
-    patient_name: str,
-    patient_hash: str,
-    workflow_id: str,
-    file_path: str,
-    department: Optional[str] = None
+    patient_name: str, patient_hash: str, workflow_id: str, file_path: str, department: Optional[str] = None
 ):
     """
     Store patient-workflow mapping.
-    
+
     Args:
         patient_name: Plain text patient name (stored securely in DB)
         patient_hash: 8-char hash used in filenames/workflow IDs
@@ -35,17 +31,17 @@ def store_patient_workflow(
         workflow_id=workflow_id,
         file_path=file_path,
         department=department,
-        created_at=created_at
+        created_at=created_at,
     )
 
 
 def get_patient_by_workflow(workflow_id: str) -> Optional[dict]:
     """
     Get patient info by workflow ID.
-    
+
     Args:
         workflow_id: Workflow ID
-        
+
     Returns:
         Patient mapping or None
     """
@@ -55,10 +51,10 @@ def get_patient_by_workflow(workflow_id: str) -> Optional[dict]:
 def get_workflows_by_patient_hash(patient_hash: str) -> list:
     """
     Get all workflows for a patient by hash.
-    
+
     Args:
         patient_hash: 8-char patient hash
-        
+
     Returns:
         List of workflow mappings
     """
@@ -68,10 +64,10 @@ def get_workflows_by_patient_hash(patient_hash: str) -> list:
 def get_patient_name_by_hash(patient_hash: str) -> Optional[str]:
     """
     Get patient name by hash (admin lookup).
-    
+
     Args:
         patient_hash: 8-char patient hash
-        
+
     Returns:
         Plain text patient name or None
     """
@@ -81,10 +77,8 @@ def get_patient_name_by_hash(patient_hash: str) -> Optional[str]:
 def get_all_patients() -> list:
     """
     Get all patients with workflow counts.
-    
+
     Returns:
         List of patient summaries
     """
     return get_all_patients_db()
-
-

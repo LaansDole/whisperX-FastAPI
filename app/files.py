@@ -72,10 +72,7 @@ def save_temporary_file(
     from app.patients.filename_utils import generate_anonymous_audio_filename
 
     # Generate HIPAA-compliant filename with patient hash
-    unique_filename = generate_anonymous_audio_filename(
-        original_extension,
-        patient_id_encrypted=patient_id_encrypted
-    )
+    unique_filename = generate_anonymous_audio_filename(original_extension, patient_id_encrypted=patient_id_encrypted)
     temp_filename = os.path.join(uploads_dir, unique_filename)
 
     # Write the contents of the SpooledTemporaryFile to the temporary file
@@ -83,4 +80,3 @@ def save_temporary_file(
         dest.write(temporary_file.read())
 
     return temp_filename
-

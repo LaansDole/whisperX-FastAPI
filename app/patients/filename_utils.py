@@ -14,10 +14,10 @@ from ..config import Config
 
 def generate_patient_file_id(patient_name: str) -> str:
     """Generate short hash from plain text patient name.
-    
+
     Args:
         patient_name: Plain text patient name/identifier
-        
+
     Returns:
         Short 8-character hash for use in filenames
     """
@@ -31,61 +31,54 @@ def generate_consultation_filename(
     date: Optional[str] = None,
     department: Optional[str] = None,
     sequence: Optional[int] = None,
-    extension: str = ".json"
+    extension: str = ".json",
 ) -> str:
     """Generate HIPAA-compliant filename for consultation transcription.
-    
+
     Format: pt_{patient_hash}_{date}_{department}_{seq}{extension}
     Example: pt_a7f3c8e2_20251227_cardiology_001.json
-    
+
     Args:
         patient_name: Plain text patient name/identifier
         date: Date string (YYYYMMDD), defaults to today
         department: Department name (sanitized)
         sequence: Sequence number for multiple consultations same day
         extension: File extension
-        
+
     Returns:
         HIPAA-compliant filename
     """
     patient_hash = generate_patient_file_id(patient_name)
-    
+
     if date is None:
         date = datetime.now().strftime("%Y%m%d")
-    
+
     # Sanitize department name (remove spaces, special chars)
     if department:
         department = "".join(c for c in department.lower() if c.isalnum() or c == "_")
     else:
         department = "general"
-    
+
     # Build filename components
-    components = [
-        f"pt_{patient_hash}",
-        date,
-        department
-    ]
-    
+    components = [f"pt_{patient_hash}", date, department]
+
     if sequence is not None:
         components.append(f"{sequence:03d}")
-    
+
     filename = "_".join(components) + extension
     return filename
 
 
-def generate_workflow_result_filename(
-    workflow_id: str,
-    extension: str = ".json"
-) -> str:
+def generate_workflow_result_filename(workflow_id: str, extension: str = ".json") -> str:
     """Generate filename based on workflow ID.
-    
+
     Format: wf_{workflow_id_short}{extension}
     Example: wf_abc123def456.json
-    
+
     Args:
         workflow_id: Temporal workflow ID
         extension: File extension
-        
+
     Returns:
         Filename based on workflow ID
     """
@@ -96,23 +89,20 @@ def generate_workflow_result_filename(
         short_id = wf_uuid.replace("-", "")[:12]
     else:
         short_id = workflow_id[:12]
-    
+
     return f"wf_{short_id}{extension}"
 
 
-def generate_anonymous_audio_filename(
-    original_extension: str,
-    patient_name: Optional[str] = None
-) -> str:
+def generate_anonymous_audio_filename(original_extension: str, patient_name: Optional[str] = None) -> str:
     """Generate anonymous filename for uploaded audio files.
-    
+
     If patient_name is provided, uses deterministic hash.
     Otherwise, uses random UUID.
-    
+
     Args:
         original_extension: Original file extension (e.g., '.mp3')
         patient_name: Optional plain text patient name/identifier
-        
+
     Returns:
         Anonymous filename
     """
@@ -128,10 +118,10 @@ def generate_anonymous_audio_filename(
 
 def extract_patient_id_from_filename(filename: str) -> Optional[str]:
     """Extract patient hash from HIPAA-compliant filename.
-    
+
     Args:
         filename: Filename in format pt_{hash}_...
-        
+
     Returns:
         Patient hash or None if not found
     """
@@ -142,29 +132,25 @@ def extract_patient_id_from_filename(filename: str) -> Optional[str]:
     return None
 
 
-def generate_result_storage_path(
-    base_dir: str,
-    patient_name: str,
-    filename: str
-) -> str:
+def generate_result_storage_path(base_dir: str, patient_name: str, filename: str) -> str:
     """Generate full storage path for result files.
-    
+
     Organizes files by patient hash subdirectory.
     Format: {base_dir}/{patient_hash[:2]}/{patient_hash}/{filename}
-    
+
     Args:
         base_dir: Base storage directory
         patient_name: Plain text patient name/identifier
         filename: File filename
-        
+
     Returns:
         Full storage path
     """
     import os
-    
+
     patient_hash = generate_patient_file_id(patient_name)
-    
+
     # Use first 2 chars for subdirectory (improves filesystem performance)
     subdir = patient_hash[:2]
-    
+
     return os.path.join(base_dir, subdir, patient_hash, filename)

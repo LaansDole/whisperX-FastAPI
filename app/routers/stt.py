@@ -87,7 +87,7 @@ async def speech_to_text(
 ) -> Response:
     """
     Process an uploaded audio file for speech-to-text conversion.
-    
+
     Args:
         file: Audio/video file to process
         patient_name: Required patient full name (will be encrypted internally for HIPAA compliance)
@@ -97,13 +97,11 @@ async def speech_to_text(
     validate_extension(file.filename, ALLOWED_EXTENSIONS)
 
     # Generate patient hash for HIPAA-compliant filenames
-    import hashlib
-    from ..config import Config
     from ..patients.filename_utils import generate_patient_file_id
-    
+
     # Use the same hash function as filename_utils for consistency
     patient_hash = generate_patient_file_id(patient_name)
-    
+
     logger.info(f"Processing upload for patient (hash: {patient_hash})")
 
     temp_file = save_temporary_file(file.file, file.filename, patient_id_encrypted=patient_name)
@@ -120,13 +118,13 @@ async def speech_to_text(
     client = await temporal_manager.get_client()
     if not client:
         raise HTTPException(status_code=503, detail="Temporal service not available")
-    
+
     # Generate HIPAA-compliant workflow ID with patient hash
     from datetime import datetime
-    
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     workflow_id = f"whisperx-wf-pt_{patient_hash}-{timestamp}"
-    
+
     handle = await client.start_workflow(
         WhisperXWorkflow.run,
         args=[temp_file, params],
@@ -134,16 +132,16 @@ async def speech_to_text(
         task_queue=config.TEMPORAL_TASK_QUEUE,
     )
     logger.info("Workflow started: ID %s", handle.id)
-    
+
     # Store patient-workflow mapping in database
     from ..patients.mapping import store_patient_workflow
-    
+
     store_patient_workflow(
         patient_name=patient_name,
         patient_hash=patient_hash,
         workflow_id=workflow_id,
         file_path=temp_file,
-        department=None  # TODO: Add department parameter
+        department=None,  # TODO: Add department parameter
     )
     logger.info(f"Stored mapping: {patient_name} → {workflow_id}")
 
@@ -237,19 +235,19 @@ async def speech_to_text_url(
     client = await temporal_manager.get_client()
     if not client:
         raise HTTPException(status_code=503, detail="Temporal service not available")
-    
+
     # Generate HIPAA-compliant workflow ID
     if params.patient_id_encrypted:
         from ..patients.filename_utils import generate_patient_file_id
         from datetime import datetime
-        
+
         patient_hash = generate_patient_file_id(params.patient_id_encrypted)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         workflow_id = f"whisperx-wf-pt_{patient_hash}-{timestamp}"
     else:
         # Fallback to random UUID for anonymous uploads
         workflow_id = f"whisperx-workflow-{uuid.uuid4()}"
-    
+
     handle = await client.start_workflow(
         WhisperXWorkflow.run,
         args=[temp_audio_file_path, params],

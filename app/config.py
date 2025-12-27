@@ -79,7 +79,7 @@ class Config:
 
     # Database Configuration (for medical metadata)
     MEDICAL_DB_PATH = os.getenv("MEDICAL_DB_PATH", "./medical_metadata.db")
-    
+
     # Patient Workflow Mappings Database
     PATIENT_DB_PATH = os.getenv("PATIENT_DB_PATH", "./data/patient_mappings.db")
 

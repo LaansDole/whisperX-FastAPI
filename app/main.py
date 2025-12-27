@@ -35,10 +35,11 @@ async def lifespan(app: FastAPI):
     # Initialize patient database
     import os
     from .patients.database import init_db
+
     fresh_start = os.getenv("DB_FRESH_START", "false").lower() == "true"
     init_db(fresh_start=fresh_start)
     logger.info(f"Patient database initialized (fresh_start={fresh_start})")
-    
+
     # Connect to Temporal
     await temporal_manager.get_client()
     yield
