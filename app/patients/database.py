@@ -6,10 +6,11 @@ from pathlib import Path
 from contextlib import contextmanager
 from typing import Optional
 from ..logger import logger
+from ..config import Config
 
 
-# Database location
-DB_PATH = Path("./data/patient_mappings.db")
+# Database location - use Config for proper path handling
+DB_PATH = Path(Config.PATIENT_DB_PATH).resolve()
 
 
 def init_database(fresh_start: bool = True):
@@ -41,7 +42,6 @@ def init_database(fresh_start: bool = True):
             file_path TEXT NOT NULL,
             department TEXT,
             created_at TEXT NOT NULL,
-            UNIQUE(workflow_id)
         )
     """)
     
@@ -222,8 +222,11 @@ def get_all_patients_db() -> list:
         return [dict(row) for row in rows]
 
 
-# Initialize database on module import
-# Only do fresh start if explicitly requested via environment variable
-import os
-fresh_start_on_init = os.getenv("DB_FRESH_START", "false").lower() == "true"
-init_database(fresh_start=fresh_start_on_init)
+def init_db(fresh_start: bool = False):
+    """
+    Initialize database. Call this explicitly during application startup.
+    
+    Args:
+        fresh_start: If True, delete existing database for clean slate
+    """
+    init_database(fresh_start=fresh_start)

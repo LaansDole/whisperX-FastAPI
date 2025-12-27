@@ -12,22 +12,22 @@ from typing import Optional
 from ..config import Config
 
 
-def generate_patient_file_id(patient_id_encrypted: str) -> str:
-    """Generate short hash from encrypted patient ID.
+def generate_patient_file_id(patient_name: str) -> str:
+    """Generate short hash from plain text patient name.
     
     Args:
-        patient_id_encrypted: Encrypted patient identifier
+        patient_name: Plain text patient name/identifier
         
     Returns:
         Short 8-character hash for use in filenames
     """
-    # Create deterministic hash from encrypted ID
-    hash_obj = hashlib.sha256(f"{patient_id_encrypted}{Config.HIPAA_SALT}".encode())
+    # Create deterministic hash from patient name + salt
+    hash_obj = hashlib.sha256(f"{patient_name}{Config.HIPAA_SALT}".encode())
     return hash_obj.hexdigest()[:8]
 
 
 def generate_consultation_filename(
-    patient_id_encrypted: str,
+    patient_name: str,
     date: Optional[str] = None,
     department: Optional[str] = None,
     sequence: Optional[int] = None,
@@ -39,7 +39,7 @@ def generate_consultation_filename(
     Example: pt_a7f3c8e2_20251227_cardiology_001.json
     
     Args:
-        patient_id_encrypted: Encrypted patient identifier
+        patient_name: Plain text patient name/identifier
         date: Date string (YYYYMMDD), defaults to today
         department: Department name (sanitized)
         sequence: Sequence number for multiple consultations same day
@@ -48,7 +48,7 @@ def generate_consultation_filename(
     Returns:
         HIPAA-compliant filename
     """
-    patient_hash = generate_patient_file_id(patient_id_encrypted)
+    patient_hash = generate_patient_file_id(patient_name)
     
     if date is None:
         date = datetime.now().strftime("%Y%m%d")
@@ -102,23 +102,23 @@ def generate_workflow_result_filename(
 
 def generate_anonymous_audio_filename(
     original_extension: str,
-    patient_id_encrypted: Optional[str] = None
+    patient_name: Optional[str] = None
 ) -> str:
     """Generate anonymous filename for uploaded audio files.
     
-    If patient_id_encrypted is provided, uses deterministic hash.
+    If patient_name is provided, uses deterministic hash.
     Otherwise, uses random UUID.
     
     Args:
         original_extension: Original file extension (e.g., '.mp3')
-        patient_id_encrypted: Optional encrypted patient ID
+        patient_name: Optional plain text patient name/identifier
         
     Returns:
         Anonymous filename
     """
-    if patient_id_encrypted:
+    if patient_name:
         # Deterministic filename for same patient
-        patient_hash = generate_patient_file_id(patient_id_encrypted)
+        patient_hash = generate_patient_file_id(patient_name)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         return f"audio_{patient_hash}_{timestamp}{original_extension}"
     else:
@@ -144,7 +144,7 @@ def extract_patient_id_from_filename(filename: str) -> Optional[str]:
 
 def generate_result_storage_path(
     base_dir: str,
-    patient_id_encrypted: str,
+    patient_name: str,
     filename: str
 ) -> str:
     """Generate full storage path for result files.
@@ -154,7 +154,7 @@ def generate_result_storage_path(
     
     Args:
         base_dir: Base storage directory
-        patient_id_encrypted: Encrypted patient ID
+        patient_name: Plain text patient name/identifier
         filename: File filename
         
     Returns:
@@ -162,7 +162,7 @@ def generate_result_storage_path(
     """
     import os
     
-    patient_hash = generate_patient_file_id(patient_id_encrypted)
+    patient_hash = generate_patient_file_id(patient_name)
     
     # Use first 2 chars for subdirectory (improves filesystem performance)
     subdir = patient_hash[:2]
