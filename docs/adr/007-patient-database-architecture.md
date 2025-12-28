@@ -65,9 +65,15 @@ CREATE INDEX idx_workflow_id ON patient_workflow_mappings(workflow_id);
 
 **Upload (Modified)**:
 ```bash
-POST /speech-to-text?patient_name=John Michael Smith
+# Patient name sent in form body (NOT in URL) to prevent PHI logging
+curl -X POST "http://localhost:8000/speech-to-text" \
+  -F "file=@consultation.mp3" \
+  -F "patient_name=John Michael Smith"
+
 # Returns: workflow_id = whisperx-wf-pt_02935fa8-20251227_152731
 ```
+
+> **Security Note**: Patient name is submitted in the request body to prevent PHI exposure in server logs, proxy logs, and monitoring systems.
 
 **Admin Endpoints (New)**:
 ```bash

@@ -95,9 +95,11 @@ def test_speech_to_text_vietnamese_small():
     """Test STT with smaller Vietnamese audio file."""
     with open(VN_AUDIO_2, "rb") as audio_file:
         files = {"file": ("vn-2.mp3", audio_file, "audio/mpeg")}
+        data = {"patient_name": "Test Patient"}  # Required for HIPAA tracking
         response = client.post(
             "/speech-to-text",
             files=files,
+            data=data,
             params={
                 "language": "vi",  # Vietnamese
                 "device": "cpu",
@@ -126,8 +128,12 @@ def test_transcribe_vietnamese_large():
     """Test transcription with larger Vietnamese audio file."""
     with open(VN_AUDIO_1, "rb") as audio_file:
         files = {"file": ("vn-1.mp3", audio_file, "audio/mpeg")}
+        data = {"patient_name": "Test Patient Large"}
         response = client.post(
-            "/speech-to-text", files=files, params={"language": "vi", "device": "cpu", "compute_type": "int8"}
+            "/speech-to-text",
+            files=files,
+            data=data,
+            params={"language": "vi", "device": "cpu", "compute_type": "int8"},
         )
 
     assert response.status_code == 200
@@ -155,10 +161,14 @@ def test_full_pipeline_vietnamese():
     """Test complete STT pipeline with Vietnamese audio."""
     with open(VN_AUDIO_2, "rb") as audio_file:
         files = {"file": ("vn-2.mp3", audio_file, "audio/mpeg")}
+        data = {"patient_name": "Test Full Pipeline"}
 
         # Full pipeline request
         response = client.post(
-            "/speech-to-text", files=files, params={"language": "vi", "device": "cpu", "compute_type": "int8"}
+            "/speech-to-text",
+            files=files,
+            data=data,
+            params={"language": "vi", "device": "cpu", "compute_type": "int8"},
         )
 
         assert response.status_code == 200
@@ -189,7 +199,8 @@ def test_get_workflow_status():
     # Submit a workflow first
     with open(VN_AUDIO_2, "rb") as audio_file:
         files = {"file": ("vn-2.mp3", audio_file, "audio/mpeg")}
-        response = client.post("/speech-to-text", files=files)
+        data = {"patient_name": "Test Status Check"}
+        response = client.post("/speech-to-text", files=files, data=data)
 
         assert response.status_code == 200
         workflow_id = response.json()["identifier"]
@@ -226,7 +237,8 @@ def test_invalid_language():
     """Test with unsupported language code."""
     with open(VN_AUDIO_2, "rb") as audio_file:
         files = {"file": ("vn-2.mp3", audio_file, "audio/mpeg")}
-        response = client.post("/speech-to-text", files=files, params={"language": "invalid_lang"})
+        data = {"patient_name": "Test Invalid Lang"}
+        response = client.post("/speech-to-text", files=files, data=data, params={"language": "invalid_lang"})
 
         # Should still accept but may auto-detect or fail gracefully
         assert response.status_code in [200, 422]
@@ -241,7 +253,8 @@ def test_concurrent_requests():
     for i in range(2):  # Reduced from 3 to 2 for faster testing
         with open(VN_AUDIO_2, "rb") as audio_file:
             files = {"file": (f"vn-2-{i}.mp3", audio_file, "audio/mpeg")}
-            response = client.post("/speech-to-text", files=files, params={"language": "vi"})
+            data = {"patient_name": f"Test Concurrent {i}"}
+            response = client.post("/speech-to-text", files=files, data=data, params={"language": "vi"})
             assert response.status_code == 200
             identifiers.append(response.json()["identifier"])
 

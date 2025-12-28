@@ -9,7 +9,7 @@ import os
 import uuid
 
 import requests
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
 from ..compatibility import log_compatibility_warnings
 from ..files import ALLOWED_EXTENSIONS, save_temporary_file, validate_extension
@@ -55,8 +55,11 @@ Upload an audio or video file to transcribe with optional alignment and speaker 
 **Example Request:**
 ```bash
 curl -X POST "http://localhost:8000/speech-to-text?language=en&model=base&min_speakers=2&max_speakers=3" \\
-  -F "file=@interview.mp3"
+  -F "file=@interview.mp3" \\
+  -F "patient_name=John Michael Smith"
 ```
+
+**Security Note:** Patient name is submitted in the request body (not URL) to prevent PHI exposure in logs.
 
 **Response:**
 ```json
@@ -83,11 +86,11 @@ async def speech_to_text(
     asr_options_params: ASROptions = Depends(),
     vad_options_params: VADOptions = Depends(),
     file: UploadFile = File(...),
-    patient_name: str = Query(
+    patient_name: str = Form(
         ...,
         min_length=1,
         pattern=r".*\S.*",
-        description="Patient full name for HIPAA-compliant identification",
+        description="Patient full name for HIPAA-compliant identification (submitted in request body to avoid URL logging)",
     ),
 ) -> Response:
     """

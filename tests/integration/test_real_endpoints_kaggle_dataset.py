@@ -56,12 +56,12 @@ class TestRealEndpointWithHIPAAFilenames:
         print(f"\n📁 Uploading: {audio_file.name}")
         print(f"👤 Patient: {patient_name}")
 
-        # Upload file with patient_name (plain text)
+        # Upload file with patient_name (in form body, not URL)
         with open(audio_file, "rb") as f:
             files = {"file": (audio_file.name, f, "audio/mpeg")}
-            params = {"patient_name": patient_name}  # Plain text name, not encrypted
+            data = {"patient_name": patient_name}  # Form body to avoid URL logging
 
-            response = requests.post(f"{BASE_URL}/speech-to-text", files=files, params=params, timeout=30)
+            response = requests.post(f"{BASE_URL}/speech-to-text", files=files, data=data, timeout=30)
 
         print(f"Response: {response.status_code}")
 
@@ -155,12 +155,12 @@ class TestRealEndpointWithHIPAAFilenames:
             print(f"Patient: {test_case['patient']}")
             print(f"Audio: {audio_file.name}")
 
-            # Upload with patient_name (plain text)
+            # Upload with patient_name (in form body)
             with open(audio_file, "rb") as f:
                 files = {"file": (audio_file.name, f, "audio/mpeg")}
-                params = {"patient_name": test_case["patient"]}  # Plain text name
+                data = {"patient_name": test_case["patient"]}  # Form body
 
-                response = requests.post(f"{BASE_URL}/speech-to-text", files=files, params=params, timeout=30)
+                response = requests.post(f"{BASE_URL}/speech-to-text", files=files, data=data, timeout=30)
 
             if response.status_code == 200:
                 data = response.json()
@@ -205,12 +205,12 @@ class TestRealEndpointWithHIPAAFilenames:
         print("\n📁 Testing workflow result filename")
         print(f"👤 Patient: {patient_name}")
 
-        # Upload and start workflow with patient_name
+        # Upload and start workflow with patient_name (in form body)
         with open(audio_file, "rb") as f:
             files = {"file": (audio_file.name, f, "audio/mpeg")}
-            params = {"patient_name": patient_name}
+            data = {"patient_name": patient_name}  # Form body
 
-            response = requests.post(f"{BASE_URL}/speech-to-text", files=files, params=params, timeout=30)
+            response = requests.post(f"{BASE_URL}/speech-to-text", files=files, data=data, timeout=30)
 
         if response.status_code != 200:
             pytest.skip("Could not start workflow")
@@ -296,6 +296,7 @@ class TestRealEndpointWithHIPAAFilenames:
 
         elif response.status_code == 404:
             print("No workflows found (expected for new patient)")
-    
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-s"])

@@ -16,7 +16,7 @@ from app.patients.mapping import (
 def test_db():
     """
     Provide an isolated in-memory SQLite database for each test.
-    
+
     This fixture ensures proper test isolation by:
     - Using an in-memory database (:memory:) unique to each test
     - Automatically creating the schema before each test
@@ -27,7 +27,7 @@ def test_db():
     conn = sqlite3.connect(":memory:")
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
-    
+
     # Create schema
     cursor.execute("""
         CREATE TABLE patient_workflow_mappings (
@@ -40,28 +40,28 @@ def test_db():
             created_at TEXT NOT NULL
         )
     """)
-    
+
     cursor.execute("""
         CREATE INDEX idx_patient_hash 
         ON patient_workflow_mappings(patient_hash)
     """)
-    
+
     conn.commit()
-    
+
     # Context manager that returns the test database connection
     @contextmanager
     def get_test_db_connection():
         try:
             yield conn
             conn.commit()
-        except Exception as e:
+        except Exception:
             conn.rollback()
             raise
-    
+
     # Patch the database connection to use in-memory database
     with patch("app.patients.database.get_db_connection", get_test_db_connection):
         yield conn
-    
+
     # Cleanup
     conn.close()
 

@@ -56,7 +56,7 @@ async def get_patient_workflows(
         # If status filtering is requested, we need to filter BEFORE pagination
         # to ensure accurate counts and proper pagination
         client = await temporal_manager.get_client()
-        
+
         if status and client:
             # Filter workflows by status first
             filtered_workflows = []
@@ -72,20 +72,20 @@ async def get_patient_workflows(
                 except Exception:
                     # If we can't get status, skip this workflow when filtering
                     pass
-            
+
             # Use filtered list for pagination
             workflows_to_paginate = filtered_workflows
         else:
             # No filtering, use all workflows
             workflows_to_paginate = db_workflows
-        
+
         # Calculate counts
         total_count = len(db_workflows)  # Total workflows in DB
         filtered_count = len(workflows_to_paginate)  # After status filter
-        
+
         # Apply pagination
         paginated_workflows = workflows_to_paginate[offset : offset + limit]
-        
+
         # Build response with status info
         workflows = []
         for db_wf in paginated_workflows:
@@ -105,7 +105,7 @@ async def get_patient_workflows(
                     "created_at": db_wf["created_at"],
                     "status": "UNKNOWN",
                 }
-                
+
                 if client:
                     try:
                         handle = client.get_workflow_handle(db_wf["workflow_id"])
@@ -113,7 +113,7 @@ async def get_patient_workflows(
                         workflow_info["status"] = describe.status.name
                     except Exception:
                         pass
-            
+
             workflows.append(workflow_info)
 
         return {
