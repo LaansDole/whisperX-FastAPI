@@ -7,6 +7,7 @@ from typing import Dict, List, Any
 from datetime import datetime
 
 from .lm_studio_client import LMStudioClient
+from ..config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -239,8 +240,8 @@ Extract all clinically relevant information and organize it properly."""
         except Exception as e:
             logger.error(f"Document structuring failed: {e}")
             return {
-                "consultation_id": f"failed_{datetime.now().isoformat()}",
-                "timestamp": datetime.now().isoformat(),
+                "consultation_id": f"failed_{datetime.now(Config.TIMEZONE).isoformat()}",
+                "timestamp": datetime.now(Config.TIMEZONE).isoformat(),
                 "error": str(e),
                 "sections": {},
                 "summary": "Document structuring failed",
@@ -374,8 +375,8 @@ Use professional medical language and be clinically precise.""",
 
             # Fallback: create basic structure
             return {
-                "consultation_id": f"parsed_{datetime.now().isoformat()}",
-                "timestamp": datetime.now().isoformat(),
+                "consultation_id": f"parsed_{datetime.now(Config.TIMEZONE).isoformat()}",
+                "timestamp": datetime.now(Config.TIMEZONE).isoformat(),
                 "raw_response": response,
                 "sections": {},
                 "summary": "Document parsing required manual intervention",

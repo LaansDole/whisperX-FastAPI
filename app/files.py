@@ -2,6 +2,7 @@
 
 import logging
 import os
+from tempfile import SpooledTemporaryFile
 
 from fastapi import HTTPException
 
@@ -44,24 +45,37 @@ def check_file_extension(file):
     validate_extension(file, ALLOWED_EXTENSIONS)
 
 
-def save_temporary_file(temporary_file, original_filename):
+def save_temporary_file(
+    temporary_file: SpooledTemporaryFile,
+    original_filename: str,
+    patient_name: str = None,
+) -> str:
     """
-    Save the contents of a SpooledTemporaryFile to a named temporary file.
+    Save a SpooledTemporaryFile to a named temporary file with HIPAA-compliant naming.
 
-    Return the file path while preserving the original file extension.
+    Args:
+        temporary_file: The SpooledTemporaryFile object to save.
+        original_filename: The original filename (used to extract extension).
+        patient_name: Optional plain text patient name for HIPAA-compliant naming.
+                     If None, a random UUID will be used instead.
+
+    Returns:
+        The path to the saved temporary file with HIPAA-compliant filename.
     """
-    # Extract the original file extension
-    _, original_extension = os.path.splitext(original_filename)
-
     # Use shared uploads directory for Docker environment
     # This ensures files are accessible across containers
     uploads_dir = "/tmp/uploads"
-    os.makedirs(uploads_dir, exist_ok=True)
+    if not os.path.exists(uploads_dir):
+        os.makedirs(uploads_dir)
 
-    # Create a unique filename with original extension
-    import uuid
+    # Extract original extension
+    original_extension = os.path.splitext(original_filename)[1]
 
-    unique_filename = f"{uuid.uuid4()}{original_extension}"
+    # Import here to avoid circular dependency
+    from app.patients.filename_utils import generate_anonymous_audio_filename
+
+    # Generate HIPAA-compliant filename with patient hash (or random if no patient)
+    unique_filename = generate_anonymous_audio_filename(original_extension, patient_name=patient_name)
     temp_filename = os.path.join(uploads_dir, unique_filename)
 
     # Write the contents of the SpooledTemporaryFile to the temporary file

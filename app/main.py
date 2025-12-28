@@ -13,7 +13,9 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from scalar_fastapi import get_scalar_api_reference
 
 from .config import Config
-from .routers import stt, stt_services, temporal_tasks, medical
+from .logger import logger
+from .routers import medical, patient_workflows, stt, stt_services, temporal_tasks
+from .routers import admin
 from .temporal.manager import temporal_manager
 from .trace_middleware import TraceMiddleware
 
@@ -26,10 +28,19 @@ async def lifespan(app: FastAPI):
     """
     Lifespan context manager for the FastAPI application.
     This function is used to perform startup and shutdown tasks for the FastAPI application.
-    It saves the OpenAPI JSON and connects to the Temporal server.
+    It initializes the patient database, saves the OpenAPI JSON, and connects to the Temporal server.
     Args:
         app (FastAPI): The FastAPI application instance.
     """
+    # Initialize patient database
+    import os
+    from .patients.database import init_db
+
+    fresh_start = os.getenv("DB_FRESH_START", "false").lower() == "true"
+    init_db(fresh_start=fresh_start)
+    logger.info(f"Patient database initialized (fresh_start={fresh_start})")
+
+    # Connect to Temporal
     await temporal_manager.get_client()
     yield
 
@@ -206,6 +217,8 @@ app.include_router(stt.stt_router)
 app.include_router(stt_services.service_router)
 app.include_router(temporal_tasks.temporal_router)
 app.include_router(medical.router)
+app.include_router(patient_workflows.router)
+app.include_router(admin.router)  # Admin endpoints
 
 
 @app.get("/", include_in_schema=False)

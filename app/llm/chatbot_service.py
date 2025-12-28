@@ -21,7 +21,7 @@ class ChatMessage:
     def __init__(self, role: str, content: str, timestamp: str = None):
         self.role = role  # "user", "assistant", or "system"
         self.content = content
-        self.timestamp = timestamp or datetime.now().isoformat()
+        self.timestamp = timestamp or datetime.now(Config.TIMEZONE).isoformat()
 
     def to_dict(self) -> Dict[str, str]:
         return {"role": self.role, "content": self.content}
@@ -160,7 +160,7 @@ Consultation ID: {result.get("consultation_id", "Unknown")}
         Returns:
             Dict with response, sources, and metadata
         """
-        session_id = session_id or f"session_{datetime.now().timestamp()}"
+        session_id = session_id or f"session_{datetime.now(Config.TIMEZONE).timestamp()}"
         conversation = self._get_or_create_conversation(session_id)
 
         try:
@@ -205,7 +205,7 @@ Consultation ID: {result.get("consultation_id", "Unknown")}
                     for r in additional_context
                 ],
                 "context_used": len(additional_context) > 0,
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(Config.TIMEZONE).isoformat(),
             }
 
         except Exception as e:
@@ -216,7 +216,7 @@ Consultation ID: {result.get("consultation_id", "Unknown")}
                 "sources": [],
                 "context_used": False,
                 "error": str(e),
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(Config.TIMEZONE).isoformat(),
             }
 
     async def _fetch_patient_context(

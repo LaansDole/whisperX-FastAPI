@@ -6,6 +6,7 @@ import logging
 from typing import List, Dict, Pattern
 from datetime import datetime
 
+from ..config import Config
 from .access_control import HealthcareRole
 
 logger = logging.getLogger(__name__)
@@ -399,7 +400,7 @@ class PHIMinimizer:
 
             # Add de-identification metadata
             deidentified_record["deidentified"] = True
-            deidentified_record["deidentification_date"] = datetime.now().isoformat()
+            deidentified_record["deidentification_date"] = datetime.now(Config.TIMEZONE).isoformat()
 
             deidentified_records.append(deidentified_record)
 

@@ -270,8 +270,24 @@ temporal-fresh:
 # Run all tests (unit + integration)
 test:
 	@echo "Running all tests..."
-	uv run pytest tests/ -v
-	@echo "All tests completed"
+	uv run pytest tests/ -v --tb=short
+
+unit-test:
+	@echo "========================================" 
+	@echo "Running Unit Tests with Coverage Report"
+	@echo "========================================"
+	@uv run pytest tests/unit/ -v --tb=short --cov=app --cov-report=term-missing --cov-report=html
+	@echo ""
+	@echo "📊 Coverage report generated in htmlcov/index.html"
+	@echo "ℹ️  Open with: open htmlcov/index.html"
+
+integration-test:
+	@echo "========================================"
+	@echo "Running Integration Tests"
+	@echo "========================================"
+	@echo "Make sure server is running: make dev"
+	uv run pytest tests/integration/ -v --tb=short -s && \
+	echo "Integration tests passed"
 
 # Run unit tests only (exclude integration and slow tests)
 test-unit:

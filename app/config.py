@@ -1,6 +1,7 @@
 """Configuration module for the WhisperX FastAPI application."""
 
 import os
+from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
 
 # Load environment variables from .env
@@ -9,6 +10,10 @@ load_dotenv()
 
 class Config:
     """Configuration class for WhisperX FastAPI application settings."""
+
+    # Timezone Configuration
+    TIMEZONE_NAME = os.getenv("TIMEZONE", "Asia/Bangkok")  # UTC+7 for Vietnam
+    TIMEZONE = ZoneInfo(TIMEZONE_NAME)
 
     # Core WhisperX Configuration
     LANG = os.getenv("DEFAULT_LANG", "en")
@@ -79,6 +84,9 @@ class Config:
 
     # Database Configuration (for medical metadata)
     MEDICAL_DB_PATH = os.getenv("MEDICAL_DB_PATH", "./medical_metadata.db")
+
+    # Patient Workflow Mappings Database
+    PATIENT_DB_PATH = os.getenv("PATIENT_DB_PATH", "./data/patient_mappings.db")
 
     # Performance Configuration
     ENABLE_PARALLEL_MEDICAL_PROCESSING = os.getenv("ENABLE_PARALLEL_MEDICAL_PROCESSING", "true").lower() == "true"

@@ -55,8 +55,11 @@ Upload an audio or video file to transcribe with optional alignment and speaker 
 **Example Request:**
 ```bash
 curl -X POST "http://localhost:8000/speech-to-text?language=en&model=base&min_speakers=2&max_speakers=3" \\
-  -F "file=@interview.mp3"
+  -F "file=@interview.mp3" \\
+  -F "patient_name=John Michael Smith"
 ```
+
+**Security Note:** Patient name is submitted in the request body (not URL) to prevent PHI exposure in logs.
 
 **Response:**
 ```json
@@ -83,15 +86,33 @@ async def speech_to_text(
     asr_options_params: ASROptions = Depends(),
     vad_options_params: VADOptions = Depends(),
     file: UploadFile = File(...),
+    patient_name: str = Form(
+        ...,
+        min_length=1,
+        pattern=r".*\S.*",
+        description="Patient full name for HIPAA-compliant identification (submitted in request body to avoid URL logging)",
+    ),
 ) -> Response:
     """
     Process an uploaded audio file for speech-to-text conversion.
+
+    Args:
+        file: Audio/video file to process
+        patient_name: Required patient full name (will be encrypted internally for HIPAA compliance)
     """
     logger.info("Received file upload request: %s", file.filename)
 
     validate_extension(file.filename, ALLOWED_EXTENSIONS)
 
-    temp_file = save_temporary_file(file.file, file.filename)
+    # Generate patient hash for HIPAA-compliant filenames
+    from ..patients.filename_utils import generate_patient_file_id
+
+    # Use the same hash function as filename_utils for consistency
+    patient_hash = generate_patient_file_id(patient_name)
+
+    logger.info(f"Processing upload for patient (hash: {patient_hash})")
+
+    temp_file = save_temporary_file(file.file, file.filename, patient_name=patient_name)
     logger.info("%s saved as temporary file: %s", file.filename, temp_file)
 
     params = {
@@ -105,14 +126,50 @@ async def speech_to_text(
     client = await temporal_manager.get_client()
     if not client:
         raise HTTPException(status_code=503, detail="Temporal service not available")
-    workflow_id = f"whisperx-workflow-{uuid.uuid4()}"
-    handle = await client.start_workflow(
-        WhisperXWorkflow.run,
-        args=[temp_file, params],
-        id=workflow_id,
-        task_queue=config.TEMPORAL_TASK_QUEUE,
-    )
-    logger.info("Workflow started: ID %s", handle.id)
+
+    # Generate HIPAA-compliant workflow ID with patient hash
+    from datetime import datetime
+    from ..config import Config
+
+    timestamp = datetime.now(Config.TIMEZONE).strftime("%Y%m%d_%H%M%S%f")
+    # Add random suffix to prevent collisions on concurrent uploads
+    random_suffix = uuid.uuid4().hex[:4]
+    workflow_id = f"whisperx-wf-pt_{patient_hash}-{timestamp}-{random_suffix}"
+
+    # Phase 1: Reserve database record (PENDING status) BEFORE workflow starts
+    from ..patients.mapping import reserve_patient_workflow, commit_patient_workflow, rollback_patient_workflow
+
+    try:
+        reserve_patient_workflow(
+            patient_name=patient_name,
+            patient_hash=patient_hash,
+            workflow_id=workflow_id,
+            file_path=temp_file,
+            department=None,  # TODO: Add department parameter
+        )
+    except Exception as db_error:
+        # Database reservation failed - fail fast, no workflow to clean up yet
+        logger.error(f"Failed to reserve database record for workflow {workflow_id}: {db_error}")
+        raise HTTPException(status_code=500, detail=f"Failed to reserve patient workflow mapping: {str(db_error)}")
+
+    # Phase 2: Start Temporal workflow
+    try:
+        handle = await client.start_workflow(
+            WhisperXWorkflow.run,
+            args=[temp_file, params],
+            id=workflow_id,
+            task_queue=config.TEMPORAL_TASK_QUEUE,
+        )
+        logger.info("Workflow started: ID %s", handle.id)
+
+        # Phase 3: Commit database record (mark as ACTIVE)
+        commit_patient_workflow(workflow_id)
+
+    except Exception as workflow_error:
+        # Workflow start failed - rollback database record
+        logger.error(f"Workflow start failed for {workflow_id}: {workflow_error}")
+        rollback_patient_workflow(workflow_id)
+        raise HTTPException(status_code=500, detail=f"Failed to start workflow: {str(workflow_error)}")
 
     return Response(identifier=handle.id, message="Workflow started")
 
@@ -155,9 +212,19 @@ async def speech_to_text_url(
     asr_options_params: ASROptions = Depends(),
     vad_options_params: VADOptions = Depends(),
     url: str = Form(...),
+    patient_name: str = Form(
+        ...,
+        min_length=1,
+        pattern=r".*\S.*",
+        description="Patient full name for HIPAA-compliant identification (required for workflow tracking)",
+    ),
 ) -> Response:
     """
     Process an audio file from a URL for speech-to-text conversion.
+
+    Args:
+        url: Public URL to audio/video file
+        patient_name: Required patient name for HIPAA-compliant workflow tracking
     """
     logger.info("Received URL for processing: %s", url)
 
@@ -204,13 +271,53 @@ async def speech_to_text_url(
     client = await temporal_manager.get_client()
     if not client:
         raise HTTPException(status_code=503, detail="Temporal service not available")
-    workflow_id = f"whisperx-workflow-{uuid.uuid4()}"
-    handle = await client.start_workflow(
-        WhisperXWorkflow.run,
-        args=[temp_audio_file_path, params],
-        id=workflow_id,
-        task_queue=config.TEMPORAL_TASK_QUEUE,
-    )
-    logger.info("Workflow started: ID %s", handle.id)
+
+    # Generate HIPAA-compliant workflow ID with patient hash
+    from ..patients.filename_utils import generate_patient_file_id
+    from datetime import datetime
+    from ..config import Config
+
+    patient_hash = generate_patient_file_id(patient_name)
+    timestamp = datetime.now(Config.TIMEZONE).strftime("%Y%m%d_%H%M%S%f")
+    # Add random suffix to prevent collisions on concurrent uploads
+    random_suffix = uuid.uuid4().hex[:4]
+    workflow_id = f"whisperx-wf-pt_{patient_hash}-{timestamp}-{random_suffix}"
+
+    logger.info(f"Processing URL upload for patient (hash: {patient_hash})")
+
+    # Phase 1: Reserve database record (PENDING status) BEFORE workflow starts
+    from ..patients.mapping import reserve_patient_workflow, commit_patient_workflow, rollback_patient_workflow
+
+    try:
+        reserve_patient_workflow(
+            patient_name=patient_name,
+            patient_hash=patient_hash,
+            workflow_id=workflow_id,
+            file_path=temp_audio_file_path,
+            department=None,
+        )
+    except Exception as db_error:
+        # Database reservation failed - fail fast, no workflow to clean up yet
+        logger.error(f"Failed to reserve database record for workflow {workflow_id}: {db_error}")
+        raise HTTPException(status_code=500, detail=f"Failed to reserve patient workflow mapping: {str(db_error)}")
+
+    # Phase 2: Start Temporal workflow
+    try:
+        handle = await client.start_workflow(
+            WhisperXWorkflow.run,
+            args=[temp_audio_file_path, params],
+            id=workflow_id,
+            task_queue=config.TEMPORAL_TASK_QUEUE,
+        )
+        logger.info("Workflow started: ID %s", handle.id)
+
+        # Phase 3: Commit database record (mark as ACTIVE)
+        commit_patient_workflow(workflow_id)
+
+    except Exception as workflow_error:
+        # Workflow start failed - rollback database record
+        logger.error(f"Workflow start failed for {workflow_id}: {workflow_error}")
+        rollback_patient_workflow(workflow_id)
+        raise HTTPException(status_code=500, detail=f"Failed to start workflow: {str(workflow_error)}")
 
     return Response(identifier=handle.id, message="Workflow started")

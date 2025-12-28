@@ -5,7 +5,8 @@ Orchestrates the complete WhisperX-to-Medical dialogue transformation pipeline.
 
 import logging
 from typing import Dict, Any, Optional
-from datetime import datetime, timezone
+from datetime import datetime
+from ..config import Config
 
 from .whisperx_parser import WhisperXParser, WhisperXParseError
 from .speaker_identifier import SpeakerIdentifier
@@ -101,7 +102,7 @@ class TranscriptionTransformer:
             result = {
                 "transformation_metadata": {
                     "workflow_id": workflow_id,
-                    "transformation_timestamp": datetime.now(timezone.utc).isoformat(),
+                    "transformation_timestamp": datetime.now(Config.TIMEZONE).isoformat(),
                     "parser_version": "1.0",
                     "transformer_version": "1.0",
                 },
@@ -270,7 +271,7 @@ class TranscriptionTransformer:
         return {
             "transformation_metadata": {
                 "workflow_id": workflow_id,
-                "transformation_timestamp": datetime.now(timezone.utc).isoformat(),
+                "transformation_timestamp": datetime.now(Config.TIMEZONE).isoformat(),
                 "status": "empty",
                 "reason": reason,
             },
