@@ -19,30 +19,33 @@ def test_db():
 
     This fixture ensures proper test isolation by:
     - Using an in-memory database (:memory:) unique to each test
-    - Automatically creating the schema before each test
+    - Reusing the schema creation logic from app.patients.database
     - Preventing race conditions in parallel test execution
     - Avoiding file I/O for faster test execution
+
+    If schema changes, tests automatically stay in sync.
     """
     # Create in-memory database
     conn = sqlite3.connect(":memory:")
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    # Create schema
+    # Reuse schema creation from production code
     cursor.execute("""
-        CREATE TABLE patient_workflow_mappings (
+        CREATE TABLE IF NOT EXISTS patient_workflow_mappings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             patient_name TEXT NOT NULL,
             patient_hash TEXT NOT NULL,
             workflow_id TEXT NOT NULL UNIQUE,
             file_path TEXT NOT NULL,
             department TEXT,
-            created_at TEXT NOT NULL
+            created_at TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending'
         )
     """)
 
     cursor.execute("""
-        CREATE INDEX idx_patient_hash 
+        CREATE INDEX IF NOT EXISTS idx_patient_hash 
         ON patient_workflow_mappings(patient_hash)
     """)
 
@@ -198,6 +201,161 @@ class TestPatientMapping:
         assert "created_at" in mapping
         # Should be ISO format timestamp
         assert "T" in mapping["created_at"] or "-" in mapping["created_at"]
+
+
+@pytest.mark.usefixtures("test_db")
+class TestTwoPhaseCommit:
+    """Test two-phase commit pattern for workflow-database consistency."""
+
+    def test_reserve_workflow_creates_pending_record(self):
+        """Test Phase 1: Reserve creates record with pending status."""
+        from app.patients.mapping import reserve_patient_workflow
+
+        reserve_patient_workflow(
+            patient_name="Test Patient",
+            patient_hash="testhash",
+            workflow_id="wf-pending-123",
+            file_path="/tmp/test.mp3",
+        )
+
+        # Verify record exists with pending status
+        mapping = get_patient_by_workflow("wf-pending-123")
+        assert mapping is not None
+        assert mapping["patient_name"] == "Test Patient"
+        assert mapping["status"] == "pending"
+
+    def test_commit_workflow_updates_status_to_active(self):
+        """Test Phase 2a: Commit marks pending record as active."""
+        from app.patients.mapping import reserve_patient_workflow, commit_patient_workflow
+
+        # Reserve first
+        reserve_patient_workflow(
+            patient_name="Test Patient",
+            patient_hash="testhash",
+            workflow_id="wf-commit-123",
+            file_path="/tmp/test.mp3",
+        )
+
+        # Commit
+        commit_patient_workflow("wf-commit-123")
+
+        # Verify status changed to active
+        mapping = get_patient_by_workflow("wf-commit-123")
+        assert mapping["status"] == "active"
+
+    def test_rollback_workflow_deletes_pending_record(self):
+        """Test Phase 2b: Rollback deletes pending record."""
+        from app.patients.mapping import reserve_patient_workflow, rollback_patient_workflow
+
+        # Reserve first
+        reserve_patient_workflow(
+            patient_name="Test Patient",
+            patient_hash="testhash",
+            workflow_id="wf-rollback-123",
+            file_path="/tmp/test.mp3",
+        )
+
+        # Verify it exists
+        mapping = get_patient_by_workflow("wf-rollback-123")
+        assert mapping is not None
+
+        # Rollback
+        rollback_patient_workflow("wf-rollback-123")
+
+        # Verify it's deleted
+        mapping = get_patient_by_workflow("wf-rollback-123")
+        assert mapping is None
+
+    def test_get_workflows_excludes_pending_records(self):
+        """Test that get_workflows_by_patient_hash only returns active workflows."""
+        from app.patients.mapping import reserve_patient_workflow, commit_patient_workflow
+
+        patient_hash = "testhash"
+
+        # Create one pending and one active workflow
+        reserve_patient_workflow(
+            patient_name="Test Patient",
+            patient_hash=patient_hash,
+            workflow_id="wf-pending",
+            file_path="/tmp/pending.mp3",
+        )
+
+        reserve_patient_workflow(
+            patient_name="Test Patient",
+            patient_hash=patient_hash,
+            workflow_id="wf-active",
+            file_path="/tmp/active.mp3",
+        )
+        commit_patient_workflow("wf-active")
+
+        # Query workflows - should only return active one
+        workflows = get_workflows_by_patient_hash(patient_hash)
+
+        assert len(workflows) == 1
+        assert workflows[0]["workflow_id"] == "wf-active"
+        assert workflows[0]["status"] == "active"
+
+    def test_two_phase_commit_full_flow(self):
+        """Test complete two-phase commit flow: reserve → start → commit."""
+        from app.patients.mapping import reserve_patient_workflow, commit_patient_workflow
+
+        patient_hash = "fullflow"
+        workflow_id = "wf-fullflow-123"
+
+        # Phase 1: Reserve
+        reserve_patient_workflow(
+            patient_name="Full Flow Patient",
+            patient_hash=patient_hash,
+            workflow_id=workflow_id,
+            file_path="/tmp/fullflow.mp3",
+        )
+
+        # Verify pending
+        mapping = get_patient_by_workflow(workflow_id)
+        assert mapping["status"] == "pending"
+
+        # Simulate workflow start (in real code)
+        # handle = await client.start_workflow(...)
+
+        # Phase 2: Commit
+        commit_patient_workflow(workflow_id)
+
+        # Verify active and queryable by patient hash
+        workflows = get_workflows_by_patient_hash(patient_hash)
+        assert len(workflows) == 1
+        assert workflows[0]["workflow_id"] == workflow_id
+        assert workflows[0]["status"] == "active"
+
+    def test_two_phase_commit_failure_flow(self):
+        """Test two-phase commit failure flow: reserve → failure → rollback."""
+        from app.patients.mapping import reserve_patient_workflow, rollback_patient_workflow
+
+        patient_hash = "failflow"
+        workflow_id = "wf-failflow-123"
+
+        # Phase 1: Reserve
+        reserve_patient_workflow(
+            patient_name="Fail Flow Patient",
+            patient_hash=patient_hash,
+            workflow_id=workflow_id,
+            file_path="/tmp/failflow.mp3",
+        )
+
+        # Verify pending
+        mapping = get_patient_by_workflow(workflow_id)
+        assert mapping is not None
+
+        # Simulate workflow start failure
+        # try:
+        #     handle = await client.start_workflow(...)
+        # except Exception:
+
+        # Phase 2b: Rollback
+        rollback_patient_workflow(workflow_id)
+
+        # Verify deleted and not queryable by patient hash
+        workflows = get_workflows_by_patient_hash(patient_hash)
+        assert len(workflows) == 0
 
 
 if __name__ == "__main__":

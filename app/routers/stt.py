@@ -136,32 +136,40 @@ async def speech_to_text(
     random_suffix = uuid.uuid4().hex[:4]
     workflow_id = f"whisperx-wf-pt_{patient_hash}-{timestamp}-{random_suffix}"
 
-    handle = await client.start_workflow(
-        WhisperXWorkflow.run,
-        args=[temp_file, params],
-        id=workflow_id,
-        task_queue=config.TEMPORAL_TASK_QUEUE,
-    )
-    logger.info("Workflow started: ID %s", handle.id)
-
-    # Store patient-workflow mapping in database
-    from ..patients.mapping import store_patient_workflow
+    # Phase 1: Reserve database record (PENDING status) BEFORE workflow starts
+    from ..patients.mapping import reserve_patient_workflow, commit_patient_workflow, rollback_patient_workflow
 
     try:
-        store_patient_workflow(
+        reserve_patient_workflow(
             patient_name=patient_name,
             patient_hash=patient_hash,
             workflow_id=workflow_id,
             file_path=temp_file,
             department=None,  # TODO: Add department parameter
         )
-        logger.info(f"Stored mapping: {patient_name} → {workflow_id}")
     except Exception as db_error:
-        logger.error(
-            f"CRITICAL: Failed to store patient mapping for workflow {workflow_id}. "
-            f"Workflow is running but not linked to patient {patient_hash}. "
-            f"Error: {db_error}"
+        # Database reservation failed - fail fast, no workflow to clean up yet
+        logger.error(f"Failed to reserve database record for workflow {workflow_id}: {db_error}")
+        raise HTTPException(status_code=500, detail=f"Failed to reserve patient workflow mapping: {str(db_error)}")
+
+    # Phase 2: Start Temporal workflow
+    try:
+        handle = await client.start_workflow(
+            WhisperXWorkflow.run,
+            args=[temp_file, params],
+            id=workflow_id,
+            task_queue=config.TEMPORAL_TASK_QUEUE,
         )
+        logger.info("Workflow started: ID %s", handle.id)
+
+        # Phase 3: Commit database record (mark as ACTIVE)
+        commit_patient_workflow(workflow_id)
+
+    except Exception as workflow_error:
+        # Workflow start failed - rollback database record
+        logger.error(f"Workflow start failed for {workflow_id}: {workflow_error}")
+        rollback_patient_workflow(workflow_id)
+        raise HTTPException(status_code=500, detail=f"Failed to start workflow: {str(workflow_error)}")
 
     return Response(identifier=handle.id, message="Workflow started")
 
@@ -205,10 +213,10 @@ async def speech_to_text_url(
     vad_options_params: VADOptions = Depends(),
     url: str = Form(...),
     patient_name: str = Form(
-        None,
+        ...,
         min_length=1,
         pattern=r".*\S.*",
-        description="Optional patient name for HIPAA-compliant identification",
+        description="Patient full name for HIPAA-compliant identification (required for workflow tracking)",
     ),
 ) -> Response:
     """
@@ -216,7 +224,7 @@ async def speech_to_text_url(
 
     Args:
         url: Public URL to audio/video file
-        patient_name: Optional patient name for HIPAA-compliant workflow tracking
+        patient_name: Required patient name for HIPAA-compliant workflow tracking
     """
     logger.info("Received URL for processing: %s", url)
 
@@ -264,53 +272,52 @@ async def speech_to_text_url(
     if not client:
         raise HTTPException(status_code=503, detail="Temporal service not available")
 
-    # Generate HIPAA-compliant workflow ID if patient_name provided
-    if patient_name:
-        from ..patients.filename_utils import generate_patient_file_id
-        from datetime import datetime
-        from ..config import Config
+    # Generate HIPAA-compliant workflow ID with patient hash
+    from ..patients.filename_utils import generate_patient_file_id
+    from datetime import datetime
+    from ..config import Config
 
-        patient_hash = generate_patient_file_id(patient_name)
-        timestamp = datetime.now(Config.TIMEZONE).strftime("%Y%m%d_%H%M%S%f")
-        # Add random suffix to prevent collisions on concurrent uploads
-        random_suffix = uuid.uuid4().hex[:4]
-        workflow_id = f"whisperx-wf-pt_{patient_hash}-{timestamp}-{random_suffix}"
+    patient_hash = generate_patient_file_id(patient_name)
+    timestamp = datetime.now(Config.TIMEZONE).strftime("%Y%m%d_%H%M%S%f")
+    # Add random suffix to prevent collisions on concurrent uploads
+    random_suffix = uuid.uuid4().hex[:4]
+    workflow_id = f"whisperx-wf-pt_{patient_hash}-{timestamp}-{random_suffix}"
 
-        logger.info(f"Processing URL upload for patient (hash: {patient_hash})")
-    else:
-        # Fallback to random UUID for anonymous uploads
-        workflow_id = f"whisperx-workflow-{uuid.uuid4()}"
-        logger.info("Processing anonymous URL upload")
+    logger.info(f"Processing URL upload for patient (hash: {patient_hash})")
 
-    handle = await client.start_workflow(
-        WhisperXWorkflow.run,
-        args=[temp_audio_file_path, params],
-        id=workflow_id,
-        task_queue=config.TEMPORAL_TASK_QUEUE,
-    )
-    logger.info("Workflow started: ID %s", handle.id)
+    # Phase 1: Reserve database record (PENDING status) BEFORE workflow starts
+    from ..patients.mapping import reserve_patient_workflow, commit_patient_workflow, rollback_patient_workflow
 
-    # Store patient-workflow mapping if patient_name provided
-    if patient_name:
-        from ..patients.mapping import store_patient_workflow
+    try:
+        reserve_patient_workflow(
+            patient_name=patient_name,
+            patient_hash=patient_hash,
+            workflow_id=workflow_id,
+            file_path=temp_audio_file_path,
+            department=None,
+        )
+    except Exception as db_error:
+        # Database reservation failed - fail fast, no workflow to clean up yet
+        logger.error(f"Failed to reserve database record for workflow {workflow_id}: {db_error}")
+        raise HTTPException(status_code=500, detail=f"Failed to reserve patient workflow mapping: {str(db_error)}")
 
-        try:
-            store_patient_workflow(
-                patient_name=patient_name,
-                patient_hash=patient_hash,
-                workflow_id=workflow_id,
-                file_path=temp_audio_file_path,
-                department=None,
-            )
-            logger.info(f"Stored mapping: {patient_name} → {workflow_id}")
-        except Exception as db_error:
-            # CRITICAL: Workflow started but database store failed - orphaned workflow
-            logger.error(
-                f"CRITICAL: Failed to store patient mapping for workflow {workflow_id}. "
-                f"Workflow is running but not linked to patient {patient_hash}. "
-                f"Error: {db_error}"
-            )
-            # Continue execution - workflow is already started and will complete
-            # The orphan can be tracked via logs and manually linked if needed
+    # Phase 2: Start Temporal workflow
+    try:
+        handle = await client.start_workflow(
+            WhisperXWorkflow.run,
+            args=[temp_audio_file_path, params],
+            id=workflow_id,
+            task_queue=config.TEMPORAL_TASK_QUEUE,
+        )
+        logger.info("Workflow started: ID %s", handle.id)
+
+        # Phase 3: Commit database record (mark as ACTIVE)
+        commit_patient_workflow(workflow_id)
+
+    except Exception as workflow_error:
+        # Workflow start failed - rollback database record
+        logger.error(f"Workflow start failed for {workflow_id}: {workflow_error}")
+        rollback_patient_workflow(workflow_id)
+        raise HTTPException(status_code=500, detail=f"Failed to start workflow: {str(workflow_error)}")
 
     return Response(identifier=handle.id, message="Workflow started")

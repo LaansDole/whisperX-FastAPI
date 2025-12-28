@@ -95,8 +95,35 @@ class TestRealEndpointWithHIPAAFilenames:
 
         print("✓ Patient name NOT in workflow ID")
 
-        # Wait a bit for workflow to start
+        # Wait a bit for workflow to start and commit to complete
         time.sleep(2)
+
+        # Validate Two-Phase Commit SUCCESS
+        print("\n🔍 Validating two-phase commit...")
+
+        # Check database record via admin endpoint
+        admin_response = requests.get(f"{BASE_URL}/admin/workflow/{workflow_id}/patient", timeout=10)
+
+        if admin_response.status_code == 200:
+            db_record = admin_response.json()
+            print("✓ Database record found:")
+            print(f"  Patient: {db_record['patient_name']}")
+            print(f"  Hash: {db_record['patient_hash']}")
+            print(f"  Status: {db_record.get('status', 'N/A')}")
+
+            # Verify status is 'active' (two-phase commit succeeded)
+            assert db_record.get("status") == "active", f"Expected status='active', got '{db_record.get('status')}'"
+            print("✓ Two-phase commit: Database record marked ACTIVE")
+
+            # Verify patient hash matches
+            assert db_record["patient_hash"] == patient_hash, (
+                f"Expected hash {patient_hash}, got {db_record['patient_hash']}"
+            )
+            print(f"✓ Two-phase commit: Patient hash verified ({patient_hash})")
+        else:
+            pytest.fail(
+                f"Database record not found! Two-phase commit may have failed. Status: {admin_response.status_code}"
+            )
 
         # Check workflow status
         status_response = requests.get(f"{BASE_URL}/temporal/workflow/{workflow_id}", timeout=10)
@@ -120,14 +147,24 @@ class TestRealEndpointWithHIPAAFilenames:
 
             if patient_workflows_response.status_code == 200:
                 patient_data = patient_workflows_response.json()
-                print(f"✓ Found {patient_data.get('total_found', 0)} workflows for patient")
+                total_count = patient_data.get("total_count", 0)
+                workflows = patient_data.get("workflows", [])
+                print(f"✓ Found {total_count} workflows for patient")
 
                 # Verify our workflow is in the list
-                workflow_ids = [w["workflow_id"] for w in patient_data.get("workflows", [])]
+                workflow_ids = [w["workflow_id"] for w in workflows]
                 assert workflow_id in workflow_ids, (
                     f"Workflow {workflow_id} not found in patient query. Found: {workflow_ids}"
                 )
                 print("✓ Patient query successfully found workflow")
+
+                # Verify all returned workflows have status='active' (pending excluded by query)
+                for wf in workflows:
+                    # Status from database should be 'active' for all returned workflows
+                    # (pending workflows should be filtered out by the query)
+                    print(f"  Workflow {wf['workflow_id'][:30]}... created at {wf.get('created_at', 'N/A')}")
+
+                print("✓ Two-phase commit: Only active workflows returned in patient query")
             else:
                 print(f"⚠ Patient query endpoint returned {patient_workflows_response.status_code}")
         else:

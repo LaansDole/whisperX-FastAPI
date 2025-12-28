@@ -112,8 +112,28 @@ def test_speech_to_text_vietnamese_small():
     assert "identifier" in data
     assert "Workflow started" in data["message"]  # Changed from "Task queued"
 
-    # Wait for completion
     workflow_id = data["identifier"]
+
+    # Validate Two-Phase Commit
+    print(f"\nValidating two-phase commit for workflow {workflow_id}...")
+
+    # Small delay to ensure commit completed
+    time.sleep(1)
+
+    # Check database record
+    admin_response = client.get(f"/admin/workflow/{workflow_id}/patient")
+
+    assert admin_response.status_code == 200, (
+        f"Database record not found! Two-phase commit may have failed. Status: {admin_response.status_code}"
+    )
+
+    db_record = admin_response.json()
+    assert db_record.get("status") == "active", f"Expected status='active', got '{db_record.get('status')}'"
+    print("✓ Two-phase commit: Database record marked ACTIVE")
+    print(f"  Patient: {db_record['patient_name']}")
+    print(f"  Hash: {db_record['patient_hash']}")
+
+    # Wait for completion
     result = wait_for_task_completion(workflow_id, max_wait=180)
 
     # Verify result structure

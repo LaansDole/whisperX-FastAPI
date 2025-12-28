@@ -41,7 +41,8 @@ def init_database(fresh_start: bool = True):
             workflow_id TEXT NOT NULL UNIQUE,
             file_path TEXT NOT NULL,
             department TEXT,
-            created_at TEXT NOT NULL
+            created_at TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending'
         )
     """)
 
@@ -49,6 +50,12 @@ def init_database(fresh_start: bool = True):
     cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_patient_hash 
         ON patient_workflow_mappings(patient_hash)
+    """)
+
+    # Create index on status for filtering active/pending workflows
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_status 
+        ON patient_workflow_mappings(status)
     """)
 
     conn.commit()
@@ -102,8 +109,8 @@ def store_patient_workflow_db(
         cursor.execute(
             """
             INSERT INTO patient_workflow_mappings 
-            (patient_name, patient_hash, workflow_id, file_path, department, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            (patient_name, patient_hash, workflow_id, file_path, department, created_at, status)
+            VALUES (?, ?, ?, ?, ?, ?, 'active')
         """,
             (patient_name, patient_hash, workflow_id, file_path, department, created_at),
         )
@@ -120,6 +127,102 @@ def store_patient_workflow_db(
         logger.info(f"   Total mappings in DB: {total}")
 
 
+def reserve_workflow_mapping_db(
+    patient_name: str,
+    patient_hash: str,
+    workflow_id: str,
+    file_path: str,
+    department: Optional[str] = None,
+    created_at: str = None,
+):
+    """
+    Phase 1 of two-phase commit: Reserve a workflow mapping with 'pending' status.
+
+    This creates a database record BEFORE starting the Temporal workflow.
+    If the workflow fails to start, call rollback_workflow_mapping_db() to clean up.
+    If the workflow starts successfully, call commit_workflow_mapping_db() to mark as active.
+
+    Args:
+        patient_name: Plain text patient name
+        patient_hash: 8-char patient hash
+        workflow_id: Temporal workflow ID
+        file_path: Path to audio file
+        department: Optional department name
+        created_at: ISO timestamp (auto-generated if None)
+    """
+    if created_at is None:
+        from datetime import datetime
+
+        created_at = datetime.now(Config.TIMEZONE).isoformat()
+
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO patient_workflow_mappings 
+            (patient_name, patient_hash, workflow_id, file_path, department, created_at, status)
+            VALUES (?, ?, ?, ?, ?, ?, 'pending')
+        """,
+            (patient_name, patient_hash, workflow_id, file_path, department, created_at),
+        )
+
+        logger.info(f"DB RESERVE (PENDING): {patient_name} ({patient_hash}) -> {workflow_id}")
+        logger.info(f"   File: {file_path}")
+        if department:
+            logger.info(f"   Department: {department}")
+
+
+def commit_workflow_mapping_db(workflow_id: str):
+    """
+    Phase 2a of two-phase commit: Mark workflow mapping as 'active'.
+
+    Call this after the Temporal workflow has successfully started.
+
+    Args:
+        workflow_id: Workflow ID to commit
+    """
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            UPDATE patient_workflow_mappings 
+            SET status = 'active'
+            WHERE workflow_id = ? AND status = 'pending'
+        """,
+            (workflow_id,),
+        )
+
+        if cursor.rowcount == 0:
+            logger.warning(f"DB COMMIT: No pending record found for workflow {workflow_id}")
+        else:
+            logger.info(f"DB COMMIT (ACTIVE): {workflow_id}")
+
+
+def rollback_workflow_mapping_db(workflow_id: str):
+    """
+    Phase 2b of two-phase commit: Delete pending workflow mapping.
+
+    Call this if the Temporal workflow fails to start, to clean up the pending record.
+
+    Args:
+        workflow_id: Workflow ID to rollback
+    """
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            DELETE FROM patient_workflow_mappings 
+            WHERE workflow_id = ? AND status = 'pending'
+        """,
+            (workflow_id,),
+        )
+
+        if cursor.rowcount == 0:
+            logger.warning(f"DB ROLLBACK: No pending record found for workflow {workflow_id}")
+        else:
+            logger.info(f"DB ROLLBACK (DELETED): {workflow_id}")
+
+
 def get_patient_by_workflow_db(workflow_id: str) -> Optional[dict]:
     """
     Get patient info by workflow ID from SQLite.
@@ -134,7 +237,7 @@ def get_patient_by_workflow_db(workflow_id: str) -> Optional[dict]:
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT patient_name, patient_hash, workflow_id, file_path, department, created_at
+            SELECT patient_name, patient_hash, workflow_id, file_path, department, created_at, status
             FROM patient_workflow_mappings
             WHERE workflow_id = ?
         """,
@@ -149,7 +252,9 @@ def get_patient_by_workflow_db(workflow_id: str) -> Optional[dict]:
 
 def get_workflows_by_patient_hash_db(patient_hash: str) -> list:
     """
-    Get all workflows for a patient by hash from SQLite.
+    Get all active workflows for a patient by hash from SQLite.
+
+    Only returns workflows with status='active' (excludes pending/failed).
 
     Args:
         patient_hash: 8-char patient hash
@@ -161,9 +266,9 @@ def get_workflows_by_patient_hash_db(patient_hash: str) -> list:
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT patient_name, patient_hash, workflow_id, file_path, department, created_at
+            SELECT patient_name, patient_hash, workflow_id, file_path, department, created_at, status
             FROM patient_workflow_mappings
-            WHERE patient_hash = ?
+            WHERE patient_hash = ? AND status = 'active'
             ORDER BY created_at DESC
         """,
             (patient_hash,),
@@ -207,7 +312,9 @@ def get_patient_name_by_hash_db(patient_hash: str) -> Optional[str]:
 
 def get_all_patients_db() -> list:
     """
-    Get summary of all patients with workflow counts.
+    Get summary of all patients with active workflow counts.
+
+    Only counts workflows with status='active' (excludes pending/failed).
 
     Returns:
         List of patient summaries
@@ -221,6 +328,7 @@ def get_all_patients_db() -> list:
                 COUNT(*) as workflow_count,
                 MAX(created_at) as latest_workflow
             FROM patient_workflow_mappings
+            WHERE status = 'active'
             GROUP BY patient_hash
             ORDER BY latest_workflow DESC
         """)
