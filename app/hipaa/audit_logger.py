@@ -4,10 +4,11 @@ import json
 import logging
 import hashlib
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 from contextlib import contextmanager
+from ..config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ class HIPAAAuditLogger:
         os.chmod(self.log_dir, 0o700)
 
         # Current log file based on date
-        self.current_date = datetime.now(timezone.utc).date()
+        self.current_date = datetime.now(Config.TIMEZONE).date()
         self.log_file = self.log_dir / f"audit_{self.current_date.isoformat()}.log"
 
         # Initialize logger
@@ -119,7 +120,7 @@ class HIPAAAuditLogger:
         """Write audit entry to log file."""
         try:
             # Check if we need to rotate to a new day
-            current_date = datetime.now(timezone.utc).date()
+            current_date = datetime.now(Config.TIMEZONE).date()
             if current_date != self.current_date:
                 self._rotate_log()
 
@@ -142,7 +143,7 @@ class HIPAAAuditLogger:
 
     def _rotate_log(self):
         """Rotate log file for new day."""
-        self.current_date = datetime.now(timezone.utc).date()
+        self.current_date = datetime.now(Config.TIMEZONE).date()
         self.log_file = self.log_dir / f"audit_{self.current_date.isoformat()}.log"
 
         # Reset logger with new file
@@ -166,7 +167,7 @@ class HIPAAAuditLogger:
             **kwargs: Additional metadata
         """
         entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(Config.TIMEZONE).isoformat(),
             "event_type": "PHI_ACCESS",
             "user_id": user_id,
             "patient_id": patient_id,
@@ -197,7 +198,7 @@ class HIPAAAuditLogger:
             details: Event details dictionary
         """
         entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(Config.TIMEZONE).isoformat(),
             "event_type": event_type,
             "user_id": user_id,
             "details": details or {},
@@ -225,7 +226,7 @@ class HIPAAAuditLogger:
             success: Whether authentication was successful
         """
         entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(Config.TIMEZONE).isoformat(),
             "event_type": "AUTHENTICATION",
             "user_id": user_id,
             "auth_event": event_type,
@@ -256,7 +257,7 @@ class HIPAAAuditLogger:
             changes: Dictionary of changes made
         """
         entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(Config.TIMEZONE).isoformat(),
             "event_type": "DATA_MODIFICATION",
             "user_id": user_id,
             "action": action,
@@ -282,7 +283,7 @@ class HIPAAAuditLogger:
             patient_ids: List of patient IDs involved
         """
         entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(Config.TIMEZONE).isoformat(),
             "event_type": "DATA_EXPORT",
             "user_id": user_id,
             "export_type": export_type,
@@ -307,7 +308,7 @@ class HIPAAAuditLogger:
             details: Additional details about the attempt
         """
         entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(Config.TIMEZONE).isoformat(),
             "event_type": "SECURITY_BREACH_ATTEMPT",
             "description": description,
             "ip_address": ip_address,
@@ -346,9 +347,9 @@ class HIPAAAuditLogger:
 
         # Determine date range
         if not start_date:
-            start_date = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+            start_date = datetime.now(Config.TIMEZONE).replace(hour=0, minute=0, second=0, microsecond=0)
         if not end_date:
-            end_date = datetime.now(timezone.utc)
+            end_date = datetime.now(Config.TIMEZONE)
 
         # Search log files in date range
         current_date = start_date.date()
@@ -549,7 +550,7 @@ class HIPAAAuditLogger:
             operation: Operation being performed
             resource: Resource being operated on
         """
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(Config.TIMEZONE)
         entry_hash = None
 
         try:
@@ -569,7 +570,7 @@ class HIPAAAuditLogger:
             yield
 
             # Log operation success
-            end_time = datetime.now(timezone.utc)
+            end_time = datetime.now(Config.TIMEZONE)
             duration_ms = (end_time - start_time).total_seconds() * 1000
 
             self._write_entry(
@@ -588,7 +589,7 @@ class HIPAAAuditLogger:
 
         except Exception as e:
             # Log operation failure
-            end_time = datetime.now(timezone.utc)
+            end_time = datetime.now(Config.TIMEZONE)
             duration_ms = (end_time - start_time).total_seconds() * 1000
 
             self._write_entry(

@@ -125,9 +125,10 @@ async def speech_to_text(
         raise HTTPException(status_code=503, detail="Temporal service not available")
 
     # Generate HIPAA-compliant workflow ID with patient hash
-    from datetime import datetime, timezone
+    from datetime import datetime
+    from ..config import Config
 
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S%f")
+    timestamp = datetime.now(Config.TIMEZONE).strftime("%Y%m%d_%H%M%S%f")
     # Add random suffix to prevent collisions on concurrent uploads
     random_suffix = uuid.uuid4().hex[:4]
     workflow_id = f"whisperx-wf-pt_{patient_hash}-{timestamp}-{random_suffix}"
@@ -263,10 +264,11 @@ async def speech_to_text_url(
     # Generate HIPAA-compliant workflow ID if patient_name provided
     if patient_name:
         from ..patients.filename_utils import generate_patient_file_id
-        from datetime import datetime, timezone
+        from datetime import datetime
+        from ..config import Config
 
         patient_hash = generate_patient_file_id(patient_name)
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S%f")
+        timestamp = datetime.now(Config.TIMEZONE).strftime("%Y%m%d_%H%M%S%f")
         # Add random suffix to prevent collisions on concurrent uploads
         random_suffix = uuid.uuid4().hex[:4]
         workflow_id = f"whisperx-wf-pt_{patient_hash}-{timestamp}-{random_suffix}"

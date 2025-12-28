@@ -29,11 +29,15 @@ async def get_patient_workflows(
         offset: Number of workflows to skip (for pagination)
 
     Returns:
-        Paginated list of workflows with metadata
+        Paginated list of workflows with metadata including:
+        - total_count: Total workflows in database for this patient
+        - filtered_count: Workflows matching status filter (equals total_count if no filter)
+        - returned_count: Number of workflows in this page
 
     Example:
         GET /temporal/patient/abc12345/workflows?limit=10&offset=0  # First 10
         GET /temporal/patient/abc12345/workflows?limit=10&offset=10  # Next 10
+        GET /temporal/patient/abc12345/workflows?status=COMPLETED  # Only completed
     """
     try:
         # Query SQLite database for workflows
@@ -43,47 +47,79 @@ async def get_patient_workflows(
             return {
                 "patient_hash": patient_hash,
                 "total_count": 0,
+                "filtered_count": 0,
                 "limit": limit,
                 "offset": offset,
                 "workflows": [],
             }
 
-        # Store total count before pagination
-        total_count = len(db_workflows)
-
-        # Apply pagination to limit Temporal API calls
-        paginated_workflows = db_workflows[offset : offset + limit]
-
-        # Optionally enrich with Temporal status if needed
+        # If status filtering is requested, we need to filter BEFORE pagination
+        # to ensure accurate counts and proper pagination
         client = await temporal_manager.get_client()
-        workflows = []
-
-        for db_wf in paginated_workflows:
-            workflow_info = {
-                "workflow_id": db_wf["workflow_id"],
-                "department": db_wf["department"],
-                "created_at": db_wf["created_at"],
-                "status": "UNKNOWN",  # Default
-            }
-
-            # Try to get status from Temporal
-            if client:
+        
+        if status and client:
+            # Filter workflows by status first
+            filtered_workflows = []
+            for db_wf in db_workflows:
                 try:
                     handle = client.get_workflow_handle(db_wf["workflow_id"])
                     describe = await handle.describe()
-                    workflow_info["status"] = describe.status.name
-
-                    # Filter by status if requested
-                    if status and describe.status.name != status:
-                        continue
+                    if describe.status.name == status:
+                        # Add status to the workflow info
+                        db_wf_with_status = db_wf.copy()
+                        db_wf_with_status["status"] = describe.status.name
+                        filtered_workflows.append(db_wf_with_status)
                 except Exception:
-                    pass  # Workflow might be old/archived, keep it with UNKNOWN status
-
+                    # If we can't get status, skip this workflow when filtering
+                    pass
+            
+            # Use filtered list for pagination
+            workflows_to_paginate = filtered_workflows
+        else:
+            # No filtering, use all workflows
+            workflows_to_paginate = db_workflows
+        
+        # Calculate counts
+        total_count = len(db_workflows)  # Total workflows in DB
+        filtered_count = len(workflows_to_paginate)  # After status filter
+        
+        # Apply pagination
+        paginated_workflows = workflows_to_paginate[offset : offset + limit]
+        
+        # Build response with status info
+        workflows = []
+        for db_wf in paginated_workflows:
+            # Check if status was already added during filtering
+            if "status" in db_wf:
+                workflow_info = {
+                    "workflow_id": db_wf["workflow_id"],
+                    "department": db_wf["department"],
+                    "created_at": db_wf["created_at"],
+                    "status": db_wf["status"],
+                }
+            else:
+                # Need to fetch status
+                workflow_info = {
+                    "workflow_id": db_wf["workflow_id"],
+                    "department": db_wf["department"],
+                    "created_at": db_wf["created_at"],
+                    "status": "UNKNOWN",
+                }
+                
+                if client:
+                    try:
+                        handle = client.get_workflow_handle(db_wf["workflow_id"])
+                        describe = await handle.describe()
+                        workflow_info["status"] = describe.status.name
+                    except Exception:
+                        pass
+            
             workflows.append(workflow_info)
 
         return {
             "patient_hash": patient_hash,
             "total_count": total_count,
+            "filtered_count": filtered_count,  # Count after status filter
             "limit": limit,
             "offset": offset,
             "returned_count": len(workflows),

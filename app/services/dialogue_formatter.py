@@ -6,7 +6,8 @@ structured medical dialogue formats suitable for LLM processing.
 
 import logging
 from typing import Dict, List, Any, Optional, Literal
-from datetime import datetime, timezone
+from datetime import datetime
+from ..config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +74,7 @@ class DialogueFormatter:
                 "avg_confidence": metadata.get("avg_confidence"),
                 "has_speaker_labels": metadata.get("has_speaker_labels"),
                 "speaker_label_coverage": metadata.get("speaker_label_coverage"),
-                "processing_timestamp": datetime.now(timezone.utc).isoformat(),
+                "processing_timestamp": datetime.now(Config.TIMEZONE).isoformat(),
             },
             "speaker_mapping": speaker_mapping,
             "dialogue": dialogue,
