@@ -231,7 +231,7 @@ class TestTranscriptionTransformer:
         result = transformer.transform(no_speakers)
 
         # Should return valid empty result
-        assert result["dialogue"] == [] or len(result["speaker_mapping"]) == 0
+        assert result["dialogue"] == [] and len(result["speaker_mapping"]) == 0
         assert "transformation_metadata" in result
 
     def test_consistency_across_formats(self, transformer, sample_whisperx_result):
