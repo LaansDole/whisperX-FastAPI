@@ -275,7 +275,6 @@ async def speech_to_text_url(
     else:
         # Fallback to random UUID for anonymous uploads
         workflow_id = f"whisperx-workflow-{uuid.uuid4()}"
-        patient_hash = None
         logger.info("Processing anonymous URL upload")
 
     handle = await client.start_workflow(

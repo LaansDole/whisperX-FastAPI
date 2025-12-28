@@ -133,8 +133,14 @@ async def get_patient_latest_workflow(patient_hash: str):
                 handle = client.get_workflow_handle(latest_wf["workflow_id"])
                 describe = await handle.describe()
                 workflow_info["status"] = describe.status.name
-            except Exception:
-                pass
+            except Exception as e:
+                # Keep status as "UNKNOWN" but log the failure to retrieve Temporal status
+                logger.warning(
+                    "Failed to retrieve Temporal status for workflow_id=%s, patient_hash=%s: %s",
+                    latest_wf.get("workflow_id"),
+                    patient_hash,
+                    str(e),
+                )
 
         return workflow_info
 

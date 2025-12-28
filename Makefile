@@ -282,12 +282,12 @@ unit-test:
 	@echo "ℹ️  Open with: open htmlcov/index.html"
 
 integration-test:
-	@echo "========================================" 
+	@echo "========================================"
 	@echo "Running Integration Tests"
 	@echo "========================================"
-	@echo "⚠️  Make sure server is running: make dev"
-	@uv run pytest tests/integration/ -v --tb=short -s
-	@echo "All tests completed"
+	@echo "Make sure server is running: make dev"
+	uv run pytest tests/integration/ -v --tb=short -s && \
+	echo "Integration tests passed"
 
 # Run unit tests only (exclude integration and slow tests)
 test-unit:
