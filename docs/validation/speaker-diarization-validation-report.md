@@ -1,8 +1,8 @@
 # Speaker Diarization and Role Identification Validation Report
 
-**Date:** December 25, 2024  
-**System:** WhisperX-FastAPI  
-**Dataset:** Kaggle Simulated Patient-Physician Medical Interviews (OSCE)
+- **Date:** December 25, 2024  
+- **System:** WhisperX-FastAPI  
+- **Dataset:** Kaggle Simulated Patient-Physician Medical Interviews (OSCE)
 
 ## Abstract
 

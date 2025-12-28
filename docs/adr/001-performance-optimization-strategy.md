@@ -1,7 +1,7 @@
 # ADR 001: Performance Optimization Strategy for Healthcare RAG
 
-**Date**: 2024-12-13  
-**Status**: Proposed   
+- **Date**: 2024-12-13  
+- **Status**: Proposed   
 
 ## Context
 

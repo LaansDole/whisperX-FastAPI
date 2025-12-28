@@ -1,9 +1,9 @@
 # ADR 003: Vector Database Strategy for Medical RAG
 
-**Date**: 2024-12-13  
-**Status**: Proposed  
-**Decision Makers**: ML Engineering & Infrastructure Teams  
-**Related**: [ADR 002](002-lm-studio-integration-strategy.md)
+- **Date**: 2024-12-13  
+- **Status**: Proposed  
+- **Decision Makers**: ML Engineering & Infrastructure Teams  
+- **Related**: [ADR 002](002-lm-studio-integration-strategy.md)
 
 ## Context
 
