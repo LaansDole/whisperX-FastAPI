@@ -1,9 +1,9 @@
 # ADR 004: HIPAA Compliance for Open-Source Deployment
 
-**Date**: 2024-12-13
-**Status**: Proposed
-**Decision Makers**: Security & Compliance Teams
-**Related**: [ADR 002](002-lm-studio-integration-strategy.md), [ADR 003](003-vector-database-strategy.md)
+- **Date**: 2024-12-13
+- **Status**: Proposed
+- **Decision Makers**: Security & Compliance Teams
+- **Related**: [ADR 002](002-lm-studio-integration-strategy.md), [ADR 003](003-vector-database-strategy.md)
 
 ## Context
 

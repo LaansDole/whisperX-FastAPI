@@ -1,7 +1,7 @@
 # ADR-005: WhisperX Transcription Result JSON Schema
 
-**Status:** Accepted  
-**Date:** 2025-12-23  
+- **Status:** Accepted  
+- **Date:** 2025-12-23  
 
 ## Context
 

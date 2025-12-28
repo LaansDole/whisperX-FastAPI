@@ -1,7 +1,7 @@
 # ADR-006: Speaker Identification Heuristic Algorithm
 
-**Status:** Accepted  
-**Date:** 2025-12-26  
+- **Status:** Accepted  
+- **Date:** 2025-12-26  
 
 ## Context
 
