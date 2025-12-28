@@ -1,24 +1,74 @@
 """Unit tests for patient mapping functionality."""
 
 import pytest
+import sqlite3
+from contextlib import contextmanager
+from unittest.mock import patch
 from app.patients.mapping import (
     store_patient_workflow,
     get_patient_by_workflow,
     get_workflows_by_patient_hash,
     get_patient_name_by_hash,
 )
-from app.patients.database import get_db_connection
 
 
+@pytest.fixture
+def test_db():
+    """
+    Provide an isolated in-memory SQLite database for each test.
+    
+    This fixture ensures proper test isolation by:
+    - Using an in-memory database (:memory:) unique to each test
+    - Automatically creating the schema before each test
+    - Preventing race conditions in parallel test execution
+    - Avoiding file I/O for faster test execution
+    """
+    # Create in-memory database
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    # Create schema
+    cursor.execute("""
+        CREATE TABLE patient_workflow_mappings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            patient_name TEXT NOT NULL,
+            patient_hash TEXT NOT NULL,
+            workflow_id TEXT NOT NULL UNIQUE,
+            file_path TEXT NOT NULL,
+            department TEXT,
+            created_at TEXT NOT NULL
+        )
+    """)
+    
+    cursor.execute("""
+        CREATE INDEX idx_patient_hash 
+        ON patient_workflow_mappings(patient_hash)
+    """)
+    
+    conn.commit()
+    
+    # Context manager that returns the test database connection
+    @contextmanager
+    def get_test_db_connection():
+        try:
+            yield conn
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            raise
+    
+    # Patch the database connection to use in-memory database
+    with patch("app.patients.database.get_db_connection", get_test_db_connection):
+        yield conn
+    
+    # Cleanup
+    conn.close()
+
+
+@pytest.mark.usefixtures("test_db")
 class TestPatientMapping:
     """Test patient-workflow mapping storage and retrieval."""
-
-    def setup_method(self):
-        """Clear database before each test."""
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM patient_workflow_mappings")
-            conn.commit()
 
     def test_store_patient_workflow(self):
         """Test storing patient-workflow mapping."""

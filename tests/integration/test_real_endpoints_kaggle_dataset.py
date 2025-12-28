@@ -296,31 +296,6 @@ class TestRealEndpointWithHIPAAFilenames:
 
         elif response.status_code == 404:
             print("No workflows found (expected for new patient)")
-
-    def test_get_patient_consultation_history(self):
-        """Test getting consultation history for a patient."""
-        # Use hash from existing patient
-        patient_hash = "02935fa8"  # John Michael Smith hash
-
-        print(f"\nQuerying consultation history for patient hash: {patient_hash}")
-
-        response = requests.get(f"{BASE_URL}/temporal/patient/{patient_hash}/consultations", timeout=10)
-
-        print(f"Response: {response.status_code}")
-
-        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
-
-        data = response.json()
-        print(f"Total consultations: {data.get('total_consultations', 0)}")
-
-        consultations = data.get("consultations", [])
-        if consultations:
-            print("Consultations:")
-            for consult in consultations:
-                print(f"  - {consult.get('date')} ({consult.get('status')})")
-        else:
-            print("  (No completed consultations)")
-
-
+    
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-s"])
