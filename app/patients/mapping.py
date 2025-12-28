@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from typing import Optional
+from ..config import Config
 from .database import (
     store_patient_workflow_db,
     get_patient_by_workflow_db,
@@ -24,7 +25,7 @@ def store_patient_workflow(
         file_path: Path to audio file
         department: Optional department name
     """
-    created_at = datetime.now().isoformat()
+    created_at = datetime.now(Config.TIMEZONE).isoformat()
     store_patient_workflow_db(
         patient_name=patient_name,
         patient_hash=patient_hash,

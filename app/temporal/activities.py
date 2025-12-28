@@ -162,7 +162,7 @@ async def phi_detection_activity(transcript: str, consultation_id: str) -> dict:
                 "consultation_id": consultation_id,
                 "phi_detected": phi_result.get("phi_detected", False),
                 "entities": phi_result.get("entities", []),
-                "processed_at": datetime.now().isoformat(),
+                "processed_at": datetime.now(Config.TIMEZONE).isoformat(),
             }
 
         except Exception as e:
@@ -206,7 +206,7 @@ async def medical_entity_extraction_activity(transcript: str, consultation_id: s
                 "consultation_id": consultation_id,
                 "entities": entities,
                 "entity_count": len(entities),
-                "processed_at": datetime.now().isoformat(),
+                "processed_at": datetime.now(Config.TIMEZONE).isoformat(),
             }
 
         except Exception as e:
@@ -249,7 +249,7 @@ async def soap_generation_activity(transcript: str, consultation_id: str) -> dic
             return {
                 "consultation_id": consultation_id,
                 "soap_note": soap_note,
-                "processed_at": datetime.now().isoformat(),
+                "processed_at": datetime.now(Config.TIMEZONE).isoformat(),
             }
 
         except Exception as e:
@@ -301,7 +301,7 @@ async def document_structuring_activity(
             return {
                 "consultation_id": consultation_id,
                 "structured_document": structured_doc,
-                "processed_at": datetime.now().isoformat(),
+                "processed_at": datetime.now(Config.TIMEZONE).isoformat(),
             }
 
         except Exception as e:
@@ -341,7 +341,7 @@ async def embedding_generation_activity(transcript: str, consultation_id: str) -
                 "embedding": embedding,
                 "embedding_dimension": len(embedding),
                 "model": Config.EMBEDDING_MODEL,
-                "processed_at": datetime.now().isoformat(),
+                "processed_at": datetime.now(Config.TIMEZONE).isoformat(),
             }
 
         except Exception as e:
@@ -390,7 +390,7 @@ async def vector_storage_activity(
                 transcript=transcript,
                 embedding=embedding_array,
                 metadata={
-                    "processing_timestamp": datetime.now().isoformat(),
+                    "processing_timestamp": datetime.now(Config.TIMEZONE).isoformat(),
                     "embedding_model": Config.EMBEDDING_MODEL,
                 },
             )
@@ -417,7 +417,7 @@ async def vector_storage_activity(
             result = {
                 "consultation_id": consultation_id,
                 "vector_id": vector_id,
-                "stored_at": datetime.now().isoformat(),
+                "stored_at": datetime.now(Config.TIMEZONE).isoformat(),
             }
 
             vector_store.close()
@@ -450,7 +450,7 @@ async def comprehensive_medical_processing_activity(
         try:
             results = {
                 "consultation_id": consultation_id,
-                "processing_started": datetime.now().isoformat(),
+                "processing_started": datetime.now(Config.TIMEZONE).isoformat(),
                 "parallel_processing": enable_parallel,
             }
 
@@ -515,7 +515,7 @@ async def comprehensive_medical_processing_activity(
                     structured_document=results["document_structuring"].get("structured_document"),
                 )
 
-            results["processing_completed"] = datetime.now().isoformat()
+            results["processing_completed"] = datetime.now(Config.TIMEZONE).isoformat()
 
             # Calculate processing summary
             successful_tasks = [

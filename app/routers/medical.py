@@ -57,7 +57,7 @@ async def lm_studio_health():
 async def medical_health():
     """Check health of all medical processing components."""
     health_status = {
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now(Config.TIMEZONE).isoformat(),
         "medical_rag_enabled": Config.MEDICAL_RAG_ENABLED,
         "components": {},
     }
@@ -229,7 +229,11 @@ async def extract_medical_entities(
 
         return JSONResponse(
             status_code=status.HTTP_200_OK,
-            content={"entities": entities, "entity_count": len(entities), "processed_at": datetime.now().isoformat()},
+            content={
+                "entities": entities,
+                "entity_count": len(entities),
+                "processed_at": datetime.now(Config.TIMEZONE).isoformat(),
+            },
         )
 
     except Exception as e:
@@ -267,7 +271,8 @@ async def generate_soap_note(
         )
 
         return JSONResponse(
-            status_code=status.HTTP_200_OK, content={"soap_note": soap_note, "generated_at": datetime.now().isoformat()}
+            status_code=status.HTTP_200_OK,
+            content={"soap_note": soap_note, "generated_at": datetime.now(Config.TIMEZONE).isoformat()},
         )
 
     except Exception as e:
@@ -325,7 +330,7 @@ async def search_similar_consultations(
                 "query": query_text,
                 "results": results,
                 "result_count": len(results),
-                "searched_at": datetime.now().isoformat(),
+                "searched_at": datetime.now(Config.TIMEZONE).isoformat(),
             },
         )
 
@@ -601,7 +606,7 @@ async def process_transcript(
     # Generate consultation ID and encrypt patient ID
     consultation_id = f"cons_{uuid.uuid4().hex[:12]}"
     patient_id_encrypted = hashlib.sha256(f"{patient_id}{Config.HIPAA_SALT}".encode()).hexdigest()[:32]
-    encounter_date = encounter_date or datetime.now().date().isoformat()
+    encounter_date = encounter_date or datetime.now(Config.TIMEZONE).date().isoformat()
 
     # Log processing start
     audit_logger.log_phi_access(
@@ -618,7 +623,7 @@ async def process_transcript(
             "patient_id_encrypted": patient_id_encrypted,
             "provider_id": provider_id,
             "encounter_date": encounter_date,
-            "processing_started": datetime.now().isoformat(),
+            "processing_started": datetime.now(Config.TIMEZONE).isoformat(),
             "steps": {},
         }
 
@@ -692,7 +697,7 @@ async def process_transcript(
                     encounter_date=encounter_date,
                     transcript=transcript,
                     embedding=np.array(embedding, dtype=np.float32),
-                    metadata={"processed_at": datetime.now().isoformat()},
+                    metadata={"processed_at": datetime.now(Config.TIMEZONE).isoformat()},
                 )
 
                 # Store medical entities
@@ -724,7 +729,7 @@ async def process_transcript(
         successful_steps = sum(1 for step in results["steps"].values() if step.get("success", False))
         total_steps = sum(1 for step in results["steps"].values() if not step.get("skipped", False))
 
-        results["processing_completed"] = datetime.now().isoformat()
+        results["processing_completed"] = datetime.now(Config.TIMEZONE).isoformat()
         results["summary"] = {
             "successful_steps": successful_steps,
             "total_steps": total_steps,

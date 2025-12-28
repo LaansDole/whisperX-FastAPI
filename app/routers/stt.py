@@ -83,7 +83,12 @@ async def speech_to_text(
     asr_options_params: ASROptions = Depends(),
     vad_options_params: VADOptions = Depends(),
     file: UploadFile = File(...),
-    patient_name: str = Query(..., description="Patient full name for HIPAA-compliant identification"),
+    patient_name: str = Query(
+        ...,
+        min_length=1,
+        pattern=r".*\S.*",
+        description="Patient full name for HIPAA-compliant identification",
+    ),
 ) -> Response:
     """
     Process an uploaded audio file for speech-to-text conversion.
@@ -120,10 +125,12 @@ async def speech_to_text(
         raise HTTPException(status_code=503, detail="Temporal service not available")
 
     # Generate HIPAA-compliant workflow ID with patient hash
-    from datetime import datetime
+    from datetime import datetime, timezone
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    workflow_id = f"whisperx-wf-pt_{patient_hash}-{timestamp}"
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S%f")
+    # Add random suffix to prevent collisions on concurrent uploads
+    random_suffix = uuid.uuid4().hex[:4]
+    workflow_id = f"whisperx-wf-pt_{patient_hash}-{timestamp}-{random_suffix}"
 
     handle = await client.start_workflow(
         WhisperXWorkflow.run,
@@ -136,14 +143,21 @@ async def speech_to_text(
     # Store patient-workflow mapping in database
     from ..patients.mapping import store_patient_workflow
 
-    store_patient_workflow(
-        patient_name=patient_name,
-        patient_hash=patient_hash,
-        workflow_id=workflow_id,
-        file_path=temp_file,
-        department=None,  # TODO: Add department parameter
-    )
-    logger.info(f"Stored mapping: {patient_name} → {workflow_id}")
+    try:
+        store_patient_workflow(
+            patient_name=patient_name,
+            patient_hash=patient_hash,
+            workflow_id=workflow_id,
+            file_path=temp_file,
+            department=None,  # TODO: Add department parameter
+        )
+        logger.info(f"Stored mapping: {patient_name} → {workflow_id}")
+    except Exception as db_error:
+        logger.error(
+            f"CRITICAL: Failed to store patient mapping for workflow {workflow_id}. "
+            f"Workflow is running but not linked to patient {patient_hash}. "
+            f"Error: {db_error}"
+        )
 
     return Response(identifier=handle.id, message="Workflow started")
 
@@ -186,11 +200,16 @@ async def speech_to_text_url(
     asr_options_params: ASROptions = Depends(),
     vad_options_params: VADOptions = Depends(),
     url: str = Form(...),
-    patient_name: str = Form(None, description="Optional patient name for HIPAA-compliant identification"),
+    patient_name: str = Form(
+        None,
+        min_length=1,
+        pattern=r".*\S.*",
+        description="Optional patient name for HIPAA-compliant identification",
+    ),
 ) -> Response:
     """
     Process an audio file from a URL for speech-to-text conversion.
-    
+
     Args:
         url: Public URL to audio/video file
         patient_name: Optional patient name for HIPAA-compliant workflow tracking
@@ -244,12 +263,14 @@ async def speech_to_text_url(
     # Generate HIPAA-compliant workflow ID if patient_name provided
     if patient_name:
         from ..patients.filename_utils import generate_patient_file_id
-        from datetime import datetime
+        from datetime import datetime, timezone
 
         patient_hash = generate_patient_file_id(patient_name)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        workflow_id = f"whisperx-wf-pt_{patient_hash}-{timestamp}"
-        
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S%f")
+        # Add random suffix to prevent collisions on concurrent uploads
+        random_suffix = uuid.uuid4().hex[:4]
+        workflow_id = f"whisperx-wf-pt_{patient_hash}-{timestamp}-{random_suffix}"
+
         logger.info(f"Processing URL upload for patient (hash: {patient_hash})")
     else:
         # Fallback to random UUID for anonymous uploads
@@ -269,13 +290,23 @@ async def speech_to_text_url(
     if patient_name:
         from ..patients.mapping import store_patient_workflow
 
-        store_patient_workflow(
-            patient_name=patient_name,
-            patient_hash=patient_hash,
-            workflow_id=workflow_id,
-            file_path=temp_audio_file_path,
-            department=None,
-        )
-        logger.info(f"Stored mapping: {patient_name} → {workflow_id}")
+        try:
+            store_patient_workflow(
+                patient_name=patient_name,
+                patient_hash=patient_hash,
+                workflow_id=workflow_id,
+                file_path=temp_audio_file_path,
+                department=None,
+            )
+            logger.info(f"Stored mapping: {patient_name} → {workflow_id}")
+        except Exception as db_error:
+            # CRITICAL: Workflow started but database store failed - orphaned workflow
+            logger.error(
+                f"CRITICAL: Failed to store patient mapping for workflow {workflow_id}. "
+                f"Workflow is running but not linked to patient {patient_hash}. "
+                f"Error: {db_error}"
+            )
+            # Continue execution - workflow is already started and will complete
+            # The orphan can be tracked via logs and manually linked if needed
 
     return Response(identifier=handle.id, message="Workflow started")

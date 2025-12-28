@@ -132,7 +132,7 @@ class MedicalRAGWorkflow:
             results = {
                 "consultation_id": consultation_id,
                 "workflow_type": "medical_rag",
-                "started_at": datetime.now().isoformat(),
+                "started_at": datetime.now(Config.TIMEZONE).isoformat(),
                 "transcription_performed": False,
             }
 
@@ -179,7 +179,7 @@ class MedicalRAGWorkflow:
                     consultation_id,
                     input_params.get("patient_id_encrypted"),
                     input_params.get("provider_id"),
-                    input_params.get("encounter_date", datetime.now().date().isoformat()),
+                    input_params.get("encounter_date", datetime.now(Config.TIMEZONE).date().isoformat()),
                     medical_options,
                 ],
                 start_to_close_timeout=timedelta(minutes=Config.MEDICAL_WORKFLOW_TIMEOUT_MINUTES),
@@ -195,7 +195,7 @@ class MedicalRAGWorkflow:
             TemporalMetrics.log_workflow_progress("medical_processing_complete", consultation_id)
 
             # Step 3: Final assembly and summary
-            results["workflow_completed"] = datetime.now().isoformat()
+            results["workflow_completed"] = datetime.now(Config.TIMEZONE).isoformat()
 
             # Generate processing summary
             summary = self._generate_processing_summary(results)
@@ -297,11 +297,13 @@ class HybridAudioMedicalWorkflow:
         consultation_id = params.get("consultation_id", f"hybrid_{uuid.uuid4().hex[:8]}")
         TemporalMetrics.log_workflow_progress("hybrid_workflow_started", consultation_id)
 
+        from app.config import Config
+
         try:
             results = {
                 "consultation_id": consultation_id,
                 "workflow_type": "hybrid_audio_medical",
-                "started_at": datetime.now().isoformat(),
+                "started_at": datetime.now(Config.TIMEZONE).isoformat(),
                 "audio_path": audio_path,
             }
 
@@ -380,7 +382,6 @@ class HybridAudioMedicalWorkflow:
                     TemporalMetrics.log_workflow_progress("whisperx_speakers_complete", consultation_id)
 
             # Stage 2: Medical RAG processing
-            from app.config import Config
 
             if Config.is_medical_processing_enabled():
                 TemporalMetrics.log_workflow_progress("medical_processing_started", consultation_id)
@@ -393,7 +394,7 @@ class HybridAudioMedicalWorkflow:
                     "consultation_id": consultation_id,
                     "patient_id_encrypted": params.get("patient_id_encrypted"),
                     "provider_id": params.get("provider_id"),
-                    "encounter_date": params.get("encounter_date", datetime.now().date().isoformat()),
+                    "encounter_date": params.get("encounter_date", datetime.now(Config.TIMEZONE).date().isoformat()),
                     "medical_options": params.get("medical_options", {}),
                 }
 
@@ -420,7 +421,7 @@ class HybridAudioMedicalWorkflow:
                 TemporalMetrics.log_workflow_progress("medical_processing_complete", consultation_id)
 
             # Final summary
-            results["workflow_completed"] = datetime.now().isoformat()
+            results["workflow_completed"] = datetime.now(Config.TIMEZONE).isoformat()
 
             # Generate comprehensive summary
             summary = self._generate_hybrid_summary(results)

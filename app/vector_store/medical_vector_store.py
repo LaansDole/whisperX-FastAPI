@@ -10,6 +10,8 @@ from typing import List, Dict, Any
 from pathlib import Path
 from datetime import datetime
 
+from ..config import Config
+
 logger = logging.getLogger(__name__)
 
 
@@ -212,7 +214,7 @@ class MedicalDocumentVectorStore:
                     len(transcript),
                     vector_id,
                     json.dumps(metadata or {}),
-                    datetime.now().isoformat(),
+                    datetime.now(Config.TIMEZONE).isoformat(),
                 ),
             )
 
@@ -332,7 +334,7 @@ class MedicalDocumentVectorStore:
                     json.dumps(structured_doc),
                     json.dumps(soap_note) if soap_note else None,
                     clinical_summary,
-                    datetime.now().isoformat(),
+                    datetime.now(Config.TIMEZONE).isoformat(),
                 ),
             )
 

@@ -51,7 +51,7 @@ def generate_consultation_filename(
     patient_hash = generate_patient_file_id(patient_name)
 
     if date is None:
-        date = datetime.now().strftime("%Y%m%d")
+        date = datetime.now(Config.TIMEZONE).strftime("%Y%m%d")
 
     # Sanitize department name (remove spaces, special chars)
     if department:
@@ -107,10 +107,12 @@ def generate_anonymous_audio_filename(original_extension: str, patient_name: Opt
         Anonymous filename
     """
     if patient_name:
-        # Deterministic filename for same patient
+        # Deterministic filename for same patient with collision prevention
         patient_hash = generate_patient_file_id(patient_name)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        return f"audio_{patient_hash}_{timestamp}{original_extension}"
+        timestamp = datetime.now(Config.TIMEZONE).strftime("%Y%m%d_%H%M%S%f")
+        # Add random suffix to prevent overwrites on concurrent uploads
+        random_suffix = uuid.uuid4().hex[:4]
+        return f"audio_{patient_hash}_{timestamp}_{random_suffix}{original_extension}"
     else:
         # Random UUID for anonymous uploads
         return f"{uuid.uuid4()}{original_extension}"

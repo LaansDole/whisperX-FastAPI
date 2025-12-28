@@ -51,12 +51,6 @@ def init_database(fresh_start: bool = True):
         ON patient_workflow_mappings(patient_hash)
     """)
 
-    # Create index on workflow_id for fast lookups
-    cursor.execute("""
-        CREATE INDEX IF NOT EXISTS idx_workflow_id 
-        ON patient_workflow_mappings(workflow_id)
-    """)
-
     conn.commit()
     conn.close()
 
@@ -101,7 +95,7 @@ def store_patient_workflow_db(
     if created_at is None:
         from datetime import datetime
 
-        created_at = datetime.now().isoformat()
+        created_at = datetime.now(Config.TIMEZONE).isoformat()
 
     with get_db_connection() as conn:
         cursor = conn.cursor()

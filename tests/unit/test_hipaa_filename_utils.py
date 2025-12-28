@@ -3,6 +3,7 @@
 import pytest
 import os
 from datetime import datetime
+from app.config import Config
 from app.patients.filename_utils import (
     generate_patient_file_id,
     generate_consultation_filename,
@@ -79,7 +80,7 @@ class TestFilenameUtils:
         filename = generate_consultation_filename(patient_name="enc_patient_123")
 
         # Should have today's date
-        today = datetime.now().strftime("%Y%m%d")
+        today = datetime.now(Config.TIMEZONE).strftime("%Y%m%d")
         assert today in filename
 
         # Should have default department
@@ -115,9 +116,9 @@ class TestFilenameUtils:
         assert filename.startswith("audio_")
         assert filename.endswith(".mp3")
 
-        # Should be deterministic for same patient on same second
+        # Should be unique due to microsecond precision + random suffix (prevents overwrites)
         filename2 = generate_anonymous_audio_filename(".mp3", patient_id)
-        assert filename == filename2
+        assert filename != filename2  # Different random suffix ensures uniqueness
 
     def test_generate_anonymous_audio_filename_without_patient(self):
         """Test audio filename without patient ID (random UUID)."""

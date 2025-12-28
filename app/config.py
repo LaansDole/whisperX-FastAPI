@@ -1,6 +1,7 @@
 """Configuration module for the WhisperX FastAPI application."""
 
 import os
+from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
 
 # Load environment variables from .env
@@ -9,6 +10,10 @@ load_dotenv()
 
 class Config:
     """Configuration class for WhisperX FastAPI application settings."""
+
+    # Timezone Configuration
+    TIMEZONE_NAME = os.getenv("TIMEZONE", "Asia/Bangkok")  # UTC+7 for Vietnam
+    TIMEZONE = ZoneInfo(TIMEZONE_NAME)
 
     # Core WhisperX Configuration
     LANG = os.getenv("DEFAULT_LANG", "en")
