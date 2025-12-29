@@ -95,7 +95,7 @@ def reserve_patient_workflow(
     patient_name: str, patient_hash: str, workflow_id: str, file_path: str, department: Optional[str] = None
 ):
     """
-    Phase 1: Reserve a patient-workflow mapping with 'pending' status.
+    Reserve a patient-workflow mapping with 'pending' status.
 
     Call this BEFORE starting the Temporal workflow.
 
@@ -119,7 +119,7 @@ def reserve_patient_workflow(
 
 def commit_patient_workflow(workflow_id: str):
     """
-    Phase 2a: Mark workflow as 'active' after successful start.
+    Mark workflow as 'active' after successful start.
 
     Args:
         workflow_id: Workflow ID to commit
@@ -129,7 +129,7 @@ def commit_patient_workflow(workflow_id: str):
 
 def rollback_patient_workflow(workflow_id: str):
     """
-    Phase 2b: Delete pending workflow record on failure.
+    Delete pending workflow record on failure.
 
     Args:
         workflow_id: Workflow ID to rollback

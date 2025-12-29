@@ -50,8 +50,4 @@ class TraceFormatter(logging.Formatter):
             record.msg = f"[{trace_id[:8]}] {record.msg}"
         return super().format(record)
 
-
-# Log environment variables
-logger.info(f"Environment: {env}")
-logger.info(f"Log level: {log_level}")
 logger.debug(f"Debug messages enabled: {debug}")

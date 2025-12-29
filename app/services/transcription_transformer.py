@@ -152,6 +152,7 @@ class TranscriptionTransformer:
         result = self.transform(whisperx_result, workflow_id, consultation_metadata)
 
         # Apply manual overrides
+        manual_speaker_mapping = manual_speaker_mapping or {}
         speaker_mapping = result.get("speaker_mapping", {})
         for speaker_id, role in manual_speaker_mapping.items():
             if speaker_id in speaker_mapping:
