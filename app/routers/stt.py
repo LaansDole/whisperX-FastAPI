@@ -24,6 +24,7 @@ from ..schemas import (
 )
 from ..temporal.manager import temporal_manager
 from ..temporal.workflows import WhisperXWorkflow
+from ..temporal.stt_to_medical_workflow import STTToMedicalWorkflow
 from ..temporal.config import config
 
 # Configure logging
@@ -92,6 +93,18 @@ async def speech_to_text(
         pattern=r".*\S.*",
         description="Patient full name for HIPAA-compliant identification (submitted in request body to avoid URL logging)",
     ),
+    enable_medical_processing: bool = Form(
+        False,
+        description="Enable medical processing (PHI detection, entity extraction, SOAP notes, vector storage)",
+    ),
+    provider_id: str = Form(
+        None,
+        description="Healthcare provider ID (required if enable_medical_processing=True)",
+    ),
+    encounter_date: str = Form(
+        None,
+        description="Date of encounter in ISO format (optional, defaults to today)",
+    ),
 ) -> Response:
     """
     Process an uploaded audio file for speech-to-text conversion.
@@ -136,7 +149,7 @@ async def speech_to_text(
     random_suffix = uuid.uuid4().hex[:4]
     workflow_id = f"whisperx-wf-pt_{patient_hash}-{timestamp}-{random_suffix}"
 
-    # Phase 1: Reserve database record (PENDING status) BEFORE workflow starts
+    # Reserve database record (PENDING status) BEFORE workflow starts
     from ..patients.mapping import reserve_patient_workflow, commit_patient_workflow, rollback_patient_workflow
 
     try:
@@ -152,17 +165,54 @@ async def speech_to_text(
         logger.error(f"Failed to reserve database record for workflow {workflow_id}: {db_error}")
         raise HTTPException(status_code=500, detail=f"Failed to reserve patient workflow mapping: {str(db_error)}")
 
-    # Phase 2: Start Temporal workflow
+    # Start Temporal workflow
+    # Choose workflow based on medical processing flag
     try:
-        handle = await client.start_workflow(
-            WhisperXWorkflow.run,
-            args=[temp_file, params],
-            id=workflow_id,
-            task_queue=config.TEMPORAL_TASK_QUEUE,
-        )
+        if enable_medical_processing:
+            # Validate medical parameters
+            if not provider_id:
+                raise HTTPException(
+                    status_code=400, detail="provider_id is required when enable_medical_processing=True"
+                )
+
+            # Encrypt patient ID for storage
+            from ..hipaa.encryption import HIPAAEncryption
+            encryption_service = HIPAAEncryption()
+            patient_id_encrypted = encryption_service.encrypt_patient_id(patient_name)
+
+            # Prepare medical params
+            from datetime import datetime
+            from ..config import Config
+
+            medical_params = {
+                "workflow_id": workflow_id,
+                "patient_id": patient_name,
+                "patient_id_encrypted": patient_id_encrypted,
+                "provider_id": provider_id,
+                "encounter_date": encounter_date or datetime.now(Config.TIMEZONE).date().isoformat(),
+            }
+
+            # Start unified STT-to-Medical workflow
+            logger.info(f"Starting STTToMedicalWorkflow with medical processing for {workflow_id}")
+            handle = await client.start_workflow(
+                STTToMedicalWorkflow.run,
+                args=[temp_file, params, enable_medical_processing, medical_params],
+                id=workflow_id,
+                task_queue=config.TEMPORAL_TASK_QUEUE,
+            )
+        else:
+            # Standard WhisperX-only workflow (backward compatible)
+            logger.info(f"Starting WhisperXWorkflow (no medical processing) for {workflow_id}")
+            handle = await client.start_workflow(
+                WhisperXWorkflow.run,
+                args=[temp_file, params],
+                id=workflow_id,
+                task_queue=config.TEMPORAL_TASK_QUEUE,
+            )
+
         logger.info("Workflow started: ID %s", handle.id)
 
-        # Phase 3: Commit database record (mark as ACTIVE)
+        # Commit database record (mark as ACTIVE)
         commit_patient_workflow(workflow_id)
 
     except Exception as workflow_error:
@@ -285,7 +335,7 @@ async def speech_to_text_url(
 
     logger.info(f"Processing URL upload for patient (hash: {patient_hash})")
 
-    # Phase 1: Reserve database record (PENDING status) BEFORE workflow starts
+    # Reserve database record (PENDING status) BEFORE workflow starts
     from ..patients.mapping import reserve_patient_workflow, commit_patient_workflow, rollback_patient_workflow
 
     try:
@@ -301,7 +351,7 @@ async def speech_to_text_url(
         logger.error(f"Failed to reserve database record for workflow {workflow_id}: {db_error}")
         raise HTTPException(status_code=500, detail=f"Failed to reserve patient workflow mapping: {str(db_error)}")
 
-    # Phase 2: Start Temporal workflow
+    # Start Temporal workflow
     try:
         handle = await client.start_workflow(
             WhisperXWorkflow.run,
@@ -311,7 +361,7 @@ async def speech_to_text_url(
         )
         logger.info("Workflow started: ID %s", handle.id)
 
-        # Phase 3: Commit database record (mark as ACTIVE)
+        # Commit database record (mark as ACTIVE)
         commit_patient_workflow(workflow_id)
 
     except Exception as workflow_error:
@@ -321,3 +371,43 @@ async def speech_to_text_url(
         raise HTTPException(status_code=500, detail=f"Failed to start workflow: {str(workflow_error)}")
 
     return Response(identifier=handle.id, message="Workflow started")
+
+
+@stt_router.get(
+    "/cache/status",
+    tags=["Cache Management"],
+    summary="Get model cache status",
+    description="Get cache statistics and memory usage for all cached models (transcription, alignment, diarization). Useful for monitoring and debugging.",
+)
+async def get_cache_status():
+    """Get status of all model caches with hit/miss metrics."""
+    from ..whisperx_services import get_all_cache_status
+
+    return get_all_cache_status()
+
+
+@stt_router.post(
+    "/cache/clear",
+    tags=["Cache Management"],
+    summary="Clear all model caches",
+    description="Clear all cached models to free memory. Next requests will reload models (5-10s delay). Primarily for development and testing.",
+)
+async def clear_caches():
+    """Clear all model caches to free system memory (CPU/GPU)."""
+    from ..whisperx_services import clear_all_model_caches
+    import torch
+
+    # Get memory before clearing
+    memory_before = torch.cuda.memory_allocated() / 1024**2 if torch.cuda.is_available() else 0
+
+    # Clear all caches
+    clear_all_model_caches()
+
+    # Get memory after clearing
+    memory_after = torch.cuda.memory_allocated() / 1024**2 if torch.cuda.is_available() else 0
+    memory_freed = memory_before - memory_after
+
+    return {
+        "message": "All model caches cleared",
+        "gpu_memory_freed_mb": round(memory_freed, 2) if torch.cuda.is_available() else None,
+    }
