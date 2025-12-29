@@ -77,7 +77,7 @@ async def align_activity(transcript: dict, audio_path: str, align_params: dict) 
 
 @activity.defn
 async def diarize_activity(audio_path: str, diarize_params: dict) -> dict:
-    """Activity to diarize audio."""
+    """Activity to diarize audio with progress heartbeats (Phase 1.4 optimization)."""
     from app.audio import process_audio_file
     from app.whisperx_services import diarize
     from app.schemas import DiarizationParams
@@ -85,14 +85,44 @@ async def diarize_activity(audio_path: str, diarize_params: dict) -> dict:
     audio = process_audio_file(audio_path)
     diarize_params_obj = DiarizationParams(**diarize_params)
 
+    # Calculate audio duration and expected processing time
+    audio_duration = len(audio) / 16000  # Assuming 16kHz sample rate
+    expected_time = audio_duration * 3.7  # Real-time factor for pyannote
+
+    activity.logger.info(f"Starting diarization for {audio_path}")
+    activity.logger.info(f"Audio duration: {audio_duration:.2f} seconds")
+    activity.logger.info(f"Expected processing time: ~{expected_time / 60:.1f} minutes")
+
+    # Send initial heartbeat
+    activity.heartbeat(
+        {
+            "status": "loading_model",
+            "audio_path": audio_path,
+            "audio_duration_seconds": audio_duration,
+            "expected_time_minutes": expected_time / 60,
+        }
+    )
+
     async with TemporalMetrics.activity_timer("diarization", audio_path):
         try:
+            # Send heartbeat before diarization
+            activity.heartbeat({"status": "starting_diarization", "progress": 0, "audio_path": audio_path})
+
             result = diarize(
                 audio,
                 device=diarize_params_obj.device,
                 min_speakers=diarize_params_obj.min_speakers,
                 max_speakers=diarize_params_obj.max_speakers,
             )
+
+            # Send completion heartbeat
+            activity.heartbeat(
+                {"status": "complete", "progress": 100, "audio_path": audio_path, "segments_count": len(result)}
+            )
+
+            activity.logger.info("Diarization completed successfully")
+            activity.logger.info(f"Identified segments: {len(result)}")
+
             # Convert DataFrame to a serializable format that preserves the data structure
             # Use orient="index" or a custom format that assign_word_speakers can handle
             return {
@@ -103,6 +133,7 @@ async def diarize_activity(audio_path: str, diarize_params: dict) -> dict:
                 },
             }
         except Exception as e:
+            activity.logger.error(f"Diarization failed: {e}")
             raise TemporalErrorHandler.create_application_error(e, "Diarization")
 
 

@@ -2,9 +2,10 @@
 
 import time
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Literal
 from fastapi import APIRouter, HTTPException, status, Depends, BackgroundTasks
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 
 from ..config import Config
 from ..llm.lm_studio_client import LMStudioClient, LMStudioConfig
@@ -17,6 +18,37 @@ from ..vector_store.medical_vector_store import MedicalDocumentVectorStore
 router = APIRouter()
 access_control = HIPAAAccessControl()
 audit_logger = HIPAAAuditLogger()
+
+
+# ============================================================================
+# Request/Response Schemas
+# ============================================================================
+
+
+class ProcessingOptions(BaseModel):
+    """Processing options for medical pipeline."""
+
+    enable_phi_detection: bool = Field(default=True, description="Enable PHI detection step")
+    enable_entity_extraction: bool = Field(default=True, description="Enable medical entity extraction")
+    enable_soap_generation: bool = Field(default=True, description="Enable SOAP note generation")
+    enable_vector_storage: bool = Field(default=True, description="Enable vector database storage")
+    speaker_role_detection: Literal["auto", "manual"] = Field(
+        default="auto", description="Speaker role detection mode (auto=heuristic, manual=use provided mapping)"
+    )
+
+
+class WhisperXProcessRequest(BaseModel):
+    """Request schema for processing WhisperX results."""
+
+    workflow_id: Optional[str] = Field(default=None, description="WhisperX workflow ID to fetch results from")
+    whisperx_result: Optional[Dict[str, Any]] = Field(default=None, description="Raw WhisperX result JSON")
+    patient_id: str = Field(..., description="Patient identifier (will be encrypted for storage)")
+    provider_id: str = Field(..., description="Healthcare provider identifier")
+    encounter_date: Optional[str] = Field(default=None, description="Date of encounter (ISO format)")
+    processing_options: ProcessingOptions = Field(default_factory=ProcessingOptions)
+    manual_speaker_mapping: Optional[Dict[str, str]] = Field(
+        default=None, description="Manual speaker role mapping (speaker_id -> role)"
+    )
 
 
 @router.get("/health/lm-studio", tags=["Health"], summary="Check LM Studio service health")
@@ -561,10 +593,14 @@ async def medical_chat(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Chatbot query failed: {str(e)}")
 
 
-@router.post("/medical/process-transcript", tags=["Medical"], summary="Process transcript through RAG pipeline")
+@router.post(
+    "/medical/process-transcript",
+    tags=["Medical"],
+    summary="Process speaker-attributed dialogue through medical RAG pipeline",
+)
 @access_control.require_permission(Permission.WRITE_PHI)
 async def process_transcript(
-    transcript: str,
+    dialogue_data: Dict[str, Any],
     patient_id: str,
     provider_id: str,
     background_tasks: BackgroundTasks,
@@ -576,22 +612,32 @@ async def process_transcript(
     current_user: Dict[str, Any] = Depends(lambda: {}),
 ):
     """
-    Process a medical transcript through the full RAG pipeline.
+    Process speaker-attributed medical dialogue through the full RAG pipeline.
 
-    This endpoint:
-    1. Extracts medical entities (diagnoses, medications, etc.)
-    2. Detects PHI (Protected Health Information)
-    3. Generates SOAP note
+    This endpoint processes dialogue data from WhisperX transcription transformer,
+    leveraging speaker attribution (doctor/patient) for improved medical documentation.
+
+    Pipeline Steps:
+    1. Detects PHI (Protected Health Information) with speaker context
+    2. Extracts medical entities with speaker attribution
+    3. Generates SOAP note leveraging doctor/patient distinction
     4. Creates embeddings and stores in vector database
 
-    Use this after transcription to prepare patient data for the chatbot.
+    Use this after WhisperX transcription + transformation to prepare patient data for the chatbot.
 
     Args:
-        transcript: The medical consultation transcript text
+        dialogue_data: Speaker-attributed dialogue from TranscriptionTransformer containing:
+            - dialogue: List of segments with speaker roles
+            - speaker_mapping: Role assignments (doctor/patient)
+            - statistics: Speaking time and counts
+            - metadata: Consultation metadata
         patient_id: Patient identifier (will be encrypted for storage)
         provider_id: Healthcare provider identifier
         encounter_date: Date of encounter (ISO format, defaults to today)
         enable_*: Flags to enable/disable specific processing steps (for debugging)
+
+    Returns:
+        Comprehensive results with speaker-attributed entities, SOAP note, and storage confirmation
     """
     import hashlib
     import numpy as np
@@ -612,7 +658,7 @@ async def process_transcript(
     audit_logger.log_phi_access(
         user_id=current_user.get("user_id"),
         patient_id=patient_id_encrypted,
-        action="transcript_processing",
+        action="dialogue_processing",
         resource=consultation_id,
         result="started",
     )
@@ -624,6 +670,9 @@ async def process_transcript(
             "provider_id": provider_id,
             "encounter_date": encounter_date,
             "processing_started": datetime.now(Config.TIMEZONE).isoformat(),
+            "has_speaker_attribution": True,
+            "speaker_mapping": dialogue_data.get("speaker_mapping", {}),
+            "dialogue_statistics": dialogue_data.get("statistics", {}),
             "steps": {},
         }
 
@@ -638,10 +687,10 @@ async def process_transcript(
         client = LMStudioClient(config)
         service = MedicalLLMService(client)
 
-        # Step 1: PHI Detection
+        # Step 1: PHI Detection with speaker context
         if enable_phi_detection and Config.ENABLE_PHI_DETECTION:
             try:
-                phi_result = await service.detect_phi(transcript)
+                phi_result = await service.detect_phi_in_dialogue(dialogue_data)
                 results["steps"]["phi_detection"] = {
                     "success": True,
                     "phi_detected": phi_result.get("phi_detected", False),
@@ -653,11 +702,11 @@ async def process_transcript(
         else:
             results["steps"]["phi_detection"] = {"skipped": True}
 
-        # Step 2: Medical Entity Extraction
+        # Step 2: Medical Entity Extraction with speaker attribution
         entities = []
         if enable_entity_extraction and Config.ENABLE_ENTITY_EXTRACTION:
             try:
-                entities = await service.extract_medical_entities(transcript)
+                entities = await service.extract_entities_with_speaker(dialogue_data)
                 results["steps"]["entity_extraction"] = {
                     "success": True,
                     "entity_count": len(entities),
@@ -668,10 +717,10 @@ async def process_transcript(
         else:
             results["steps"]["entity_extraction"] = {"skipped": True}
 
-        # Step 3: SOAP Note Generation
+        # Step 3: SOAP Note Generation from dialogue
         if enable_soap_generation and Config.ENABLE_SOAP_GENERATION:
             try:
-                soap_note = await service.generate_soap_note(transcript)
+                soap_note = await service.generate_soap_from_dialogue(dialogue_data)
                 results["steps"]["soap_generation"] = {"success": True, "soap_note": soap_note}
             except Exception as e:
                 results["steps"]["soap_generation"] = {"success": False, "error": str(e)}
@@ -681,8 +730,15 @@ async def process_transcript(
         # Step 4: Embedding Generation & Vector Storage
         if enable_vector_storage and Config.ENABLE_VECTOR_STORAGE:
             try:
+                # Generate transcript text from dialogue for embedding
+                from ..services.dialogue_formatter import DialogueFormatter
+
+                formatter = DialogueFormatter()
+                dialogue_segments = dialogue_data.get("dialogue", [])
+                transcript_text = formatter.generate_transcript(dialogue_segments, format="plain")
+
                 # Generate embedding
-                embedding = await client.generate_embedding(transcript, Config.EMBEDDING_MODEL)
+                embedding = await client.generate_embedding(transcript_text, Config.EMBEDDING_MODEL)
                 results["steps"]["embedding_generation"] = {"success": True, "dimension": len(embedding)}
 
                 # Store in vector database
@@ -690,17 +746,25 @@ async def process_transcript(
                     storage_dir=Config.VECTOR_DB_PATH, embedding_dim=Config.EMBEDDING_DIMENSION
                 )
 
+                # Include speaker metadata in consultation storage
+                metadata = {
+                    "processed_at": datetime.now(Config.TIMEZONE).isoformat(),
+                    "has_speaker_attribution": True,
+                    "speaker_mapping": dialogue_data.get("speaker_mapping", {}),
+                    "dialogue_statistics": dialogue_data.get("statistics", {}),
+                }
+
                 vector_id = await vector_store.store_consultation(
                     consultation_id=consultation_id,
                     patient_id_encrypted=patient_id_encrypted,
                     provider_id=provider_id,
                     encounter_date=encounter_date,
-                    transcript=transcript,
+                    transcript=transcript_text,
                     embedding=np.array(embedding, dtype=np.float32),
-                    metadata={"processed_at": datetime.now(Config.TIMEZONE).isoformat()},
+                    metadata=metadata,
                 )
 
-                # Store medical entities
+                # Store medical entities (with speaker attribution)
                 if entities:
                     await vector_store.store_medical_entities(consultation_id, entities)
 
@@ -708,7 +772,7 @@ async def process_transcript(
                 soap_note = results["steps"].get("soap_generation", {}).get("soap_note", {})
                 await vector_store.store_structured_document(
                     consultation_id=consultation_id,
-                    structured_doc={"transcript_length": len(transcript)},
+                    structured_doc={"transcript_length": len(transcript_text), "speaker_metadata": metadata},
                     soap_note=soap_note if isinstance(soap_note, dict) else None,
                     clinical_summary=soap_note.get("assessment") if isinstance(soap_note, dict) else None,
                 )
@@ -743,7 +807,7 @@ async def process_transcript(
             action="create",
             resource_type="medical_consultation",
             resource_id=consultation_id,
-            changes={"steps_completed": list(results["steps"].keys())},
+            changes={"steps_completed": list(results["steps"].keys()), "has_speaker_attribution": True},
         )
 
         return JSONResponse(status_code=status.HTTP_200_OK, content=results)
@@ -753,13 +817,311 @@ async def process_transcript(
             audit_logger.log_phi_access,
             user_id=current_user.get("user_id"),
             patient_id=patient_id_encrypted,
-            action="transcript_processing",
+            action="dialogue_processing",
             resource=consultation_id,
             result="failed",
             error=str(e),
         )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Transcript processing failed: {str(e)}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Dialogue processing failed: {str(e)}"
+        )
+
+
+@router.post(
+    "/medical/process-whisperx-result",
+    tags=["Medical"],
+    summary="Process WhisperX transcription result through complete medical pipeline",
+)
+@access_control.require_permission(Permission.WRITE_PHI)
+async def process_whisperx_result(
+    request: WhisperXProcessRequest,
+    background_tasks: BackgroundTasks,
+    current_user: Dict[str, Any] = Depends(lambda: {}),
+):
+    """
+    Process WhisperX transcription result through the complete medical pipeline.
+
+    This endpoint provides end-to-end processing:
+    1. Fetches/accepts WhisperX transcription result
+    2. Transforms to speaker-attributed dialogue (via TranscriptionTransformer)
+    3. Processes through medical LLM pipeline with speaker context
+    4. Stores in vector database for RAG chatbot queries
+
+    Args:
+        request: Processing request containing either workflow_id or whisperx_result
+
+    Returns:
+        Complete pipeline results including dialogue, speaker mapping, SOAP note,
+        entities with speaker attribution, and vector storage confirmation
+
+    Raises:
+        HTTPException: If neither workflow_id nor whisperx_result provided,
+                      or if any processing step fails critically
+    """
+    import hashlib
+    import numpy as np
+    import uuid
+    import httpx
+
+    if not Config.is_medical_processing_enabled():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Medical processing is not enabled. Set MEDICAL_RAG_ENABLED=true and LM_STUDIO_ENABLED=true",
+        )
+
+    # Validate input: must have either workflow_id or whisperx_result
+    if not request.workflow_id and not request.whisperx_result:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Must provide either 'workflow_id' or 'whisperx_result'",
+        )
+
+    if request.workflow_id and request.whisperx_result:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot provide both 'workflow_id' and 'whisperx_result'"
+        )
+
+    # Generate consultation ID and encrypt patient ID
+    consultation_id = f"cons_{uuid.uuid4().hex[:12]}"
+    patient_id_encrypted = hashlib.sha256(f"{request.patient_id}{Config.HIPAA_SALT}".encode()).hexdigest()[:32]
+    encounter_date = request.encounter_date or datetime.now(Config.TIMEZONE).date().isoformat()
+
+    # Log processing start
+    audit_logger.log_phi_access(
+        user_id=current_user.get("user_id"),
+        patient_id=patient_id_encrypted,
+        action="whisperx_pipeline_processing",
+        resource=consultation_id,
+        result="started",
+    )
+
+    try:
+        # Step 1: Get WhisperX result (fetch if workflow_id provided)
+        whisperx_result = None
+        if request.workflow_id:
+            try:
+                # Fetch from Temporal workflow
+                async with httpx.AsyncClient(timeout=30.0) as http_client:
+                    response = await http_client.get(f"http://localhost:8000/temporal/workflow/{request.workflow_id}")
+                    if response.status_code != 200:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f"Workflow {request.workflow_id} not found or not completed",
+                        )
+                    workflow_data = response.json()
+                    whisperx_result = workflow_data.get("result")
+                    if not whisperx_result:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"Workflow {request.workflow_id} has no result data",
+                        )
+            except httpx.HTTPError as e:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=f"Failed to fetch workflow result: {str(e)}",
+                )
+        else:
+            whisperx_result = request.whisperx_result
+
+        # Step 2: Transform to medical dialogue
+        from ..services.transcription_transformer import TranscriptionTransformer
+
+        transformer = TranscriptionTransformer()
+
+        try:
+            if request.manual_speaker_mapping and request.processing_options.speaker_role_detection == "manual":
+                # Use manual speaker role overrides
+                dialogue_data = transformer.transform_with_overrides(
+                    whisperx_result=whisperx_result,
+                    manual_speaker_mapping=request.manual_speaker_mapping,
+                    workflow_id=request.workflow_id,
+                    consultation_metadata={"encounter_date": encounter_date, "provider_id": request.provider_id},
+                )
+            else:
+                # Use automatic speaker role detection
+                dialogue_data = transformer.transform(
+                    whisperx_result=whisperx_result,
+                    workflow_id=request.workflow_id,
+                    consultation_metadata={"encounter_date": encounter_date, "provider_id": request.provider_id},
+                )
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=f"WhisperX transformation failed: {str(e)}"
+            )
+
+        # Validate transformation
+        validation = transformer.validate_transformation(dialogue_data)
+        if not validation["valid"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid transformation: {validation['issues']}",
+            )
+
+        # Step 3: Process through medical pipeline
+        results = {
+            "consultation_id": consultation_id,
+            "patient_id_encrypted": patient_id_encrypted,
+            "provider_id": request.provider_id,
+            "encounter_date": encounter_date,
+            "workflow_id": request.workflow_id,
+            "processing_started": datetime.now(Config.TIMEZONE).isoformat(),
+            "transformation": {
+                "success": True,
+                "speaker_mapping": dialogue_data.get("speaker_mapping", {}),
+                "statistics": dialogue_data.get("statistics", {}),
+                "metadata": dialogue_data.get("consultation_metadata", {}),
+                "validation": validation,
+            },
+            "steps": {},
+        }
+
+        # Initialize LM Studio client
+        config = LMStudioConfig(
+            base_url=Config.LM_STUDIO_BASE_URL,
+            timeout=Config.LM_STUDIO_TIMEOUT,
+            temperature=Config.LM_STUDIO_TEMPERATURE,
+            max_tokens=Config.LM_STUDIO_MAX_TOKENS,
+            model=Config.LM_STUDIO_MODEL,
+        )
+        client = LMStudioClient(config)
+        service = MedicalLLMService(client)
+
+        # Medical processing steps (using speaker-aware methods)
+        if request.processing_options.enable_phi_detection and Config.ENABLE_PHI_DETECTION:
+            try:
+                phi_result = await service.detect_phi_in_dialogue(dialogue_data)
+                results["steps"]["phi_detection"] = {
+                    "success": True,
+                    "phi_detected": phi_result.get("phi_detected", False),
+                    "entity_count": len(phi_result.get("entities", [])),
+                    "entities": phi_result.get("entities", []),
+                }
+            except Exception as e:
+                results["steps"]["phi_detection"] = {"success": False, "error": str(e)}
+        else:
+            results["steps"]["phi_detection"] = {"skipped": True}
+
+        entities = []
+        if request.processing_options.enable_entity_extraction and Config.ENABLE_ENTITY_EXTRACTION:
+            try:
+                entities = await service.extract_entities_with_speaker(dialogue_data)
+                results["steps"]["entity_extraction"] = {
+                    "success": True,
+                    "entity_count": len(entities),
+                    "entities": entities,
+                }
+            except Exception as e:
+                results["steps"]["entity_extraction"] = {"success": False, "error": str(e)}
+        else:
+            results["steps"]["entity_extraction"] = {"skipped": True}
+
+        if request.processing_options.enable_soap_generation and Config.ENABLE_SOAP_GENERATION:
+            try:
+                soap_note = await service.generate_soap_from_dialogue(dialogue_data)
+                results["steps"]["soap_generation"] = {"success": True, "soap_note": soap_note}
+            except Exception as e:
+                results["steps"]["soap_generation"] = {"success": False, "error": str(e)}
+        else:
+            results["steps"]["soap_generation"] = {"skipped": True}
+
+        # Step 4: Vector storage
+        if request.processing_options.enable_vector_storage and Config.ENABLE_VECTOR_STORAGE:
+            try:
+                from ..services.dialogue_formatter import DialogueFormatter
+
+                formatter = DialogueFormatter()
+                dialogue_segments = dialogue_data.get("dialogue", [])
+                transcript_text = formatter.generate_transcript(dialogue_segments, format="plain")
+
+                embedding = await client.generate_embedding(transcript_text, Config.EMBEDDING_MODEL)
+                results["steps"]["embedding_generation"] = {"success": True, "dimension": len(embedding)}
+
+                vector_store = MedicalDocumentVectorStore(
+                    storage_dir=Config.VECTOR_DB_PATH, embedding_dim=Config.EMBEDDING_DIMENSION
+                )
+
+                metadata = {
+                    "processed_at": datetime.now(Config.TIMEZONE).isoformat(),
+                    "has_speaker_attribution": True,
+                    "speaker_mapping": dialogue_data.get("speaker_mapping", {}),
+                    "dialogue_statistics": dialogue_data.get("statistics", {}),
+                    "workflow_id": request.workflow_id,
+                }
+
+                vector_id = await vector_store.store_consultation(
+                    consultation_id=consultation_id,
+                    patient_id_encrypted=patient_id_encrypted,
+                    provider_id=request.provider_id,
+                    encounter_date=encounter_date,
+                    transcript=transcript_text,
+                    embedding=np.array(embedding, dtype=np.float32),
+                    metadata=metadata,
+                )
+
+                if entities:
+                    await vector_store.store_medical_entities(consultation_id, entities)
+
+                soap_note = results["steps"].get("soap_generation", {}).get("soap_note", {})
+                await vector_store.store_structured_document(
+                    consultation_id=consultation_id,
+                    structured_doc={"transcript_length": len(transcript_text), "speaker_metadata": metadata},
+                    soap_note=soap_note if isinstance(soap_note, dict) else None,
+                    clinical_summary=soap_note.get("assessment") if isinstance(soap_note, dict) else None,
+                )
+
+                vector_store.save_index()
+                vector_store.close()
+
+                results["steps"]["vector_storage"] = {"success": True, "vector_id": vector_id}
+
+            except Exception as e:
+                results["steps"]["vector_storage"] = {"success": False, "error": str(e)}
+        else:
+            results["steps"]["vector_storage"] = {"skipped": True}
+
+        await client.close()
+
+        # Calculate summary
+        successful_steps = sum(1 for step in results["steps"].values() if step.get("success", False))
+        total_steps = sum(1 for step in results["steps"].values() if not step.get("skipped", False))
+
+        results["processing_completed"] = datetime.now(Config.TIMEZONE).isoformat()
+        results["summary"] = {
+            "successful_steps": successful_steps,
+            "total_steps": total_steps,
+            "all_successful": successful_steps == total_steps,
+        }
+
+        # Log successful processing
+        background_tasks.add_task(
+            audit_logger.log_data_modification,
+            user_id=current_user.get("user_id"),
+            action="create",
+            resource_type="whisperx_medical_consultation",
+            resource_id=consultation_id,
+            changes={
+                "steps_completed": list(results["steps"].keys()),
+                "has_speaker_attribution": True,
+                "workflow_id": request.workflow_id,
+            },
+        )
+
+        return JSONResponse(status_code=status.HTTP_200_OK, content=results)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        background_tasks.add_task(
+            audit_logger.log_phi_access,
+            user_id=current_user.get("user_id"),
+            patient_id=patient_id_encrypted,
+            action="whisperx_pipeline_processing",
+            resource=consultation_id,
+            result="failed",
+            error=str(e),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"WhisperX pipeline processing failed: {str(e)}"
         )
 
 
