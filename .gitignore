@@ -165,6 +165,7 @@ cython_debug/
 .clinerules/
 .roo/
 .claude/
+.agent/
 .DS_Store
 .temporal.pid
 
