@@ -48,13 +48,16 @@ async def main():
     # CRITICAL: Configure concurrent activity execution
     # This enables multiple activities to run in parallel (3-5x throughput improvement)
     #
-    # WARNING: For GPU deployments, set MAX_ACTIVITY_WORKERS=1 to prevent OOM errors.
-    # Multiple concurrent GPU activities can exhaust VRAM before model caching takes effect.
-    # While model caches use threading.Lock for thread-safety, this doesn't prevent multiple
-    # threads from loading large models simultaneously during initial cache population.
-    # The GPU memory pressure check (threshold=0.85) provides reactive protection but cannot
-    # prevent parallel initial loads that collectively exceed available VRAM.
-    max_activity_workers = int(os.getenv("MAX_ACTIVITY_WORKERS", "5"))
+    # Smart defaults based on GPU availability:
+    # - GPU detected: Default to 1 worker to prevent OOM errors
+    # - CPU only: Default to 5 workers for high throughput
+    # Set MAX_ACTIVITY_WORKERS environment variable to override
+    if torch.cuda.is_available():
+        default_workers = "1"  # Safe default for GPU to prevent OOM
+    else:
+        default_workers = "5"  # Optimal for CPU deployments
+    
+    max_activity_workers = int(os.getenv("MAX_ACTIVITY_WORKERS", default_workers))
 
     logger.info("=" * 70)
     logger.info("Temporal Worker Configuration")
@@ -72,18 +75,19 @@ async def main():
         logger.info(f"GPU devices: {gpu_count}")
         logger.info(f"GPU memory per device: {gpu_memory:.2f} GB")
         logger.info("GPU memory optimization: Model caching enabled")
+        logger.info(f"Default worker count for GPU: 1 (current: {max_activity_workers})")
         
-        # Warn if running multiple workers on GPU
+        # Warn only if user explicitly overrode the safe default
         if max_activity_workers > 1:
             logger.warning("=" * 70)
-            logger.warning("GPU OOM RISK DETECTED")
-            logger.warning(f"Running {max_activity_workers} concurrent workers on GPU deployment")
-            logger.warning("Multiple GPU-bound activities may exhaust VRAM simultaneously")
-            logger.warning("Recommendation: Set MAX_ACTIVITY_WORKERS=1 for GPU deployments")
-            logger.warning("Current protection: Reactive GPU memory pressure check at 85% threshold")
+            logger.warning("CUSTOM GPU WORKER CONFIGURATION")
+            logger.warning(f"MAX_ACTIVITY_WORKERS set to {max_activity_workers} (recommended: 1 for GPU)")
+            logger.warning("High concurrency may cause GPU OOM errors")
+            logger.warning("Monitor GPU memory usage carefully during operation")
             logger.warning("=" * 70)
     else:
         logger.info("GPU: Not available (using CPU)")
+        logger.info(f"Default worker count for CPU: 5 (current: {max_activity_workers})")
 
     # CRITICAL: Use ThreadPoolExecutor for concurrent activity execution
     # This allows multiple activities to run in parallel instead of serially

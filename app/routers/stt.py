@@ -149,6 +149,18 @@ async def speech_to_text(
     random_suffix = uuid.uuid4().hex[:4]
     workflow_id = f"whisperx-wf-pt_{patient_hash}-{timestamp}-{random_suffix}"
 
+    # Validate encounter_date format if provided
+    if encounter_date is not None:
+        try:
+            # Validate it's a valid ISO date format (YYYY-MM-DD)
+            from datetime import date
+            date.fromisoformat(encounter_date)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid encounter_date format. Expected ISO format (YYYY-MM-DD): {str(e)}"
+            )
+
     if enable_medical_processing:
         if not provider_id:
             raise HTTPException(

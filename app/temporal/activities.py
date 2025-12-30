@@ -46,7 +46,14 @@ async def transcribe_activity(
             )
             return result
         except Exception as e:
-            raise TemporalErrorHandler.create_application_error(e, "Transcription")
+            logging.error(f"Transcription failed: {e}")
+            # Classify as non-retryable for invalid input data
+            is_retryable = not isinstance(e, (ValueError, TypeError))
+            raise TemporalErrorHandler.create_application_error(
+                e,
+                "Transcription",
+                retryable=is_retryable,
+            )
 
 
 @activity.defn
@@ -72,7 +79,14 @@ async def align_activity(transcript: dict, audio_path: str, align_params: dict) 
             )
             return result
         except Exception as e:
-            raise TemporalErrorHandler.create_application_error(e, "Alignment")
+            logging.error(f"Alignment failed: {e}")
+            # Classify as non-retryable for invalid input data
+            is_retryable = not isinstance(e, (ValueError, TypeError))
+            raise TemporalErrorHandler.create_application_error(
+                e,
+                "Alignment",
+                retryable=is_retryable,
+            )
 
 
 @activity.defn
@@ -135,7 +149,11 @@ async def diarize_activity(audio_path: str, diarize_params: dict) -> dict:
             }
         except Exception as e:
             activity.logger.error(f"Diarization failed: {e}")
-            raise TemporalErrorHandler.create_application_error(e, "Diarization")
+            # Classify as non-retryable for invalid input data
+            is_retryable = not isinstance(e, (ValueError, TypeError))
+            raise TemporalErrorHandler.create_application_error(
+                e, "Diarization", retryable=is_retryable
+            )
 
 
 @activity.defn
@@ -155,7 +173,14 @@ async def assign_speakers_activity(diarization_segments: dict, transcript: dict)
             result = whisperx.assign_word_speakers(segments_df, transcript)
             return result
         except Exception as e:
-            raise TemporalErrorHandler.create_application_error(e, "Speaker assignment")
+            logging.error(f"Speaker assignment failed: {e}")
+            # Classify as non-retryable for invalid input data
+            is_retryable = not isinstance(e, (ValueError, TypeError))
+            raise TemporalErrorHandler.create_application_error(
+                e,
+                "Speaker assignment",
+                retryable=is_retryable,
+            )
 
 
 @activity.defn
@@ -197,7 +222,13 @@ async def phi_detection_activity(transcript: str, consultation_id: str) -> dict:
 
         except Exception as e:
             logging.error(f"PHI detection failed: {e}")
-            raise TemporalErrorHandler.create_application_error(e, "PHI Detection")
+            # Classify as non-retryable for invalid input data
+            is_retryable = not isinstance(e, (ValueError, TypeError))
+            raise TemporalErrorHandler.create_application_error(
+                e,
+                "PHI Detection",
+                retryable=is_retryable,
+            )
 
 
 @activity.defn
@@ -239,7 +270,13 @@ async def medical_entity_extraction_activity(transcript: str, consultation_id: s
 
         except Exception as e:
             logging.error(f"Medical entity extraction failed: {e}")
-            raise TemporalErrorHandler.create_application_error(e, "Medical Entity Extraction")
+            # Classify as non-retryable for invalid input data
+            is_retryable = not isinstance(e, (ValueError, TypeError))
+            raise TemporalErrorHandler.create_application_error(
+                e,
+                "Medical Entity Extraction",
+                retryable=is_retryable,
+            )
 
 
 @activity.defn
@@ -280,7 +317,13 @@ async def soap_generation_activity(transcript: str, consultation_id: str) -> dic
 
         except Exception as e:
             logging.error(f"SOAP generation failed: {e}")
-            raise TemporalErrorHandler.create_application_error(e, "SOAP Generation")
+            # Classify as non-retryable for invalid input data
+            is_retryable = not isinstance(e, (ValueError, TypeError))
+            raise TemporalErrorHandler.create_application_error(
+                e,
+                "SOAP Generation",
+                retryable=is_retryable,
+            )
 
 
 @activity.defn
@@ -330,7 +373,13 @@ async def document_structuring_activity(
 
         except Exception as e:
             logging.error(f"Document structuring failed: {e}")
-            raise TemporalErrorHandler.create_application_error(e, "Document Structuring")
+            # Classify as non-retryable for invalid input data
+            is_retryable = not isinstance(e, (ValueError, TypeError))
+            raise TemporalErrorHandler.create_application_error(
+                e,
+                "Document Structuring",
+                retryable=is_retryable,
+            )
 
 
 @activity.defn
@@ -367,7 +416,13 @@ async def embedding_generation_activity(transcript: str, consultation_id: str) -
 
         except Exception as e:
             logging.error(f"Embedding generation failed: {e}")
-            raise TemporalErrorHandler.create_application_error(e, "Embedding Generation")
+            # Classify as non-retryable for invalid input data
+            is_retryable = not isinstance(e, (ValueError, TypeError))
+            raise TemporalErrorHandler.create_application_error(
+                e,
+                "Embedding Generation",
+                retryable=is_retryable,
+            )
 
 
 @activity.defn
@@ -446,7 +501,13 @@ async def vector_storage_activity(
 
         except Exception as e:
             logging.error(f"Vector storage failed: {e}")
-            raise TemporalErrorHandler.create_application_error(e, "Vector Storage")
+            # Classify as non-retryable for invalid input data
+            is_retryable = not isinstance(e, (ValueError, TypeError))
+            raise TemporalErrorHandler.create_application_error(
+                e,
+                "Vector Storage",
+                retryable=is_retryable,
+            )
 
 
 @activity.defn
@@ -567,4 +628,10 @@ async def comprehensive_medical_processing_activity(
 
         except Exception as e:
             logging.error(f"Comprehensive medical processing failed: {e}")
-            raise TemporalErrorHandler.create_application_error(e, "Comprehensive Medical Processing")
+            # Classify as non-retryable for invalid input data
+            is_retryable = not isinstance(e, (ValueError, TypeError))
+            raise TemporalErrorHandler.create_application_error(
+                e,
+                "Comprehensive Medical Processing",
+                retryable=is_retryable,
+            )

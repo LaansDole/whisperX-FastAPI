@@ -60,7 +60,13 @@ async def transform_to_dialogue_activity(
 
         except Exception as e:
             logging.error(f"Dialogue transformation failed: {e}")
-            raise TemporalErrorHandler.create_application_error(e, "Dialogue Transformation")
+            # Classify as non-retryable for invalid input data
+            is_retryable = not isinstance(e, (ValueError, TypeError))
+            raise TemporalErrorHandler.create_application_error(
+                e,
+                "Dialogue Transformation",
+                retryable=is_retryable,
+            )
 
 
 @activity.defn
@@ -119,7 +125,13 @@ async def detect_phi_in_dialogue_activity(dialogue_data: Dict[str, Any]) -> Dict
 
         except Exception as e:
             logging.error(f"PHI detection in dialogue failed: {e}")
-            raise TemporalErrorHandler.create_application_error(e, "PHI Detection (Dialogue)")
+            # Classify as non-retryable for invalid input data
+            is_retryable = not isinstance(e, (ValueError, TypeError))
+            raise TemporalErrorHandler.create_application_error(
+                e,
+                "PHI Detection (Dialogue)",
+                retryable=is_retryable,
+            )
 
 
 @activity.defn
@@ -188,7 +200,13 @@ async def extract_entities_with_speaker_activity(dialogue_data: Dict[str, Any]) 
 
         except Exception as e:
             logging.error(f"Entity extraction with speaker failed: {e}")
-            raise TemporalErrorHandler.create_application_error(e, "Entity Extraction (Speaker)")
+            # Classify as non-retryable for invalid input data
+            is_retryable = not isinstance(e, (ValueError, TypeError))
+            raise TemporalErrorHandler.create_application_error(
+                e,
+                "Entity Extraction (Speaker)",
+                retryable=is_retryable,
+            )
 
 
 @activity.defn
@@ -256,7 +274,13 @@ async def generate_soap_from_dialogue_activity(dialogue_data: Dict[str, Any]) ->
 
         except Exception as e:
             logging.error(f"SOAP generation from dialogue failed: {e}")
-            raise TemporalErrorHandler.create_application_error(e, "SOAP Generation (Dialogue)")
+            # Classify as non-retryable for invalid input data
+            is_retryable = not isinstance(e, (ValueError, TypeError))
+            raise TemporalErrorHandler.create_application_error(
+                e,
+                "SOAP Generation (Dialogue)",
+                retryable=is_retryable,
+            )
 
 
 @activity.defn
@@ -379,6 +403,11 @@ async def store_consultation_with_speaker_data_activity(
                 vector_store.close()
 
         except Exception as e:
-            logging.error(f"Vector storage with speaker data failed: {e}")
-            # Vector storage errors are retryable
-            raise e
+            logging.error("Vector storage with speaker data failed", exc_info=e)
+            # Classify error as retryable (e.g., network/IO) vs non-retryable (e.g., invalid data)
+            is_retryable = not isinstance(e, (ValueError, TypeError))
+            raise TemporalErrorHandler.create_application_error(
+                e,
+                "Vector storage with speaker data failed",
+                retryable=is_retryable,
+            )
