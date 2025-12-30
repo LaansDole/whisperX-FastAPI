@@ -47,6 +47,13 @@ async def main():
 
     # CRITICAL: Configure concurrent activity execution
     # This enables multiple activities to run in parallel (3-5x throughput improvement)
+    #
+    # WARNING: For GPU deployments, set MAX_ACTIVITY_WORKERS=1 to prevent OOM errors.
+    # Multiple concurrent GPU activities can exhaust VRAM before model caching takes effect.
+    # While model caches use threading.Lock for thread-safety, this doesn't prevent multiple
+    # threads from loading large models simultaneously during initial cache population.
+    # The GPU memory pressure check (threshold=0.85) provides reactive protection but cannot
+    # prevent parallel initial loads that collectively exceed available VRAM.
     max_activity_workers = int(os.getenv("MAX_ACTIVITY_WORKERS", "5"))
 
     logger.info("=" * 70)
@@ -65,6 +72,16 @@ async def main():
         logger.info(f"GPU devices: {gpu_count}")
         logger.info(f"GPU memory per device: {gpu_memory:.2f} GB")
         logger.info("GPU memory optimization: Model caching enabled")
+        
+        # Warn if running multiple workers on GPU
+        if max_activity_workers > 1:
+            logger.warning("=" * 70)
+            logger.warning("GPU OOM RISK DETECTED")
+            logger.warning(f"Running {max_activity_workers} concurrent workers on GPU deployment")
+            logger.warning("Multiple GPU-bound activities may exhaust VRAM simultaneously")
+            logger.warning("Recommendation: Set MAX_ACTIVITY_WORKERS=1 for GPU deployments")
+            logger.warning("Current protection: Reactive GPU memory pressure check at 85% threshold")
+            logger.warning("=" * 70)
     else:
         logger.info("GPU: Not available (using CPU)")
 

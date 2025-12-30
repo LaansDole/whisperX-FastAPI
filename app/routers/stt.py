@@ -149,6 +149,12 @@ async def speech_to_text(
     random_suffix = uuid.uuid4().hex[:4]
     workflow_id = f"whisperx-wf-pt_{patient_hash}-{timestamp}-{random_suffix}"
 
+    if enable_medical_processing:
+        if not provider_id:
+            raise HTTPException(
+                status_code=400, detail="provider_id is required when enable_medical_processing=True"
+            )
+
     # Reserve database record (PENDING status) BEFORE workflow starts
     from ..patients.mapping import reserve_patient_workflow, commit_patient_workflow, rollback_patient_workflow
 
@@ -169,11 +175,6 @@ async def speech_to_text(
     # Choose workflow based on medical processing flag
     try:
         if enable_medical_processing:
-            # Validate medical parameters
-            if not provider_id:
-                raise HTTPException(
-                    status_code=400, detail="provider_id is required when enable_medical_processing=True"
-                )
 
             # Encrypt patient ID for storage
             from ..hipaa.encryption import HIPAAEncryption

@@ -95,20 +95,17 @@ async def detect_phi_in_dialogue_activity(dialogue_data: Dict[str, Any]) -> Dict
                 model=Config.LM_STUDIO_MODEL,
             )
 
-            client = LMStudioClient(config)
-            service = MedicalLLMService(client)
+            async with LMStudioClient(config) as client:
+                service = MedicalLLMService(client)
 
-            # Check LM Studio availability - fail fast if unavailable
-            if not await client.health_check():
-                await client.close()
-                raise TemporalErrorHandler.create_application_error(
-                    Exception("LM Studio not available"), "PHI Detection (Dialogue)"
-                )
+                # Check LM Studio availability - fail fast if unavailable
+                if not await client.health_check():
+                    raise TemporalErrorHandler.create_application_error(
+                        Exception("LM Studio not available"), "PHI Detection (Dialogue)"
+                    )
 
-            # Perform speaker-aware PHI detection
-            phi_result = await service.detect_phi_in_dialogue(dialogue_data)
-
-            await client.close()
+                # Perform speaker-aware PHI detection
+                phi_result = await service.detect_phi_in_dialogue(dialogue_data)
 
             logging.info(
                 f"PHI detection complete: {phi_result.get('phi_detected', False)}, "
@@ -157,20 +154,17 @@ async def extract_entities_with_speaker_activity(dialogue_data: Dict[str, Any]) 
                 model=Config.LM_STUDIO_MODEL,
             )
 
-            client = LMStudioClient(config)
-            service = MedicalLLMService(client)
+            async with LMStudioClient(config) as client:
+                service = MedicalLLMService(client)
 
-            # Check LM Studio availability
-            if not await client.health_check():
-                await client.close()
-                raise TemporalErrorHandler.create_application_error(
-                    Exception("LM Studio not available"), "Entity Extraction (Speaker)"
-                )
+                # Check LM Studio availability
+                if not await client.health_check():
+                    raise TemporalErrorHandler.create_application_error(
+                        Exception("LM Studio not available"), "Entity Extraction (Speaker)"
+                    )
 
-            # Extract entities with speaker attribution
-            entities = await service.extract_entities_with_speaker(dialogue_data)
-
-            await client.close()
+                # Extract entities with speaker attribution
+                entities = await service.extract_entities_with_speaker(dialogue_data)
 
             # Count entities by speaker
             doctor_entities = sum(1 for e in entities if e.get("speaker_role") == "doctor")
@@ -229,20 +223,17 @@ async def generate_soap_from_dialogue_activity(dialogue_data: Dict[str, Any]) ->
                 model=Config.LM_STUDIO_MODEL,
             )
 
-            client = LMStudioClient(config)
-            service = MedicalLLMService(client)
+            async with LMStudioClient(config) as client:
+                service = MedicalLLMService(client)
 
-            # Check LM Studio availability
-            if not await client.health_check():
-                await client.close()
-                raise TemporalErrorHandler.create_application_error(
-                    Exception("LM Studio not available"), "SOAP Generation (Dialogue)"
-                )
+                # Check LM Studio availability
+                if not await client.health_check():
+                    raise TemporalErrorHandler.create_application_error(
+                        Exception("LM Studio not available"), "SOAP Generation (Dialogue)"
+                    )
 
-            # Generate SOAP note from dialogue
-            soap_note = await service.generate_soap_from_dialogue(dialogue_data)
-
-            await client.close()
+                # Generate SOAP note from dialogue
+                soap_note = await service.generate_soap_from_dialogue(dialogue_data)
 
             # Count words in each section
             section_lengths = {
@@ -314,16 +305,14 @@ async def store_consultation_with_speaker_data_activity(
                 timeout=Config.LM_STUDIO_TIMEOUT,
             )
 
-            client = LMStudioClient(config)
+            async with LMStudioClient(config) as client:
+                # Format dialogue for embedding
+                dialogue_text = "\n".join(
+                    [f"{seg.get('speaker', 'Unknown')}: {seg.get('text', '')}" for seg in dialogue_data.get("dialogue", [])]
+                )
 
-            # Format dialogue for embedding
-            dialogue_text = "\n".join(
-                [f"{seg.get('speaker', 'Unknown')}: {seg.get('text', '')}" for seg in dialogue_data.get("dialogue", [])]
-            )
-
-            # Generate embedding
-            embedding = await client.generate_embedding(dialogue_text, Config.EMBEDDING_MODEL)
-            await client.close()
+                # Generate embedding
+                embedding = await client.generate_embedding(dialogue_text, Config.EMBEDDING_MODEL)
 
             # Initialize vector store
             vector_store = MedicalDocumentVectorStore(
@@ -332,59 +321,62 @@ async def store_consultation_with_speaker_data_activity(
                 index_type=Config.VECTOR_INDEX_TYPE,
             )
 
-            # Prepare metadata
-            metadata = {
-                "processing_timestamp": datetime.now(Config.TIMEZONE).isoformat(),
-                "embedding_model": Config.EMBEDDING_MODEL,
-                "speaker_mapping": dialogue_data.get("speaker_mapping", {}),
-                "statistics": dialogue_data.get("statistics", {}),
-                "has_phi": phi_result.get("phi_detected", False) if phi_result else False,
-                "entity_count": entities_result.get("entity_count", 0) if entities_result else 0,
-                "has_soap_note": bool(soap_result and soap_result.get("soap_note")),
-            }
+            try:
+                # Prepare metadata
+                metadata = {
+                    "processing_timestamp": datetime.now(Config.TIMEZONE).isoformat(),
+                    "embedding_model": Config.EMBEDDING_MODEL,
+                    "speaker_mapping": dialogue_data.get("speaker_mapping", {}),
+                    "statistics": dialogue_data.get("statistics", {}),
+                    "has_phi": phi_result.get("phi_detected", False) if phi_result else False,
+                    "entity_count": entities_result.get("entity_count", 0) if entities_result else 0,
+                    "has_soap_note": bool(soap_result and soap_result.get("soap_note")),
+                }
 
-            # Store consultation
-            embedding_array = np.array(embedding, dtype=np.float32)
-            vector_id = await vector_store.store_consultation(
-                consultation_id=consultation_id,
-                patient_id_encrypted=patient_id_encrypted,
-                provider_id=provider_id,
-                encounter_date=encounter_date,
-                transcript=dialogue_text,
-                embedding=embedding_array,
-                metadata=metadata,
-            )
-
-            # Store medical entities if available
-            if entities_result and not entities_result.get("skipped"):
-                await vector_store.store_medical_entities(consultation_id, entities_result.get("entities", []))
-
-            # Store PHI detections if available
-            if phi_result and phi_result.get("phi_detected"):
-                await vector_store.store_phi_detections(consultation_id, phi_result.get("entities", []))
-
-            # Store SOAP note if available
-            if soap_result and not soap_result.get("skipped"):
-                soap_note = soap_result.get("soap_note", {})
-                await vector_store.store_structured_document(
-                    consultation_id,
-                    {"soap_note": soap_note},
-                    soap_note,
-                    None,  # clinical_summary
+                # Store consultation
+                embedding_array = np.array(embedding, dtype=np.float32)
+                vector_id = await vector_store.store_consultation(
+                    consultation_id=consultation_id,
+                    patient_id_encrypted=patient_id_encrypted,
+                    provider_id=provider_id,
+                    encounter_date=encounter_date,
+                    transcript=dialogue_text,
+                    embedding=embedding_array,
+                    metadata=metadata,
                 )
 
-            # Save index
-            vector_store.save_index()
-            vector_store.close()
+                # Store medical entities if available
+                if entities_result and not entities_result.get("skipped"):
+                    await vector_store.store_medical_entities(consultation_id, entities_result.get("entities", []))
 
-            logging.info(f"Vector storage complete: {vector_id}")
+                # Store PHI detections if available
+                if phi_result and phi_result.get("phi_detected"):
+                    await vector_store.store_phi_detections(consultation_id, phi_result.get("entities", []))
 
-            return {
-                "consultation_id": consultation_id,
-                "vector_id": vector_id,
-                "stored_at": datetime.now(Config.TIMEZONE).isoformat(),
-                "metadata": metadata,
-            }
+                # Store SOAP note if available
+                if soap_result and not soap_result.get("skipped"):
+                    soap_note = soap_result.get("soap_note", {})
+                    await vector_store.store_structured_document(
+                        consultation_id,
+                        {"soap_note": soap_note},
+                        soap_note,
+                        None,  # clinical_summary
+                    )
+
+                # Save index
+                vector_store.save_index()
+
+                logging.info(f"Vector storage complete: {vector_id}")
+
+                return {
+                    "consultation_id": consultation_id,
+                    "vector_id": vector_id,
+                    "stored_at": datetime.now(Config.TIMEZONE).isoformat(),
+                    "metadata": metadata,
+                }
+            finally:
+                # Ensure vector_store is always closed, even on exceptions
+                vector_store.close()
 
         except Exception as e:
             logging.error(f"Vector storage with speaker data failed: {e}")

@@ -115,6 +115,7 @@ class STTToMedicalWorkflow:
                 "diarize_activity",
                 args=[audio_path, params["diarization_params"]],
                 start_to_close_timeout=timedelta(minutes=TemporalConfig.DIARIZATION_TIMEOUT_MINUTES),
+                heartbeat_timeout=timedelta(seconds=60),
                 retry_policy=RetryPolicy(
                     initial_interval=timedelta(seconds=15),
                     backoff_coefficient=2.0,

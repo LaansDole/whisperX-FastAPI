@@ -81,12 +81,13 @@ async def diarize_activity(audio_path: str, diarize_params: dict) -> dict:
     from app.audio import process_audio_file
     from app.whisperx_services import diarize
     from app.schemas import DiarizationParams
+    from whisperx.audio import SAMPLE_RATE
 
     audio = process_audio_file(audio_path)
     diarize_params_obj = DiarizationParams(**diarize_params)
 
     # Calculate audio duration and expected processing time
-    audio_duration = len(audio) / 16000  # Assuming 16kHz sample rate
+    audio_duration = len(audio) / SAMPLE_RATE  # Use actual sample rate from whisperx
     expected_time = audio_duration * 3.7  # Real-time factor for pyannote
 
     activity.logger.info(f"Starting diarization for {audio_path}")
@@ -178,17 +179,15 @@ async def phi_detection_activity(transcript: str, consultation_id: str) -> dict:
                 model=Config.LM_STUDIO_MODEL,
             )
 
-            client = LMStudioClient(config)
-            service = MedicalLLMService(client)
+            async with LMStudioClient(config) as client:
+                service = MedicalLLMService(client)
 
-            # Check LM Studio availability
-            if not await client.health_check():
-                raise Exception("LM Studio server not available for PHI detection")
+                # Check LM Studio availability
+                if not await client.health_check():
+                    raise Exception("LM Studio server not available for PHI detection")
 
-            # Perform PHI detection
-            phi_result = await service.detect_phi(transcript)
-
-            await client.close()
+                # Perform PHI detection
+                phi_result = await service.detect_phi(transcript)
             return {
                 "consultation_id": consultation_id,
                 "phi_detected": phi_result.get("phi_detected", False),
@@ -222,17 +221,15 @@ async def medical_entity_extraction_activity(transcript: str, consultation_id: s
                 model=Config.LM_STUDIO_MODEL,
             )
 
-            client = LMStudioClient(config)
-            service = MedicalLLMService(client)
+            async with LMStudioClient(config) as client:
+                service = MedicalLLMService(client)
 
-            # Check LM Studio availability
-            if not await client.health_check():
-                raise Exception("LM Studio server not available for entity extraction")
+                # Check LM Studio availability
+                if not await client.health_check():
+                    raise Exception("LM Studio server not available for entity extraction")
 
-            # Perform entity extraction
-            entities = await service.extract_medical_entities(transcript)
-
-            await client.close()
+                # Perform entity extraction
+                entities = await service.extract_medical_entities(transcript)
             return {
                 "consultation_id": consultation_id,
                 "entities": entities,
@@ -266,17 +263,15 @@ async def soap_generation_activity(transcript: str, consultation_id: str) -> dic
                 model=Config.LM_STUDIO_MODEL,
             )
 
-            client = LMStudioClient(config)
-            service = MedicalLLMService(client)
+            async with LMStudioClient(config) as client:
+                service = MedicalLLMService(client)
 
-            # Check LM Studio availability
-            if not await client.health_check():
-                raise Exception("LM Studio server not available for SOAP generation")
+                # Check LM Studio availability
+                if not await client.health_check():
+                    raise Exception("LM Studio server not available for SOAP generation")
 
-            # Generate SOAP note
-            soap_note = await service.generate_soap_note(transcript)
-
-            await client.close()
+                # Generate SOAP note
+                soap_note = await service.generate_soap_note(transcript)
             return {
                 "consultation_id": consultation_id,
                 "soap_note": soap_note,
@@ -311,24 +306,22 @@ async def document_structuring_activity(
                 model=Config.LM_STUDIO_MODEL,
             )
 
-            client = LMStudioClient(config)
-            service = MedicalLLMService(client)
+            async with LMStudioClient(config) as client:
+                service = MedicalLLMService(client)
 
-            # Check LM Studio availability
-            if not await client.health_check():
-                raise Exception("LM Studio server not available for document structuring")
+                # Check LM Studio availability
+                if not await client.health_check():
+                    raise Exception("LM Studio server not available for document structuring")
 
-            # Structure document
-            structured_doc = await service.structure_medical_document(
-                transcript=transcript, phi_data=phi_data or {}, entities=entities or []
-            )
+                # Structure document
+                structured_doc = await service.structure_medical_document(
+                    transcript=transcript, phi_data=phi_data or {}, entities=entities or []
+                )
 
-            # Generate clinical summary
-            if structured_doc and "error" not in structured_doc:
-                clinical_summary = await service.generate_clinical_summary(structured_doc)
-                structured_doc["clinical_summary"] = clinical_summary
-
-            await client.close()
+                # Generate clinical summary
+                if structured_doc and "error" not in structured_doc:
+                    clinical_summary = await service.generate_clinical_summary(structured_doc)
+                    structured_doc["clinical_summary"] = clinical_summary
             return {
                 "consultation_id": consultation_id,
                 "structured_document": structured_doc,
@@ -357,16 +350,13 @@ async def embedding_generation_activity(transcript: str, consultation_id: str) -
                 timeout=Config.LM_STUDIO_TIMEOUT,
             )
 
-            client = LMStudioClient(config)
+            async with LMStudioClient(config) as client:
+                # Check LM Studio availability
+                if not await client.health_check():
+                    raise Exception("LM Studio server not available for embedding generation")
 
-            # Check LM Studio availability
-            if not await client.health_check():
-                raise Exception("LM Studio server not available for embedding generation")
-
-            # Generate embedding
-            embedding = await client.generate_embedding(transcript, Config.EMBEDDING_MODEL)
-
-            await client.close()
+                # Generate embedding
+                embedding = await client.generate_embedding(transcript, Config.EMBEDDING_MODEL)
             return {
                 "consultation_id": consultation_id,
                 "embedding": embedding,
