@@ -65,13 +65,10 @@ async def lm_studio_health():
         )
 
     try:
-        client = LMStudioClient()
-
-        # Check connection and list models
-        status_info = await client.test_connection()
-
-        await client.close()
-        return JSONResponse(status_code=status.HTTP_200_OK, content=status_info)
+        async with LMStudioClient() as client:
+            # Check connection and list models
+            status_info = await client.test_connection()
+            return JSONResponse(status_code=status.HTTP_200_OK, content=status_info)
 
     except Exception as e:
         return JSONResponse(
@@ -97,13 +94,12 @@ async def medical_health():
     # LM Studio health
     if Config.LM_STUDIO_ENABLED:
         try:
-            client = LMStudioClient()
-            lm_studio_status = await client.test_connection()
-            health_status["components"]["lm_studio"] = {
-                "status": "healthy" if lm_studio_status["status"] == "ok" else "unhealthy",
-                "details": lm_studio_status,
-            }
-            await client.close()
+            async with LMStudioClient() as client:
+                lm_studio_status = await client.test_connection()
+                health_status["components"]["lm_studio"] = {
+                    "status": "healthy" if lm_studio_status["status"] == "ok" else "unhealthy",
+                    "details": lm_studio_status,
+                }
         except Exception as e:
             health_status["components"]["lm_studio"] = {"status": "unhealthy", "error": str(e)}
     else:
@@ -165,10 +161,11 @@ async def vector_store_health():
             storage_dir=Config.VECTOR_DB_PATH, embedding_dim=Config.EMBEDDING_DIMENSION
         )
 
-        stats = vector_store.get_statistics()
-        vector_store.close()
-
-        return JSONResponse(status_code=status.HTTP_200_OK, content={"status": "healthy", "statistics": stats})
+        try:
+            stats = vector_store.get_statistics()
+            return JSONResponse(status_code=status.HTTP_200_OK, content={"status": "healthy", "statistics": stats})
+        finally:
+            vector_store.close()
 
     except Exception as e:
         return JSONResponse(
@@ -193,27 +190,25 @@ async def detect_phi(text: str, background_tasks: BackgroundTasks, current_user:
     )
 
     try:
-        client = LMStudioClient()
-        service = MedicalLLMService(client)
+        async with LMStudioClient() as client:
+            service = MedicalLLMService(client)
 
-        # Perform PHI detection
-        phi_result = await service.detect_phi(text)
+            # Perform PHI detection
+            phi_result = await service.detect_phi(text)
 
-        await client.close()
+            # Log successful PHI access
+            background_tasks.add_task(
+                audit_logger.log_phi_access,
+                user_id=current_user.get("user_id"),
+                patient_id="direct_input",
+                action="phi_detection",
+                resource="api_endpoint",
+                result="success",
+                phi_detected=phi_result.get("phi_detected", False),
+                entity_count=len(phi_result.get("entities", [])),
+            )
 
-        # Log successful PHI access
-        background_tasks.add_task(
-            audit_logger.log_phi_access,
-            user_id=current_user.get("user_id"),
-            patient_id="direct_input",
-            action="phi_detection",
-            resource="api_endpoint",
-            result="success",
-            phi_detected=phi_result.get("phi_detected", False),
-            entity_count=len(phi_result.get("entities", [])),
-        )
-
-        return JSONResponse(status_code=status.HTTP_200_OK, content=phi_result)
+            return JSONResponse(status_code=status.HTTP_200_OK, content=phi_result)
 
     except Exception as e:
         # Log failed PHI access
@@ -240,33 +235,31 @@ async def extract_medical_entities(
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Medical processing is not enabled")
 
     try:
-        client = LMStudioClient()
-        service = MedicalLLMService(client)
+        async with LMStudioClient() as client:
+            service = MedicalLLMService(client)
 
-        # Perform entity extraction
-        entities = await service.extract_medical_entities(text)
+            # Perform entity extraction
+            entities = await service.extract_medical_entities(text)
 
-        await client.close()
+            # Log medical data processing
+            background_tasks.add_task(
+                audit_logger.log_phi_access,
+                user_id=current_user.get("user_id"),
+                patient_id="direct_input",
+                action="entity_extraction",
+                resource="api_endpoint",
+                result="success",
+                entity_count=len(entities),
+            )
 
-        # Log medical data processing
-        background_tasks.add_task(
-            audit_logger.log_phi_access,
-            user_id=current_user.get("user_id"),
-            patient_id="direct_input",
-            action="entity_extraction",
-            resource="api_endpoint",
-            result="success",
-            entity_count=len(entities),
-        )
-
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={
-                "entities": entities,
-                "entity_count": len(entities),
-                "processed_at": datetime.now(Config.TIMEZONE).isoformat(),
-            },
-        )
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={
+                    "entities": entities,
+                    "entity_count": len(entities),
+                    "processed_at": datetime.now(Config.TIMEZONE).isoformat(),
+                },
+            )
 
     except Exception as e:
         raise HTTPException(
@@ -284,28 +277,26 @@ async def generate_soap_note(
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Medical processing is not enabled")
 
     try:
-        client = LMStudioClient()
-        service = MedicalLLMService(client)
+        async with LMStudioClient() as client:
+            service = MedicalLLMService(client)
 
-        # Generate SOAP note
-        soap_note = await service.generate_soap_note(transcript)
+            # Generate SOAP note
+            soap_note = await service.generate_soap_note(transcript)
 
-        await client.close()
+            # Log clinical documentation creation
+            background_tasks.add_task(
+                audit_logger.log_data_modification,
+                user_id=current_user.get("user_id"),
+                action="create",
+                resource_type="soap_note",
+                resource_id=f"soap_{int(time.time())}",
+                changes={"sections_created": list(soap_note.keys())},
+            )
 
-        # Log clinical documentation creation
-        background_tasks.add_task(
-            audit_logger.log_data_modification,
-            user_id=current_user.get("user_id"),
-            action="create",
-            resource_type="soap_note",
-            resource_id=f"soap_{int(time.time())}",
-            changes={"sections_created": list(soap_note.keys())},
-        )
-
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={"soap_note": soap_note, "generated_at": datetime.now(Config.TIMEZONE).isoformat()},
-        )
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={"soap_note": soap_note, "generated_at": datetime.now(Config.TIMEZONE).isoformat()},
+            )
 
     except Exception as e:
         raise HTTPException(
@@ -328,9 +319,8 @@ async def search_similar_consultations(
 
     try:
         # Generate embedding for query
-        client = LMStudioClient()
-        query_embedding = await client.generate_embedding(query_text, Config.EMBEDDING_MODEL)
-        await client.close()
+        async with LMStudioClient() as client:
+            query_embedding = await client.generate_embedding(query_text, Config.EMBEDDING_MODEL)
 
         # Search vector store
         import numpy as np
@@ -339,32 +329,33 @@ async def search_similar_consultations(
             storage_dir=Config.VECTOR_DB_PATH, embedding_dim=Config.EMBEDDING_DIMENSION
         )
 
-        results = await vector_store.search_similar(
-            query_embedding=np.array(query_embedding), patient_id_encrypted=patient_id_encrypted, limit=limit
-        )
+        try:
+            results = await vector_store.search_similar(
+                query_embedding=np.array(query_embedding), patient_id_encrypted=patient_id_encrypted, limit=limit
+            )
 
-        vector_store.close()
+            # Log search activity
+            background_tasks.add_task(
+                audit_logger.log_phi_access,
+                user_id=current_user.get("user_id"),
+                patient_id=patient_id_encrypted or "cross_patient_search",
+                action="similarity_search",
+                resource="vector_database",
+                result="success",
+                results_count=len(results),
+            )
 
-        # Log search activity
-        background_tasks.add_task(
-            audit_logger.log_phi_access,
-            user_id=current_user.get("user_id"),
-            patient_id=patient_id_encrypted or "cross_patient_search",
-            action="similarity_search",
-            resource="vector_database",
-            result="success",
-            results_count=len(results),
-        )
-
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={
-                "query": query_text,
-                "results": results,
-                "result_count": len(results),
-                "searched_at": datetime.now(Config.TIMEZONE).isoformat(),
-            },
-        )
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={
+                    "query": query_text,
+                    "results": results,
+                    "result_count": len(results),
+                    "searched_at": datetime.now(Config.TIMEZONE).isoformat(),
+                },
+            )
+        finally:
+            vector_store.close()
 
     except Exception as e:
         raise HTTPException(
@@ -391,31 +382,32 @@ async def get_consultation_details(
             storage_dir=Config.VECTOR_DB_PATH, embedding_dim=Config.EMBEDDING_DIMENSION
         )
 
-        details = await vector_store.get_consultation_details(
-            consultation_id=consultation_id,
-            include_entities=include_entities,
-            include_phi=include_phi,
-            include_structured=include_structured,
-        )
-
-        vector_store.close()
-
-        if not details:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail=f"Consultation {consultation_id} not found"
+        try:
+            details = await vector_store.get_consultation_details(
+                consultation_id=consultation_id,
+                include_entities=include_entities,
+                include_phi=include_phi,
+                include_structured=include_structured,
             )
 
-        # Log PHI access
-        background_tasks.add_task(
-            audit_logger.log_phi_access,
-            user_id=current_user.get("user_id"),
-            patient_id=details.get("patient_id_encrypted"),
-            action="consultation_retrieval",
-            resource=consultation_id,
-            result="success",
-        )
+            if not details:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail=f"Consultation {consultation_id} not found"
+                )
 
-        return JSONResponse(status_code=status.HTTP_200_OK, content=details)
+            # Log PHI access
+            background_tasks.add_task(
+                audit_logger.log_phi_access,
+                user_id=current_user.get("user_id"),
+                patient_id=details.get("patient_id_encrypted"),
+                action="consultation_retrieval",
+                resource=consultation_id,
+                result="success",
+            )
+
+            return JSONResponse(status_code=status.HTTP_200_OK, content=details)
+        finally:
+            vector_store.close()
 
     except HTTPException:
         raise
@@ -445,33 +437,34 @@ async def get_patient_consultations(
             storage_dir=Config.VECTOR_DB_PATH, embedding_dim=Config.EMBEDDING_DIMENSION
         )
 
-        consultations = await vector_store.get_patient_consultations(
-            patient_id_encrypted=patient_id_encrypted, limit=limit, offset=offset
-        )
+        try:
+            consultations = await vector_store.get_patient_consultations(
+                patient_id_encrypted=patient_id_encrypted, limit=limit, offset=offset
+            )
 
-        vector_store.close()
+            # Log PHI access
+            background_tasks.add_task(
+                audit_logger.log_phi_access,
+                user_id=current_user.get("user_id"),
+                patient_id=patient_id_encrypted,
+                action="patient_history_access",
+                resource="patient_consultations",
+                result="success",
+                record_count=len(consultations),
+            )
 
-        # Log PHI access
-        background_tasks.add_task(
-            audit_logger.log_phi_access,
-            user_id=current_user.get("user_id"),
-            patient_id=patient_id_encrypted,
-            action="patient_history_access",
-            resource="patient_consultations",
-            result="success",
-            record_count=len(consultations),
-        )
-
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={
-                "patient_id_encrypted": patient_id_encrypted,
-                "consultations": consultations,
-                "count": len(consultations),
-                "limit": limit,
-                "offset": offset,
-            },
-        )
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={
+                    "patient_id_encrypted": patient_id_encrypted,
+                    "consultations": consultations,
+                    "count": len(consultations),
+                    "limit": limit,
+                    "offset": offset,
+                },
+            )
+        finally:
+            vector_store.close()
 
     except Exception as e:
         raise HTTPException(
@@ -492,19 +485,21 @@ async def get_medical_statistics(current_user: Dict[str, Any] = Depends(lambda: 
             storage_dir=Config.VECTOR_DB_PATH, embedding_dim=Config.EMBEDDING_DIMENSION
         )
 
-        stats = vector_store.get_statistics()
-        vector_store.close()
+        try:
+            stats = vector_store.get_statistics()
 
-        # Add configuration info
-        stats["configuration"] = {
-            "medical_rag_enabled": Config.MEDICAL_RAG_ENABLED,
-            "lm_studio_enabled": Config.LM_STUDIO_ENABLED,
-            "vector_storage_enabled": Config.ENABLE_VECTOR_STORAGE,
-            "embedding_model": Config.EMBEDDING_MODEL,
-            "embedding_dimension": Config.EMBEDDING_DIMENSION,
-        }
+            # Add configuration info
+            stats["configuration"] = {
+                "medical_rag_enabled": Config.MEDICAL_RAG_ENABLED,
+                "lm_studio_enabled": Config.LM_STUDIO_ENABLED,
+                "vector_storage_enabled": Config.ENABLE_VECTOR_STORAGE,
+                "embedding_model": Config.EMBEDDING_MODEL,
+                "embedding_dimension": Config.EMBEDDING_DIMENSION,
+            }
 
-        return JSONResponse(status_code=status.HTTP_200_OK, content=stats)
+            return JSONResponse(status_code=status.HTTP_200_OK, content=stats)
+        finally:
+            vector_store.close()
 
     except Exception as e:
         raise HTTPException(
@@ -563,22 +558,23 @@ async def medical_chat(
     try:
         chatbot = MedicalChatbotService()
 
-        result = await chatbot.query(user_query=query, patient_id_encrypted=patient_id_encrypted, session_id=session_id)
+        try:
+            result = await chatbot.query(user_query=query, patient_id_encrypted=patient_id_encrypted, session_id=session_id)
 
-        await chatbot.close()
+            # Log successful query
+            background_tasks.add_task(
+                audit_logger.log_phi_access,
+                user_id=current_user.get("user_id"),
+                patient_id=patient_id_encrypted,
+                action="chatbot_query",
+                resource="rag_chatbot",
+                result="success",
+                sources_count=len(result.get("sources", [])),
+            )
 
-        # Log successful query
-        background_tasks.add_task(
-            audit_logger.log_phi_access,
-            user_id=current_user.get("user_id"),
-            patient_id=patient_id_encrypted,
-            action="chatbot_query",
-            resource="rag_chatbot",
-            result="success",
-            sources_count=len(result.get("sources", [])),
-        )
-
-        return JSONResponse(status_code=status.HTTP_200_OK, content=result)
+            return JSONResponse(status_code=status.HTTP_200_OK, content=result)
+        finally:
+            await chatbot.close()
 
     except Exception as e:
         background_tasks.add_task(
@@ -684,110 +680,109 @@ async def process_transcript(
             max_tokens=Config.LM_STUDIO_MAX_TOKENS,
             model=Config.LM_STUDIO_MODEL,
         )
-        client = LMStudioClient(config)
-        service = MedicalLLMService(client)
+        
+        async with LMStudioClient(config) as client:
+            service = MedicalLLMService(client)
 
-        # Step 1: PHI Detection with speaker context
-        if enable_phi_detection and Config.ENABLE_PHI_DETECTION:
-            try:
-                phi_result = await service.detect_phi_in_dialogue(dialogue_data)
-                results["steps"]["phi_detection"] = {
-                    "success": True,
-                    "phi_detected": phi_result.get("phi_detected", False),
-                    "entity_count": len(phi_result.get("entities", [])),
-                    "entities": phi_result.get("entities", []),
-                }
-            except Exception as e:
-                results["steps"]["phi_detection"] = {"success": False, "error": str(e)}
-        else:
-            results["steps"]["phi_detection"] = {"skipped": True}
+            # Step 1: PHI Detection with speaker context
+            if enable_phi_detection and Config.ENABLE_PHI_DETECTION:
+                try:
+                    phi_result = await service.detect_phi_in_dialogue(dialogue_data)
+                    results["steps"]["phi_detection"] = {
+                        "success": True,
+                        "phi_detected": phi_result.get("phi_detected", False),
+                        "entity_count": len(phi_result.get("entities", [])),
+                        "entities": phi_result.get("entities", []),
+                    }
+                except Exception as e:
+                    results["steps"]["phi_detection"] = {"success": False, "error": str(e)}
+            else:
+                results["steps"]["phi_detection"] = {"skipped": True}
 
-        # Step 2: Medical Entity Extraction with speaker attribution
-        entities = []
-        if enable_entity_extraction and Config.ENABLE_ENTITY_EXTRACTION:
-            try:
-                entities = await service.extract_entities_with_speaker(dialogue_data)
-                results["steps"]["entity_extraction"] = {
-                    "success": True,
-                    "entity_count": len(entities),
-                    "entities": entities,
-                }
-            except Exception as e:
-                results["steps"]["entity_extraction"] = {"success": False, "error": str(e)}
-        else:
-            results["steps"]["entity_extraction"] = {"skipped": True}
+            # Step 2: Medical Entity Extraction with speaker attribution
+            entities = []
+            if enable_entity_extraction and Config.ENABLE_ENTITY_EXTRACTION:
+                try:
+                    entities = await service.extract_entities_with_speaker(dialogue_data)
+                    results["steps"]["entity_extraction"] = {
+                        "success": True,
+                        "entity_count": len(entities),
+                        "entities": entities,
+                    }
+                except Exception as e:
+                    results["steps"]["entity_extraction"] = {"success": False, "error": str(e)}
+            else:
+                results["steps"]["entity_extraction"] = {"skipped": True}
 
-        # Step 3: SOAP Note Generation from dialogue
-        if enable_soap_generation and Config.ENABLE_SOAP_GENERATION:
-            try:
-                soap_note = await service.generate_soap_from_dialogue(dialogue_data)
-                results["steps"]["soap_generation"] = {"success": True, "soap_note": soap_note}
-            except Exception as e:
-                results["steps"]["soap_generation"] = {"success": False, "error": str(e)}
-        else:
-            results["steps"]["soap_generation"] = {"skipped": True}
+            # Step 3: SOAP Note Generation from dialogue
+            if enable_soap_generation and Config.ENABLE_SOAP_GENERATION:
+                try:
+                    soap_note = await service.generate_soap_from_dialogue(dialogue_data)
+                    results["steps"]["soap_generation"] = {"success": True, "soap_note": soap_note}
+                except Exception as e:
+                    results["steps"]["soap_generation"] = {"success": False, "error": str(e)}
+            else:
+                results["steps"]["soap_generation"] = {"skipped": True}
 
-        # Step 4: Embedding Generation & Vector Storage
-        if enable_vector_storage and Config.ENABLE_VECTOR_STORAGE:
-            try:
-                # Generate transcript text from dialogue for embedding
-                from ..services.dialogue_formatter import DialogueFormatter
+            # Step 4: Embedding Generation & Vector Storage
+            if enable_vector_storage and Config.ENABLE_VECTOR_STORAGE:
+                try:
+                    # Generate transcript text from dialogue for embedding
+                    from ..services.dialogue_formatter import DialogueFormatter
 
-                formatter = DialogueFormatter()
-                dialogue_segments = dialogue_data.get("dialogue", [])
-                transcript_text = formatter.generate_transcript(dialogue_segments, format="plain")
+                    formatter = DialogueFormatter()
+                    dialogue_segments = dialogue_data.get("dialogue", [])
+                    transcript_text = formatter.generate_transcript(dialogue_segments, format="plain")
 
-                # Generate embedding
-                embedding = await client.generate_embedding(transcript_text, Config.EMBEDDING_MODEL)
-                results["steps"]["embedding_generation"] = {"success": True, "dimension": len(embedding)}
+                    # Generate embedding
+                    embedding = await client.generate_embedding(transcript_text, Config.EMBEDDING_MODEL)
+                    results["steps"]["embedding_generation"] = {"success": True, "dimension": len(embedding)}
 
-                # Store in vector database
-                vector_store = MedicalDocumentVectorStore(
-                    storage_dir=Config.VECTOR_DB_PATH, embedding_dim=Config.EMBEDDING_DIMENSION
-                )
+                    # Store in vector database
+                    vector_store = MedicalDocumentVectorStore(
+                        storage_dir=Config.VECTOR_DB_PATH, embedding_dim=Config.EMBEDDING_DIMENSION
+                    )
 
-                # Include speaker metadata in consultation storage
-                metadata = {
-                    "processed_at": datetime.now(Config.TIMEZONE).isoformat(),
-                    "has_speaker_attribution": True,
-                    "speaker_mapping": dialogue_data.get("speaker_mapping", {}),
-                    "dialogue_statistics": dialogue_data.get("statistics", {}),
-                }
+                    # Include speaker metadata in consultation storage
+                    metadata = {
+                        "processed_at": datetime.now(Config.TIMEZONE).isoformat(),
+                        "has_speaker_attribution": True,
+                        "speaker_mapping": dialogue_data.get("speaker_mapping", {}),
+                        "dialogue_statistics": dialogue_data.get("statistics", {}),
+                    }
 
-                vector_id = await vector_store.store_consultation(
-                    consultation_id=consultation_id,
-                    patient_id_encrypted=patient_id_encrypted,
-                    provider_id=provider_id,
-                    encounter_date=encounter_date,
-                    transcript=transcript_text,
-                    embedding=np.array(embedding, dtype=np.float32),
-                    metadata=metadata,
-                )
+                    vector_id = await vector_store.store_consultation(
+                        consultation_id=consultation_id,
+                        patient_id_encrypted=patient_id_encrypted,
+                        provider_id=provider_id,
+                        encounter_date=encounter_date,
+                        transcript=transcript_text,
+                        embedding=np.array(embedding, dtype=np.float32),
+                        metadata=metadata,
+                    )
 
-                # Store medical entities (with speaker attribution)
-                if entities:
-                    await vector_store.store_medical_entities(consultation_id, entities)
+                    # Store medical entities (with speaker attribution)
+                    if entities:
+                        await vector_store.store_medical_entities(consultation_id, entities)
 
-                # Store structured document
-                soap_note = results["steps"].get("soap_generation", {}).get("soap_note", {})
-                await vector_store.store_structured_document(
-                    consultation_id=consultation_id,
-                    structured_doc={"transcript_length": len(transcript_text), "speaker_metadata": metadata},
-                    soap_note=soap_note if isinstance(soap_note, dict) else None,
-                    clinical_summary=soap_note.get("assessment") if isinstance(soap_note, dict) else None,
-                )
+                    # Store structured document
+                    soap_note = results["steps"].get("soap_generation", {}).get("soap_note", {})
+                    await vector_store.store_structured_document(
+                        consultation_id=consultation_id,
+                        structured_doc={"transcript_length": len(transcript_text), "speaker_metadata": metadata},
+                        soap_note=soap_note if isinstance(soap_note, dict) else None,
+                        clinical_summary=soap_note.get("assessment") if isinstance(soap_note, dict) else None,
+                    )
 
-                vector_store.save_index()
-                vector_store.close()
+                    vector_store.save_index()
+                    vector_store.close()
 
-                results["steps"]["vector_storage"] = {"success": True, "vector_id": vector_id}
+                    results["steps"]["vector_storage"] = {"success": True, "vector_id": vector_id}
 
-            except Exception as e:
-                results["steps"]["vector_storage"] = {"success": False, "error": str(e)}
-        else:
-            results["steps"]["vector_storage"] = {"skipped": True}
-
-        await client.close()
+                except Exception as e:
+                    results["steps"]["vector_storage"] = {"success": False, "error": str(e)}
+            else:
+                results["steps"]["vector_storage"] = {"skipped": True}
 
         # Calculate summary
         successful_steps = sum(1 for step in results["steps"].values() if step.get("success", False))
@@ -983,103 +978,102 @@ async def process_whisperx_result(
             max_tokens=Config.LM_STUDIO_MAX_TOKENS,
             model=Config.LM_STUDIO_MODEL,
         )
-        client = LMStudioClient(config)
-        service = MedicalLLMService(client)
+        
+        async with LMStudioClient(config) as client:
+            service = MedicalLLMService(client)
 
-        # Medical processing steps (using speaker-aware methods)
-        if request.processing_options.enable_phi_detection and Config.ENABLE_PHI_DETECTION:
-            try:
-                phi_result = await service.detect_phi_in_dialogue(dialogue_data)
-                results["steps"]["phi_detection"] = {
-                    "success": True,
-                    "phi_detected": phi_result.get("phi_detected", False),
-                    "entity_count": len(phi_result.get("entities", [])),
-                    "entities": phi_result.get("entities", []),
-                }
-            except Exception as e:
-                results["steps"]["phi_detection"] = {"success": False, "error": str(e)}
-        else:
-            results["steps"]["phi_detection"] = {"skipped": True}
+            # Medical processing steps (using speaker-aware methods)
+            if request.processing_options.enable_phi_detection and Config.ENABLE_PHI_DETECTION:
+                try:
+                    phi_result = await service.detect_phi_in_dialogue(dialogue_data)
+                    results["steps"]["phi_detection"] = {
+                        "success": True,
+                        "phi_detected": phi_result.get("phi_detected", False),
+                        "entity_count": len(phi_result.get("entities", [])),
+                        "entities": phi_result.get("entities", []),
+                    }
+                except Exception as e:
+                    results["steps"]["phi_detection"] = {"success": False, "error": str(e)}
+            else:
+                results["steps"]["phi_detection"] = {"skipped": True}
 
-        entities = []
-        if request.processing_options.enable_entity_extraction and Config.ENABLE_ENTITY_EXTRACTION:
-            try:
-                entities = await service.extract_entities_with_speaker(dialogue_data)
-                results["steps"]["entity_extraction"] = {
-                    "success": True,
-                    "entity_count": len(entities),
-                    "entities": entities,
-                }
-            except Exception as e:
-                results["steps"]["entity_extraction"] = {"success": False, "error": str(e)}
-        else:
-            results["steps"]["entity_extraction"] = {"skipped": True}
+            entities = []
+            if request.processing_options.enable_entity_extraction and Config.ENABLE_ENTITY_EXTRACTION:
+                try:
+                    entities = await service.extract_entities_with_speaker(dialogue_data)
+                    results["steps"]["entity_extraction"] = {
+                        "success": True,
+                        "entity_count": len(entities),
+                        "entities": entities,
+                    }
+                except Exception as e:
+                    results["steps"]["entity_extraction"] = {"success": False, "error": str(e)}
+            else:
+                results["steps"]["entity_extraction"] = {"skipped": True}
 
-        if request.processing_options.enable_soap_generation and Config.ENABLE_SOAP_GENERATION:
-            try:
-                soap_note = await service.generate_soap_from_dialogue(dialogue_data)
-                results["steps"]["soap_generation"] = {"success": True, "soap_note": soap_note}
-            except Exception as e:
-                results["steps"]["soap_generation"] = {"success": False, "error": str(e)}
-        else:
-            results["steps"]["soap_generation"] = {"skipped": True}
+            if request.processing_options.enable_soap_generation and Config.ENABLE_SOAP_GENERATION:
+                try:
+                    soap_note = await service.generate_soap_from_dialogue(dialogue_data)
+                    results["steps"]["soap_generation"] = {"success": True, "soap_note": soap_note}
+                except Exception as e:
+                    results["steps"]["soap_generation"] = {"success": False, "error": str(e)}
+            else:
+                results["steps"]["soap_generation"] = {"skipped": True}
 
-        # Step 4: Vector storage
-        if request.processing_options.enable_vector_storage and Config.ENABLE_VECTOR_STORAGE:
-            try:
-                from ..services.dialogue_formatter import DialogueFormatter
+            # Step 4: Vector storage
+            if request.processing_options.enable_vector_storage and Config.ENABLE_VECTOR_STORAGE:
+                try:
+                    from ..services.dialogue_formatter import DialogueFormatter
 
-                formatter = DialogueFormatter()
-                dialogue_segments = dialogue_data.get("dialogue", [])
-                transcript_text = formatter.generate_transcript(dialogue_segments, format="plain")
+                    formatter = DialogueFormatter()
+                    dialogue_segments = dialogue_data.get("dialogue", [])
+                    transcript_text = formatter.generate_transcript(dialogue_segments, format="plain")
 
-                embedding = await client.generate_embedding(transcript_text, Config.EMBEDDING_MODEL)
-                results["steps"]["embedding_generation"] = {"success": True, "dimension": len(embedding)}
+                    embedding = await client.generate_embedding(transcript_text, Config.EMBEDDING_MODEL)
+                    results["steps"]["embedding_generation"] = {"success": True, "dimension": len(embedding)}
 
-                vector_store = MedicalDocumentVectorStore(
-                    storage_dir=Config.VECTOR_DB_PATH, embedding_dim=Config.EMBEDDING_DIMENSION
-                )
+                    vector_store = MedicalDocumentVectorStore(
+                        storage_dir=Config.VECTOR_DB_PATH, embedding_dim=Config.EMBEDDING_DIMENSION
+                    )
 
-                metadata = {
-                    "processed_at": datetime.now(Config.TIMEZONE).isoformat(),
-                    "has_speaker_attribution": True,
-                    "speaker_mapping": dialogue_data.get("speaker_mapping", {}),
-                    "dialogue_statistics": dialogue_data.get("statistics", {}),
-                    "workflow_id": request.workflow_id,
-                }
+                    metadata = {
+                        "processed_at": datetime.now(Config.TIMEZONE).isoformat(),
+                        "has_speaker_attribution": True,
+                        "speaker_mapping": dialogue_data.get("speaker_mapping", {}),
+                        "dialogue_statistics": dialogue_data.get("statistics", {}),
+                        "workflow_id": request.workflow_id,
+                    }
 
-                vector_id = await vector_store.store_consultation(
-                    consultation_id=consultation_id,
-                    patient_id_encrypted=patient_id_encrypted,
-                    provider_id=request.provider_id,
-                    encounter_date=encounter_date,
-                    transcript=transcript_text,
-                    embedding=np.array(embedding, dtype=np.float32),
-                    metadata=metadata,
-                )
+                    vector_id = await vector_store.store_consultation(
+                        consultation_id=consultation_id,
+                        patient_id_encrypted=patient_id_encrypted,
+                        provider_id=request.provider_id,
+                        encounter_date=encounter_date,
+                        transcript=transcript_text,
+                        embedding=np.array(embedding, dtype=np.float32),
+                        metadata=metadata,
+                    )
 
-                if entities:
-                    await vector_store.store_medical_entities(consultation_id, entities)
+                    if entities:
+                        await vector_store.store_medical_entities(consultation_id, entities)
 
-                soap_note = results["steps"].get("soap_generation", {}).get("soap_note", {})
-                await vector_store.store_structured_document(
-                    consultation_id=consultation_id,
-                    structured_doc={"transcript_length": len(transcript_text), "speaker_metadata": metadata},
-                    soap_note=soap_note if isinstance(soap_note, dict) else None,
-                    clinical_summary=soap_note.get("assessment") if isinstance(soap_note, dict) else None,
-                )
+                    soap_note = results["steps"].get("soap_generation", {}).get("soap_note", {})
+                    await vector_store.store_structured_document(
+                        consultation_id=consultation_id,
+                        structured_doc={"transcript_length": len(transcript_text), "speaker_metadata": metadata},
+                        soap_note=soap_note if isinstance(soap_note, dict) else None,
+                        clinical_summary=soap_note.get("assessment") if isinstance(soap_note, dict) else None,
+                    )
 
-                vector_store.save_index()
-                vector_store.close()
+                    vector_store.save_index()
+                    vector_store.close()
 
-                results["steps"]["vector_storage"] = {"success": True, "vector_id": vector_id}
+                    results["steps"]["vector_storage"] = {"success": True, "vector_id": vector_id}
 
-            except Exception as e:
-                results["steps"]["vector_storage"] = {"success": False, "error": str(e)}
-        else:
-            results["steps"]["vector_storage"] = {"skipped": True}
-
-        await client.close()
+                except Exception as e:
+                    results["steps"]["vector_storage"] = {"success": False, "error": str(e)}
+            else:
+                results["steps"]["vector_storage"] = {"skipped": True}
 
         # Calculate summary
         successful_steps = sum(1 for step in results["steps"].values() if step.get("success", False))
@@ -1130,13 +1124,14 @@ async def clear_chat_session(session_id: str):
     """Clear conversation history for a specific session."""
     try:
         chatbot = MedicalChatbotService()
-        chatbot.clear_session(session_id)
-        await chatbot.close()
-
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={"message": f"Session {session_id} cleared", "session_id": session_id},
-        )
+        try:
+            chatbot.clear_session(session_id)
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={"message": f"Session {session_id} cleared", "session_id": session_id},
+            )
+        finally:
+            await chatbot.close()
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to clear session: {str(e)}"

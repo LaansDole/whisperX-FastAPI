@@ -454,50 +454,55 @@ async def vector_storage_activity(
                 index_type=Config.VECTOR_INDEX_TYPE,
             )
 
-            # Convert embedding to numpy array
-            embedding_array = np.array(embedding, dtype=np.float32)
+            try:
+                # Convert embedding to numpy array
+                embedding_array = np.array(embedding, dtype=np.float32)
 
-            # Store consultation
-            vector_id = await vector_store.store_consultation(
-                consultation_id=consultation_id,
-                patient_id_encrypted=patient_id_encrypted,
-                provider_id=provider_id,
-                encounter_date=encounter_date,
-                transcript=transcript,
-                embedding=embedding_array,
-                metadata={
+                # Define metadata
+                metadata = {
                     "processing_timestamp": datetime.now(Config.TIMEZONE).isoformat(),
                     "embedding_model": Config.EMBEDDING_MODEL,
-                },
-            )
+                }
 
-            # Store medical entities if available
-            if medical_entities:
-                await vector_store.store_medical_entities(consultation_id, medical_entities)
-
-            # Store PHI detections if available
-            if phi_data and phi_data.get("phi_detected"):
-                await vector_store.store_phi_detections(consultation_id, phi_data.get("entities", []))
-
-            # Store structured document if available
-            if structured_document:
-                soap_note = structured_document.get("soap_note", {})
-                clinical_summary = structured_document.get("clinical_summary")
-                await vector_store.store_structured_document(
-                    consultation_id, structured_document, soap_note, clinical_summary
+                # Store consultation
+                vector_id = await vector_store.store_consultation(
+                    consultation_id=consultation_id,
+                    patient_id_encrypted=patient_id_encrypted,
+                    provider_id=provider_id,
+                    encounter_date=encounter_date,
+                    transcript=transcript,
+                    embedding=embedding_array,
+                    metadata=metadata,
                 )
 
-            # Save index
-            vector_store.save_index()
+                # Store medical entities if available
+                if medical_entities:
+                    await vector_store.store_medical_entities(consultation_id, medical_entities)
 
-            result = {
-                "consultation_id": consultation_id,
-                "vector_id": vector_id,
-                "stored_at": datetime.now(Config.TIMEZONE).isoformat(),
-            }
+                # Store PHI detections if available
+                if phi_data and phi_data.get("phi_detected"):
+                    await vector_store.store_phi_detections(consultation_id, phi_data.get("entities", []))
 
-            vector_store.close()
-            return result
+                # Store structured document if available
+                if structured_document:
+                    soap_note = structured_document.get("soap_note", {})
+                    clinical_summary = structured_document.get("clinical_summary")
+                    await vector_store.store_structured_document(
+                        consultation_id, structured_document, soap_note, clinical_summary
+                    )
+
+                # Save index
+                vector_store.save_index()
+
+                result = {
+                    "consultation_id": consultation_id,
+                    "vector_id": vector_id,
+                    "stored_at": datetime.now(Config.TIMEZONE).isoformat(),
+                }
+
+                return result
+            finally:
+                vector_store.close()
 
         except Exception as e:
             logging.error(f"Vector storage failed: {e}")

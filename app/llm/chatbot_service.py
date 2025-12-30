@@ -238,30 +238,32 @@ Consultation ID: {result.get("consultation_id", "Unknown")}
                 storage_dir=Config.VECTOR_DB_PATH, embedding_dim=Config.EMBEDDING_DIMENSION
             )
 
-            # Search for similar consultations
-            results = await vector_store.search_similar(
-                query_embedding=np.array(query_embedding, dtype=np.float32),
-                patient_id_encrypted=patient_id_encrypted,
-                limit=limit,
-                similarity_threshold=0.3,  # Lower threshold for more context
-            )
-
-            # Enrich results with full details
-            enriched_results = []
-            for result in results:
-                details = await vector_store.get_consultation_details(
-                    consultation_id=result["consultation_id"],
-                    include_entities=True,
-                    include_phi=False,  # Don't include PHI in context
-                    include_structured=True,
+            try:
+                # Search for similar consultations
+                results = await vector_store.search_similar(
+                    query_embedding=np.array(query_embedding, dtype=np.float32),
+                    patient_id_encrypted=patient_id_encrypted,
+                    limit=limit,
+                    similarity_threshold=0.3,  # Lower threshold for more context
                 )
-                if details:
-                    enriched_results.append({**result, **details})
-                else:
-                    enriched_results.append(result)
 
-            vector_store.close()
-            return enriched_results
+                # Enrich results with full details
+                enriched_results = []
+                for result in results:
+                    details = await vector_store.get_consultation_details(
+                        consultation_id=result["consultation_id"],
+                        include_entities=True,
+                        include_phi=False,  # Don't include PHI in context
+                        include_structured=True,
+                    )
+                    if details:
+                        enriched_results.append({**result, **details})
+                    else:
+                        enriched_results.append(result)
+
+                return enriched_results
+            finally:
+                vector_store.close()
 
         except Exception as e:
             logger.error(f"Failed to fetch patient context: {e}")
