@@ -63,7 +63,7 @@ class WhisperXWorkflow:
                 "diarize_activity",
                 args=[audio_path, params["diarization_params"]],
                 start_to_close_timeout=timedelta(minutes=TemporalConfig.DIARIZATION_TIMEOUT_MINUTES),
-                heartbeat_timeout=timedelta(seconds=60),
+                heartbeat_timeout=timedelta(minutes=30),  # Allow long audio processing
                 retry_policy=RetryPolicy(
                     initial_interval=timedelta(seconds=15),
                     backoff_coefficient=2.0,
@@ -356,7 +356,7 @@ class HybridAudioMedicalWorkflow:
                     "diarize_activity",
                     args=[audio_path, params["diarize_params"]],
                     start_to_close_timeout=timedelta(minutes=TemporalConfig.DIARIZATION_TIMEOUT_MINUTES),
-                    heartbeat_timeout=timedelta(seconds=60),  # Phase 1.4: Heartbeat every 60 seconds
+                    heartbeat_timeout=timedelta(minutes=30),  # Increased from 60s to allow long audio processing
                     retry_policy=RetryPolicy(
                         initial_interval=timedelta(seconds=15),
                         backoff_coefficient=2.0,

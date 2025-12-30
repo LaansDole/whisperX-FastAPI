@@ -151,9 +151,7 @@ async def diarize_activity(audio_path: str, diarize_params: dict) -> dict:
             activity.logger.error(f"Diarization failed: {e}")
             # Classify as non-retryable for invalid input data
             is_retryable = not isinstance(e, (ValueError, TypeError))
-            raise TemporalErrorHandler.create_application_error(
-                e, "Diarization", retryable=is_retryable
-            )
+            raise TemporalErrorHandler.create_application_error(e, "Diarization", retryable=is_retryable)
 
 
 @activity.defn

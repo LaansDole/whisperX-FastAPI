@@ -46,7 +46,7 @@ async def transform_to_dialogue_activity(
 
             dialogue_data = transformer.transform_with_overrides(
                 whisperx_result=whisperx_result,
-                manual_speaker_mapping=manual_speaker_mapping,
+                manual_speaker_mapping=manual_speaker_mapping or {},
                 workflow_id=workflow_id,
                 consultation_metadata=consultation_metadata,
             )
@@ -332,7 +332,10 @@ async def store_consultation_with_speaker_data_activity(
             async with LMStudioClient(config) as client:
                 # Format dialogue for embedding
                 dialogue_text = "\n".join(
-                    [f"{seg.get('speaker', 'Unknown')}: {seg.get('text', '')}" for seg in dialogue_data.get("dialogue", [])]
+                    [
+                        f"{seg.get('speaker', 'Unknown')}: {seg.get('text', '')}"
+                        for seg in dialogue_data.get("dialogue", [])
+                    ]
                 )
 
                 # Generate embedding

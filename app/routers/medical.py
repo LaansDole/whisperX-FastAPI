@@ -559,7 +559,9 @@ async def medical_chat(
         chatbot = MedicalChatbotService()
 
         try:
-            result = await chatbot.query(user_query=query, patient_id_encrypted=patient_id_encrypted, session_id=session_id)
+            result = await chatbot.query(
+                user_query=query, patient_id_encrypted=patient_id_encrypted, session_id=session_id
+            )
 
             # Log successful query
             background_tasks.add_task(
@@ -680,7 +682,7 @@ async def process_transcript(
             max_tokens=Config.LM_STUDIO_MAX_TOKENS,
             model=Config.LM_STUDIO_MODEL,
         )
-        
+
         async with LMStudioClient(config) as client:
             service = MedicalLLMService(client)
 
@@ -978,7 +980,7 @@ async def process_whisperx_result(
             max_tokens=Config.LM_STUDIO_MAX_TOKENS,
             model=Config.LM_STUDIO_MODEL,
         )
-        
+
         async with LMStudioClient(config) as client:
             service = MedicalLLMService(client)
 

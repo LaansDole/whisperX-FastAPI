@@ -56,7 +56,7 @@ async def main():
         default_workers = "1"  # Safe default for GPU to prevent OOM
     else:
         default_workers = "5"  # Optimal for CPU deployments
-    
+
     max_activity_workers = int(os.getenv("MAX_ACTIVITY_WORKERS", default_workers))
 
     logger.info("=" * 70)
@@ -76,7 +76,7 @@ async def main():
         logger.info(f"GPU memory per device: {gpu_memory:.2f} GB")
         logger.info("GPU memory optimization: Model caching enabled")
         logger.info(f"Default worker count for GPU: 1 (current: {max_activity_workers})")
-        
+
         # Warn only if user explicitly overrode the safe default
         if max_activity_workers > 1:
             logger.warning("=" * 70)
@@ -90,8 +90,13 @@ async def main():
         logger.info(f"Default worker count for CPU: 5 (current: {max_activity_workers})")
 
     # CRITICAL: Use ThreadPoolExecutor for concurrent activity execution
-    # This allows multiple activities to run in parallel instead of serially
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_activity_workers) as activity_executor:
+    # Do NOT use context manager - executor must stay alive during worker.run()
+    activity_executor = concurrent.futures.ThreadPoolExecutor(
+        max_workers=max_activity_workers,
+        thread_name_prefix="temporal-activity-",
+    )
+
+    try:
         worker = Worker(
             client,
             task_queue=config.TEMPORAL_TASK_QUEUE,
@@ -131,7 +136,13 @@ async def main():
         logger.info(f"Throughput: Up to {max_activity_workers} audio files can process concurrently")
         logger.info("=" * 70)
 
+        # Run worker (blocking call until shutdown)
         await worker.run()
+    finally:
+        # Ensure executor is properly shut down when worker stops
+        logger.info("Shutting down activity executor...")
+        activity_executor.shutdown(wait=True)
+        logger.info("Activity executor shut down successfully")
 
 
 if __name__ == "__main__":

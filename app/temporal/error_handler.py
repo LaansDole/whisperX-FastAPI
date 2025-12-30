@@ -48,10 +48,7 @@ class TemporalErrorHandler:
 
     @staticmethod
     def create_application_error(
-        error: Exception | str,
-        context: str = "",
-        retryable: bool | None = None,
-        force_non_retryable: bool = False
+        error: Exception | str, context: str = "", retryable: bool | None = None, force_non_retryable: bool = False
     ) -> ApplicationError:
         """
         Create an ApplicationError with appropriate retry settings.
@@ -68,18 +65,18 @@ class TemporalErrorHandler:
         # Handle string errors
         if isinstance(error, str):
             error_message = f"{context}: {error}" if context else error
-            is_retryable = retryable if retryable is not None else False
+            is_retryable = retryable if retryable is not None else True
             category = "application"
         else:
             is_retryable, category = TemporalErrorHandler.classify_error(error)
-            
+
             # Allow explicit override
             if retryable is not None:
                 is_retryable = retryable
-            
+
             if force_non_retryable:
                 is_retryable = False
-            
+
             error_message = f"{context}: {error}" if context else str(error)
 
         logger.error(

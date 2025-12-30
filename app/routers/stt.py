@@ -154,18 +154,16 @@ async def speech_to_text(
         try:
             # Validate it's a valid ISO date format (YYYY-MM-DD)
             from datetime import date
+
             date.fromisoformat(encounter_date)
         except ValueError as e:
             raise HTTPException(
-                status_code=400,
-                detail=f"Invalid encounter_date format. Expected ISO format (YYYY-MM-DD): {str(e)}"
+                status_code=400, detail=f"Invalid encounter_date format. Expected ISO format (YYYY-MM-DD): {str(e)}"
             )
 
     if enable_medical_processing:
         if not provider_id:
-            raise HTTPException(
-                status_code=400, detail="provider_id is required when enable_medical_processing=True"
-            )
+            raise HTTPException(status_code=400, detail="provider_id is required when enable_medical_processing=True")
 
     # Reserve database record (PENDING status) BEFORE workflow starts
     from ..patients.mapping import reserve_patient_workflow, commit_patient_workflow, rollback_patient_workflow
@@ -187,7 +185,6 @@ async def speech_to_text(
     # Choose workflow based on medical processing flag
     try:
         if enable_medical_processing:
-
             # Encrypt patient ID for storage
             from ..hipaa.encryption import HIPAAEncryption
 
