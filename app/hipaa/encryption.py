@@ -39,7 +39,7 @@ class HIPAAEncryption:
             raise ValueError(
                 "HIPAA_ENCRYPTION_KEY environment variable not set. This is required for HIPAA compliance."
             )
-        
+
         # Special case: allow "default" for development/testing
         if key_b64 == "default":
             logger.warning(
@@ -49,7 +49,7 @@ class HIPAAEncryption:
             )
             # Convert "default" to a consistent 32-byte key for testing
             return hashlib.sha256(b"default_development_key_not_secure").digest()
-        
+
         # Production: decode base64 key
         try:
             return base64.b64decode(key_b64)

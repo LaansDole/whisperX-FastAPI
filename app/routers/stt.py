@@ -177,6 +177,7 @@ async def speech_to_text(
 
             # Encrypt patient ID for storage
             from ..hipaa.encryption import HIPAAEncryption
+
             encryption_service = HIPAAEncryption()
             patient_id_encrypted = encryption_service.encrypt_patient_id(patient_name)
 

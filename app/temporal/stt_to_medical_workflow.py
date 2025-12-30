@@ -5,7 +5,6 @@ from temporalio.common import RetryPolicy
 from temporalio.exceptions import ActivityError, ApplicationError
 from datetime import timedelta
 import logging
-import uuid
 from typing import Dict, Any, Optional
 
 from .config import TemporalConfig

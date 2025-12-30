@@ -50,4 +50,5 @@ class TraceFormatter(logging.Formatter):
             record.msg = f"[{trace_id[:8]}] {record.msg}"
         return super().format(record)
 
+
 logger.debug(f"Debug messages enabled: {debug}")

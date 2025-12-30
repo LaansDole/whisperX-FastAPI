@@ -56,58 +56,52 @@ def get_diarization_model(device_param: str = None) -> DiarizationPipeline:
     cache_key = f"diarization_{device_param}"
 
     # Double-checked locking pattern for thread safety
-    if cache_key in _diarization_model_cache:
-        _diarization_cache_hits += 1
-        logger.debug(
-            f"Diarization model cache HIT for {cache_key} (hits: {_diarization_cache_hits}, misses: {_diarization_cache_misses})"
-        )
-        return _diarization_model_cache[cache_key]
+    with _diarization_model_lock:
+        if cache_key in _diarization_model_cache:
+            _diarization_cache_hits += 1
+            logger.debug(
+                f"Diarization model cache HIT for {cache_key} (hits: {_diarization_cache_hits}, misses: {_diarization_cache_misses})"
+            )
+            return _diarization_model_cache[cache_key]
 
-    if cache_key not in _diarization_model_cache:
-        with _diarization_model_lock:
-            # Check again in case another thread loaded it
-            if cache_key in _diarization_model_cache:
-                _diarization_cache_hits += 1
-                return _diarization_model_cache[cache_key]
+        _diarization_cache_misses += 1
+        logger.info(f"Loading diarization model for device {device_param} (cache MISS, first time only)")
 
-            _diarization_cache_misses += 1
-            logger.info(f"Loading diarization model for device {device_param} (cache MISS, first time only)")
+        try:
+            # Attempt to load from Hugging Face Hub
+            model = DiarizationPipeline(use_auth_token=HF_TOKEN, device=device_param)
+            _diarization_model_cache[cache_key] = model
+            logger.info(f"Diarization model cached successfully for {device_param}")
 
-            try:
-                # Attempt to load from Hugging Face Hub
-                model = DiarizationPipeline(use_auth_token=HF_TOKEN, device=device_param)
-                _diarization_model_cache[cache_key] = model
-                logger.info(f"Diarization model cached successfully for {device_param}")
+            # Log GPU memory usage
+            if torch.cuda.is_available():
+                allocated = torch.cuda.memory_allocated() / 1024**2
+                total = torch.cuda.get_device_properties(0).total_memory / 1024**2
+                logger.info(f"GPU memory after diarization model load: {allocated:.2f} MB / {total:.2f} MB")
 
-                # Log GPU memory usage
-                if torch.cuda.is_available():
-                    allocated = torch.cuda.memory_allocated() / 1024**2
-                    total = torch.cuda.get_device_properties(0).total_memory / 1024**2
-                    logger.info(f"GPU memory after diarization model load: {allocated:.2f} MB / {total:.2f} MB")
+        except Exception as e:
+            logger.error(f"Failed to load diarization model from HuggingFace Hub: {e}")
 
-            except Exception as e:
-                logger.error(f"Failed to load diarization model from HuggingFace Hub: {e}")
-
-                # Try local path fallback
-                if DIARIZATION_MODEL_PATH:
-                    logger.info(f"Attempting local model load from: {DIARIZATION_MODEL_PATH}")
-                    try:
-                        model = DiarizationPipeline(
-                            model_name=DIARIZATION_MODEL_PATH, use_auth_token=HF_TOKEN, device=device_param
-                        )
-                        _diarization_model_cache[cache_key] = model
-                        logger.info(f"Diarization model loaded from local path: {DIARIZATION_MODEL_PATH}")
-                    except Exception as local_e:
-                        logger.error(f"Failed to load diarization model from local path: {local_e}")
-                        raise RuntimeError(
-                            f"Failed to load diarization model from both HuggingFace Hub and local path. "
-                            f"Hub error: {e}, Local error: {local_e}"
-                        ) from local_e
-                else:
+            # Try local path fallback
+            if DIARIZATION_MODEL_PATH:
+                logger.info(f"Attempting local model load from: {DIARIZATION_MODEL_PATH}")
+                try:
+                    model = DiarizationPipeline(
+                        model_name=DIARIZATION_MODEL_PATH, use_auth_token=HF_TOKEN, device=device_param
+                    )
+                    _diarization_model_cache[cache_key] = model
+                    logger.info(f"Diarization model loaded from local path: {DIARIZATION_MODEL_PATH}")
+                except Exception as local_e:
+                    logger.error(f"Failed to load diarization model from local path: {local_e}")
                     raise RuntimeError(
-                        f"Failed to load diarization model from HuggingFace Hub: {e}. "
-                        "No local model path configured (DIARIZATION_MODEL_PATH)."
-                    ) from e
+                        f"Failed to load diarization model from both HuggingFace Hub and local path. "
+                        f"Hub error: {e}, Local error: {local_e}"
+                    ) from local_e
+            else:
+                raise RuntimeError(
+                    f"Failed to load diarization model from HuggingFace Hub: {e}. "
+                    "No local model path configured (DIARIZATION_MODEL_PATH)."
+                ) from e
 
     return _diarization_model_cache[cache_key]
 
@@ -126,11 +120,8 @@ def clear_diarization_model_cache() -> None:
     with _diarization_model_lock:
         for cache_key, model in list(_diarization_model_cache.items()):
             logger.info(f"Clearing diarization model cache for {cache_key}")
-            try:
-                # Cleanup model
-                del model
-            except Exception as e:
-                logger.warning(f"Error clearing model cache for {cache_key}: {e}")
+            # Cleanup model
+            del model
 
         _diarization_model_cache.clear()
 
@@ -214,17 +205,12 @@ def get_transcription_model(
     cache_key = f"transcription_{model_name}_{device_param}_{compute_type_param}"
 
     # Double-checked locking pattern for thread safety
-    if cache_key in _transcription_model_cache:
-        _transcription_cache_hits += 1
-        logger.debug(
-            f"Transcription model cache HIT for {cache_key} (hits: {_transcription_cache_hits}, misses: {_transcription_cache_misses})"
-        )
-        return _transcription_model_cache[cache_key]
-
     with _transcription_model_lock:
-        # Check again in case another thread loaded it
         if cache_key in _transcription_model_cache:
             _transcription_cache_hits += 1
+            logger.debug(
+                f"Transcription model cache HIT for {cache_key} (hits: {_transcription_cache_hits}, misses: {_transcription_cache_misses})"
+            )
             return _transcription_model_cache[cache_key]
 
         _transcription_cache_misses += 1
@@ -280,10 +266,7 @@ def clear_transcription_model_cache() -> None:
     with _transcription_model_lock:
         for cache_key, model in list(_transcription_model_cache.items()):
             logger.info(f"Clearing transcription model cache for {cache_key}")
-            try:
-                del model
-            except Exception as e:
-                logger.warning(f"Error clearing transcription model cache for {cache_key}: {e}")
+            del model
 
         _transcription_model_cache.clear()
 
@@ -338,17 +321,12 @@ def get_alignment_model(language_code: str, device_param: str, model_name: str =
     cache_key = f"alignment_{language_code}_{device_param}_{model_name or 'default'}"
 
     # Double-checked locking pattern
-    if cache_key in _alignment_model_cache:
-        _alignment_cache_hits += 1
-        logger.debug(
-            f"Alignment model cache HIT for {cache_key} (hits: {_alignment_cache_hits}, misses: {_alignment_cache_misses})"
-        )
-        return _alignment_model_cache[cache_key]
-
     with _alignment_model_lock:
-        # Check again in case another thread loaded it
         if cache_key in _alignment_model_cache:
             _alignment_cache_hits += 1
+            logger.debug(
+                f"Alignment model cache HIT for {cache_key} (hits: {_alignment_cache_hits}, misses: {_alignment_cache_misses})"
+            )
             return _alignment_model_cache[cache_key]
 
         _alignment_cache_misses += 1
@@ -388,11 +366,8 @@ def clear_alignment_model_cache() -> None:
     with _alignment_model_lock:
         for cache_key, (model, metadata) in list(_alignment_model_cache.items()):
             logger.info(f"Clearing alignment model cache for {cache_key}")
-            try:
-                del model
-                del metadata
-            except Exception as e:
-                logger.warning(f"Error clearing alignment model cache for {cache_key}: {e}")
+            del model
+            del metadata
 
         _alignment_model_cache.clear()
 
