@@ -46,7 +46,14 @@ async def transcribe_activity(
             )
             return result
         except Exception as e:
-            raise TemporalErrorHandler.create_application_error(e, "Transcription")
+            logging.error(f"Transcription failed: {e}")
+            # Classify as non-retryable for invalid input data
+            is_retryable = not isinstance(e, (ValueError, TypeError))
+            raise TemporalErrorHandler.create_application_error(
+                e,
+                "Transcription",
+                retryable=is_retryable,
+            )
 
 
 @activity.defn
@@ -72,27 +79,65 @@ async def align_activity(transcript: dict, audio_path: str, align_params: dict) 
             )
             return result
         except Exception as e:
-            raise TemporalErrorHandler.create_application_error(e, "Alignment")
+            logging.error(f"Alignment failed: {e}")
+            # Classify as non-retryable for invalid input data
+            is_retryable = not isinstance(e, (ValueError, TypeError))
+            raise TemporalErrorHandler.create_application_error(
+                e,
+                "Alignment",
+                retryable=is_retryable,
+            )
 
 
 @activity.defn
 async def diarize_activity(audio_path: str, diarize_params: dict) -> dict:
-    """Activity to diarize audio."""
+    """Activity to diarize audio with progress heartbeats (Phase 1.4 optimization)."""
     from app.audio import process_audio_file
     from app.whisperx_services import diarize
     from app.schemas import DiarizationParams
+    from whisperx.audio import SAMPLE_RATE
 
     audio = process_audio_file(audio_path)
     diarize_params_obj = DiarizationParams(**diarize_params)
 
+    # Calculate audio duration and expected processing time
+    audio_duration = len(audio) / SAMPLE_RATE  # Use actual sample rate from whisperx
+    expected_time = audio_duration * 3.7  # Real-time factor for pyannote
+
+    activity.logger.info(f"Starting diarization for {audio_path}")
+    activity.logger.info(f"Audio duration: {audio_duration:.2f} seconds")
+    activity.logger.info(f"Expected processing time: ~{expected_time / 60:.1f} minutes")
+
+    # Send initial heartbeat
+    activity.heartbeat(
+        {
+            "status": "loading_model",
+            "audio_path": audio_path,
+            "audio_duration_seconds": audio_duration,
+            "expected_time_minutes": expected_time / 60,
+        }
+    )
+
     async with TemporalMetrics.activity_timer("diarization", audio_path):
         try:
+            # Send heartbeat before diarization
+            activity.heartbeat({"status": "starting_diarization", "progress": 0, "audio_path": audio_path})
+
             result = diarize(
                 audio,
                 device=diarize_params_obj.device,
                 min_speakers=diarize_params_obj.min_speakers,
                 max_speakers=diarize_params_obj.max_speakers,
             )
+
+            # Send completion heartbeat
+            activity.heartbeat(
+                {"status": "complete", "progress": 100, "audio_path": audio_path, "segments_count": len(result)}
+            )
+
+            activity.logger.info("Diarization completed successfully")
+            activity.logger.info(f"Identified segments: {len(result)}")
+
             # Convert DataFrame to a serializable format that preserves the data structure
             # Use orient="index" or a custom format that assign_word_speakers can handle
             return {
@@ -103,7 +148,10 @@ async def diarize_activity(audio_path: str, diarize_params: dict) -> dict:
                 },
             }
         except Exception as e:
-            raise TemporalErrorHandler.create_application_error(e, "Diarization")
+            activity.logger.error(f"Diarization failed: {e}")
+            # Classify as non-retryable for invalid input data
+            is_retryable = not isinstance(e, (ValueError, TypeError))
+            raise TemporalErrorHandler.create_application_error(e, "Diarization", retryable=is_retryable)
 
 
 @activity.defn
@@ -123,7 +171,14 @@ async def assign_speakers_activity(diarization_segments: dict, transcript: dict)
             result = whisperx.assign_word_speakers(segments_df, transcript)
             return result
         except Exception as e:
-            raise TemporalErrorHandler.create_application_error(e, "Speaker assignment")
+            logging.error(f"Speaker assignment failed: {e}")
+            # Classify as non-retryable for invalid input data
+            is_retryable = not isinstance(e, (ValueError, TypeError))
+            raise TemporalErrorHandler.create_application_error(
+                e,
+                "Speaker assignment",
+                retryable=is_retryable,
+            )
 
 
 @activity.defn
@@ -147,17 +202,15 @@ async def phi_detection_activity(transcript: str, consultation_id: str) -> dict:
                 model=Config.LM_STUDIO_MODEL,
             )
 
-            client = LMStudioClient(config)
-            service = MedicalLLMService(client)
+            async with LMStudioClient(config) as client:
+                service = MedicalLLMService(client)
 
-            # Check LM Studio availability
-            if not await client.health_check():
-                raise Exception("LM Studio server not available for PHI detection")
+                # Check LM Studio availability
+                if not await client.health_check():
+                    raise Exception("LM Studio server not available for PHI detection")
 
-            # Perform PHI detection
-            phi_result = await service.detect_phi(transcript)
-
-            await client.close()
+                # Perform PHI detection
+                phi_result = await service.detect_phi(transcript)
             return {
                 "consultation_id": consultation_id,
                 "phi_detected": phi_result.get("phi_detected", False),
@@ -167,7 +220,13 @@ async def phi_detection_activity(transcript: str, consultation_id: str) -> dict:
 
         except Exception as e:
             logging.error(f"PHI detection failed: {e}")
-            raise TemporalErrorHandler.create_application_error(e, "PHI Detection")
+            # Classify as non-retryable for invalid input data
+            is_retryable = not isinstance(e, (ValueError, TypeError))
+            raise TemporalErrorHandler.create_application_error(
+                e,
+                "PHI Detection",
+                retryable=is_retryable,
+            )
 
 
 @activity.defn
@@ -191,17 +250,15 @@ async def medical_entity_extraction_activity(transcript: str, consultation_id: s
                 model=Config.LM_STUDIO_MODEL,
             )
 
-            client = LMStudioClient(config)
-            service = MedicalLLMService(client)
+            async with LMStudioClient(config) as client:
+                service = MedicalLLMService(client)
 
-            # Check LM Studio availability
-            if not await client.health_check():
-                raise Exception("LM Studio server not available for entity extraction")
+                # Check LM Studio availability
+                if not await client.health_check():
+                    raise Exception("LM Studio server not available for entity extraction")
 
-            # Perform entity extraction
-            entities = await service.extract_medical_entities(transcript)
-
-            await client.close()
+                # Perform entity extraction
+                entities = await service.extract_medical_entities(transcript)
             return {
                 "consultation_id": consultation_id,
                 "entities": entities,
@@ -211,7 +268,13 @@ async def medical_entity_extraction_activity(transcript: str, consultation_id: s
 
         except Exception as e:
             logging.error(f"Medical entity extraction failed: {e}")
-            raise TemporalErrorHandler.create_application_error(e, "Medical Entity Extraction")
+            # Classify as non-retryable for invalid input data
+            is_retryable = not isinstance(e, (ValueError, TypeError))
+            raise TemporalErrorHandler.create_application_error(
+                e,
+                "Medical Entity Extraction",
+                retryable=is_retryable,
+            )
 
 
 @activity.defn
@@ -235,17 +298,15 @@ async def soap_generation_activity(transcript: str, consultation_id: str) -> dic
                 model=Config.LM_STUDIO_MODEL,
             )
 
-            client = LMStudioClient(config)
-            service = MedicalLLMService(client)
+            async with LMStudioClient(config) as client:
+                service = MedicalLLMService(client)
 
-            # Check LM Studio availability
-            if not await client.health_check():
-                raise Exception("LM Studio server not available for SOAP generation")
+                # Check LM Studio availability
+                if not await client.health_check():
+                    raise Exception("LM Studio server not available for SOAP generation")
 
-            # Generate SOAP note
-            soap_note = await service.generate_soap_note(transcript)
-
-            await client.close()
+                # Generate SOAP note
+                soap_note = await service.generate_soap_note(transcript)
             return {
                 "consultation_id": consultation_id,
                 "soap_note": soap_note,
@@ -254,7 +315,13 @@ async def soap_generation_activity(transcript: str, consultation_id: str) -> dic
 
         except Exception as e:
             logging.error(f"SOAP generation failed: {e}")
-            raise TemporalErrorHandler.create_application_error(e, "SOAP Generation")
+            # Classify as non-retryable for invalid input data
+            is_retryable = not isinstance(e, (ValueError, TypeError))
+            raise TemporalErrorHandler.create_application_error(
+                e,
+                "SOAP Generation",
+                retryable=is_retryable,
+            )
 
 
 @activity.defn
@@ -280,24 +347,22 @@ async def document_structuring_activity(
                 model=Config.LM_STUDIO_MODEL,
             )
 
-            client = LMStudioClient(config)
-            service = MedicalLLMService(client)
+            async with LMStudioClient(config) as client:
+                service = MedicalLLMService(client)
 
-            # Check LM Studio availability
-            if not await client.health_check():
-                raise Exception("LM Studio server not available for document structuring")
+                # Check LM Studio availability
+                if not await client.health_check():
+                    raise Exception("LM Studio server not available for document structuring")
 
-            # Structure document
-            structured_doc = await service.structure_medical_document(
-                transcript=transcript, phi_data=phi_data or {}, entities=entities or []
-            )
+                # Structure document
+                structured_doc = await service.structure_medical_document(
+                    transcript=transcript, phi_data=phi_data or {}, entities=entities or []
+                )
 
-            # Generate clinical summary
-            if structured_doc and "error" not in structured_doc:
-                clinical_summary = await service.generate_clinical_summary(structured_doc)
-                structured_doc["clinical_summary"] = clinical_summary
-
-            await client.close()
+                # Generate clinical summary
+                if structured_doc and "error" not in structured_doc:
+                    clinical_summary = await service.generate_clinical_summary(structured_doc)
+                    structured_doc["clinical_summary"] = clinical_summary
             return {
                 "consultation_id": consultation_id,
                 "structured_document": structured_doc,
@@ -306,7 +371,13 @@ async def document_structuring_activity(
 
         except Exception as e:
             logging.error(f"Document structuring failed: {e}")
-            raise TemporalErrorHandler.create_application_error(e, "Document Structuring")
+            # Classify as non-retryable for invalid input data
+            is_retryable = not isinstance(e, (ValueError, TypeError))
+            raise TemporalErrorHandler.create_application_error(
+                e,
+                "Document Structuring",
+                retryable=is_retryable,
+            )
 
 
 @activity.defn
@@ -326,16 +397,13 @@ async def embedding_generation_activity(transcript: str, consultation_id: str) -
                 timeout=Config.LM_STUDIO_TIMEOUT,
             )
 
-            client = LMStudioClient(config)
+            async with LMStudioClient(config) as client:
+                # Check LM Studio availability
+                if not await client.health_check():
+                    raise Exception("LM Studio server not available for embedding generation")
 
-            # Check LM Studio availability
-            if not await client.health_check():
-                raise Exception("LM Studio server not available for embedding generation")
-
-            # Generate embedding
-            embedding = await client.generate_embedding(transcript, Config.EMBEDDING_MODEL)
-
-            await client.close()
+                # Generate embedding
+                embedding = await client.generate_embedding(transcript, Config.EMBEDDING_MODEL)
             return {
                 "consultation_id": consultation_id,
                 "embedding": embedding,
@@ -346,7 +414,13 @@ async def embedding_generation_activity(transcript: str, consultation_id: str) -
 
         except Exception as e:
             logging.error(f"Embedding generation failed: {e}")
-            raise TemporalErrorHandler.create_application_error(e, "Embedding Generation")
+            # Classify as non-retryable for invalid input data
+            is_retryable = not isinstance(e, (ValueError, TypeError))
+            raise TemporalErrorHandler.create_application_error(
+                e,
+                "Embedding Generation",
+                retryable=is_retryable,
+            )
 
 
 @activity.defn
@@ -378,54 +452,65 @@ async def vector_storage_activity(
                 index_type=Config.VECTOR_INDEX_TYPE,
             )
 
-            # Convert embedding to numpy array
-            embedding_array = np.array(embedding, dtype=np.float32)
+            try:
+                # Convert embedding to numpy array
+                embedding_array = np.array(embedding, dtype=np.float32)
 
-            # Store consultation
-            vector_id = await vector_store.store_consultation(
-                consultation_id=consultation_id,
-                patient_id_encrypted=patient_id_encrypted,
-                provider_id=provider_id,
-                encounter_date=encounter_date,
-                transcript=transcript,
-                embedding=embedding_array,
-                metadata={
+                # Define metadata
+                metadata = {
                     "processing_timestamp": datetime.now(Config.TIMEZONE).isoformat(),
                     "embedding_model": Config.EMBEDDING_MODEL,
-                },
-            )
+                }
 
-            # Store medical entities if available
-            if medical_entities:
-                await vector_store.store_medical_entities(consultation_id, medical_entities)
-
-            # Store PHI detections if available
-            if phi_data and phi_data.get("phi_detected"):
-                await vector_store.store_phi_detections(consultation_id, phi_data.get("entities", []))
-
-            # Store structured document if available
-            if structured_document:
-                soap_note = structured_document.get("soap_note", {})
-                clinical_summary = structured_document.get("clinical_summary")
-                await vector_store.store_structured_document(
-                    consultation_id, structured_document, soap_note, clinical_summary
+                # Store consultation
+                vector_id = await vector_store.store_consultation(
+                    consultation_id=consultation_id,
+                    patient_id_encrypted=patient_id_encrypted,
+                    provider_id=provider_id,
+                    encounter_date=encounter_date,
+                    transcript=transcript,
+                    embedding=embedding_array,
+                    metadata=metadata,
                 )
 
-            # Save index
-            vector_store.save_index()
+                # Store medical entities if available
+                if medical_entities:
+                    await vector_store.store_medical_entities(consultation_id, medical_entities)
 
-            result = {
-                "consultation_id": consultation_id,
-                "vector_id": vector_id,
-                "stored_at": datetime.now(Config.TIMEZONE).isoformat(),
-            }
+                # Store PHI detections if available
+                if phi_data and phi_data.get("phi_detected"):
+                    await vector_store.store_phi_detections(consultation_id, phi_data.get("entities", []))
 
-            vector_store.close()
-            return result
+                # Store structured document if available
+                if structured_document:
+                    soap_note = structured_document.get("soap_note", {})
+                    clinical_summary = structured_document.get("clinical_summary")
+                    await vector_store.store_structured_document(
+                        consultation_id, structured_document, soap_note, clinical_summary
+                    )
+
+                # Save index
+                vector_store.save_index()
+
+                result = {
+                    "consultation_id": consultation_id,
+                    "vector_id": vector_id,
+                    "stored_at": datetime.now(Config.TIMEZONE).isoformat(),
+                }
+
+                return result
+            finally:
+                vector_store.close()
 
         except Exception as e:
             logging.error(f"Vector storage failed: {e}")
-            raise TemporalErrorHandler.create_application_error(e, "Vector Storage")
+            # Classify as non-retryable for invalid input data
+            is_retryable = not isinstance(e, (ValueError, TypeError))
+            raise TemporalErrorHandler.create_application_error(
+                e,
+                "Vector Storage",
+                retryable=is_retryable,
+            )
 
 
 @activity.defn
@@ -546,4 +631,10 @@ async def comprehensive_medical_processing_activity(
 
         except Exception as e:
             logging.error(f"Comprehensive medical processing failed: {e}")
-            raise TemporalErrorHandler.create_application_error(e, "Comprehensive Medical Processing")
+            # Classify as non-retryable for invalid input data
+            is_retryable = not isinstance(e, (ValueError, TypeError))
+            raise TemporalErrorHandler.create_application_error(
+                e,
+                "Comprehensive Medical Processing",
+                retryable=is_retryable,
+            )

@@ -51,7 +51,4 @@ class TraceFormatter(logging.Formatter):
         return super().format(record)
 
 
-# Log environment variables
-logger.info(f"Environment: {env}")
-logger.info(f"Log level: {log_level}")
 logger.debug(f"Debug messages enabled: {debug}")

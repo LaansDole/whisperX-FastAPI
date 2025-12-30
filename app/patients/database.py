@@ -136,7 +136,7 @@ def reserve_workflow_mapping_db(
     created_at: str = None,
 ):
     """
-    Phase 1 of two-phase commit: Reserve a workflow mapping with 'pending' status.
+    Reserve a workflow mapping with 'pending' status.
 
     This creates a database record BEFORE starting the Temporal workflow.
     If the workflow fails to start, call rollback_workflow_mapping_db() to clean up.
@@ -174,7 +174,7 @@ def reserve_workflow_mapping_db(
 
 def commit_workflow_mapping_db(workflow_id: str):
     """
-    Phase 2a of two-phase commit: Mark workflow mapping as 'active'.
+    Mark workflow mapping as 'active'.
 
     Call this after the Temporal workflow has successfully started.
 
@@ -200,7 +200,7 @@ def commit_workflow_mapping_db(workflow_id: str):
 
 def rollback_workflow_mapping_db(workflow_id: str):
     """
-    Phase 2b of two-phase commit: Delete pending workflow mapping.
+    Delete pending workflow mapping.
 
     Call this if the Temporal workflow fails to start, to clean up the pending record.
 

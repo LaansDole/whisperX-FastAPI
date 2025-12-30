@@ -208,7 +208,7 @@ class TestTwoPhaseCommit:
     """Test two-phase commit pattern for workflow-database consistency."""
 
     def test_reserve_workflow_creates_pending_record(self):
-        """Test Phase 1: Reserve creates record with pending status."""
+        """Test Reserve creates record with pending status."""
         from app.patients.mapping import reserve_patient_workflow
 
         reserve_patient_workflow(
@@ -225,7 +225,7 @@ class TestTwoPhaseCommit:
         assert mapping["status"] == "pending"
 
     def test_commit_workflow_updates_status_to_active(self):
-        """Test Phase 2a: Commit marks pending record as active."""
+        """Test Commit marks pending record as active."""
         from app.patients.mapping import reserve_patient_workflow, commit_patient_workflow
 
         # Reserve first
@@ -244,7 +244,7 @@ class TestTwoPhaseCommit:
         assert mapping["status"] == "active"
 
     def test_rollback_workflow_deletes_pending_record(self):
-        """Test Phase 2b: Rollback deletes pending record."""
+        """Test Rollback deletes pending record."""
         from app.patients.mapping import reserve_patient_workflow, rollback_patient_workflow
 
         # Reserve first
@@ -302,7 +302,7 @@ class TestTwoPhaseCommit:
         patient_hash = "fullflow"
         workflow_id = "wf-fullflow-123"
 
-        # Phase 1: Reserve
+        # Reserve
         reserve_patient_workflow(
             patient_name="Full Flow Patient",
             patient_hash=patient_hash,
@@ -317,7 +317,7 @@ class TestTwoPhaseCommit:
         # Simulate workflow start (in real code)
         # handle = await client.start_workflow(...)
 
-        # Phase 2: Commit
+        # Commit
         commit_patient_workflow(workflow_id)
 
         # Verify active and queryable by patient hash
@@ -333,7 +333,7 @@ class TestTwoPhaseCommit:
         patient_hash = "failflow"
         workflow_id = "wf-failflow-123"
 
-        # Phase 1: Reserve
+        # Reserve
         reserve_patient_workflow(
             patient_name="Fail Flow Patient",
             patient_hash=patient_hash,
@@ -350,7 +350,7 @@ class TestTwoPhaseCommit:
         #     handle = await client.start_workflow(...)
         # except Exception:
 
-        # Phase 2b: Rollback
+        # Rollback
         rollback_patient_workflow(workflow_id)
 
         # Verify deleted and not queryable by patient hash

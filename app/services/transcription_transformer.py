@@ -133,7 +133,7 @@ class TranscriptionTransformer:
     def transform_with_overrides(
         self,
         whisperx_result: Dict[str, Any],
-        manual_speaker_mapping: Dict[str, str],
+        manual_speaker_mapping: Optional[Dict[str, str]] = None,
         workflow_id: Optional[str] = None,
         consultation_metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
@@ -141,7 +141,7 @@ class TranscriptionTransformer:
 
         Args:
             whisperx_result: Raw WhisperX transcription result JSON
-            manual_speaker_mapping: Manual role assignments {speaker_id: role}
+            manual_speaker_mapping: Manual role assignments {speaker_id: role} (optional)
             workflow_id: Optional WhisperX workflow ID
             consultation_metadata: Optional consultation context
 
@@ -152,6 +152,7 @@ class TranscriptionTransformer:
         result = self.transform(whisperx_result, workflow_id, consultation_metadata)
 
         # Apply manual overrides
+        manual_speaker_mapping = manual_speaker_mapping or {}
         speaker_mapping = result.get("speaker_mapping", {})
         for speaker_id, role in manual_speaker_mapping.items():
             if speaker_id in speaker_mapping:

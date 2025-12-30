@@ -1,7 +1,7 @@
-"""Script to test Phase 1 with Kaggle medical dataset.
+"""Script to test with Kaggle medical dataset.
 
 This script processes a medical interview audio through WhisperX,
-runs Phase 1 data transformation,  and compares results with ground truth.
+runs data transformation,  and compares results with ground truth.
 """
 
 import json
@@ -43,7 +43,7 @@ def analyze_whisperx_result(result_path, ground_truth_path):
     # Load ground truth
     ground_truth = load_ground_truth(ground_truth_path)
 
-    # Initialize Phase 1 services
+    # Initialize services
     parser = WhisperXParser()
     identifier = SpeakerIdentifier()
 

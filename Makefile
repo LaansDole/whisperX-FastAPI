@@ -16,7 +16,7 @@ help:
 	@echo "  start-temporal     	- Start local Temporal server"
 	@echo "  stop-temporal      	- Stop local Temporal server"
 	@echo "  stop              		- Stop all running processes (pkill)"
-	@echo "  temporal-fresh     	- Clean Temporal data and start fresh"
+	@echo "  temporal-fresh     	- Stop all workers, clean Temporal data, and start fresh"
 	@echo "  check-activities  	- Check running Temporal activities via CLI"
 	@echo ""
 	@echo "Code quality targets:"
@@ -156,9 +156,11 @@ temporal-fresh:
 	@echo "🧹 CLEANING TEMPORAL DATA FOR FRESH START"
 	@echo "============================================"
 	@echo ""
-	@echo "1️⃣  Stopping all processes..."
+	@echo "1️⃣  Stopping all processes (workers, server, etc.)..."
 	$(MAKE) stop
-	@echo "   ✅ All processes stopped"
+	@echo "   Ensuring Temporal server is completely stopped..."
+	@pkill -9 -f "temporal server" || true
+	@echo "   ✅ All processes stopped (including workers)"
 	@echo ""
 	@echo "2️⃣  Cleaning Temporal data directories..."
 	@echo "   🗂️  Removing controlled Temporal database: $(TEMPORAL_DB_PATH)..."

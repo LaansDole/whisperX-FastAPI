@@ -23,13 +23,13 @@ assert os.path.exists(VN_AUDIO_1), f"Audio file not found: {VN_AUDIO_1}"
 assert os.path.exists(VN_AUDIO_2), f"Audio file not found: {VN_AUDIO_2}"
 
 
-def wait_for_task_completion(workflow_id, max_wait=300, poll_interval=5):
+def wait_for_task_completion(workflow_id, max_wait=300, poll_interval=30):
     """Wait for a workflow to complete by polling its status.
 
     Args:
         workflow_id: Workflow identifier
         max_wait: Maximum wait time in seconds
-        poll_interval: Time between polls in seconds
+        poll_interval: Time between polls in seconds (default: 30s to prevent request storms)
 
     Returns:
         Final workflow result when completed
