@@ -70,6 +70,19 @@ class Config:
     VECTOR_INDEX_TYPE = os.getenv("VECTOR_INDEX_TYPE", "IndexFlatL2")  # Start with simple, can upgrade to IndexIVFFlat
     VECTOR_SEARCH_LIMIT = int(os.getenv("VECTOR_SEARCH_LIMIT", "10"))
 
+    # Neo4j Knowledge Graph Configuration
+    NEO4J_ENABLED = os.getenv("NEO4J_ENABLED", "false").lower() == "true"
+    NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+    NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
+    NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "neo4j-password")
+    NEO4J_DATABASE = os.getenv("NEO4J_DATABASE", "neo4j")
+    NEO4J_TIMEOUT = int(os.getenv("NEO4J_TIMEOUT", "30"))
+
+    # Neo4j Memory Configuration (for Docker deployment)
+    NEO4J_HEAP_INITIAL = os.getenv("NEO4J_HEAP_INITIAL", "4G")
+    NEO4J_HEAP_MAX = os.getenv("NEO4J_HEAP_MAX", "4G")
+    NEO4J_PAGECACHE_SIZE = os.getenv("NEO4J_PAGECACHE_SIZE", "4G")
+
     # HIPAA Compliance Configuration
     HIPAA_ENCRYPTION_KEY = os.getenv("HIPAA_ENCRYPTION_KEY")  # Must be set in production
     HIPAA_SALT = os.getenv("HIPAA_SALT", "default_salt_change_in_production")
@@ -115,6 +128,12 @@ class Config:
 
             if cls.ENABLE_AUTHENTICATION and not cls.JWT_SECRET_KEY:
                 missing.append("JWT_SECRET_KEY required when ENABLE_AUTHENTICATION is true")
+
+        if cls.NEO4J_ENABLED:
+            if not cls.NEO4J_URI:
+                missing.append("NEO4J_URI required when NEO4J_ENABLED is true")
+            if not cls.NEO4J_PASSWORD or cls.NEO4J_PASSWORD == "neo4j-password":
+                missing.append("NEO4J_PASSWORD must be changed from default in production")
 
         return missing
 

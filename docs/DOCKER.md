@@ -74,6 +74,34 @@ The Docker Compose setup includes three main services:
 - **Purpose**: Executes audio processing workflows
 - **Scaling**: Increase `replicas` in compose file for more workers
 
+### 4. `neo4j` - Knowledge Graph (Optional)
+- **Purpose**: Medical knowledge graph for ontology integration
+- **Ports**:
+  - `7474`: HTTP Browser UI
+  - `7687`: Bolt protocol
+- **Browser UI**: Access at `http://localhost:7474`
+- **Status**: **Disabled by default** - enable with `--profile neo4j` flag
+- **Mac M4 Compatibility**: Includes Java workaround for M4 chips
+
+#### Enabling Neo4j
+
+Neo4j is optional and must be explicitly enabled using Docker Compose profiles:
+
+```bash
+# Enable Neo4j in .env
+echo "NEO4J_ENABLED=true" >> .env
+echo "NEO4J_PASSWORD=your-secure-password" >> .env
+
+# Start services including Neo4j
+docker-compose --profile neo4j up -d
+
+# Verify Neo4j is running
+docker ps | grep neo4j
+curl http://localhost:7474
+```
+
+**Note**: Neo4j requires **~12GB RAM** and **4 vCPUs**. See [ADR 008](../docs/adr/008-knowledge-graph-integration.md) for details.
+
 ## Persistent Storage
 
 The setup includes persistent volumes for:
@@ -81,8 +109,10 @@ The setup includes persistent volumes for:
 - **`whisperx-huggingface-cache`**: Stores downloaded Whisper and other models
 - **`whisperx-torch-cache`**: Stores PyTorch model cache
 - **`temporal-data`**: Temporal server data and workflow state
+- **`neo4j-data`**: Neo4j graph database storage (when enabled)
+- **`neo4j-logs`**: Neo4j server logs (when enabled)
 
-This ensures models aren't re-downloaded between container restarts.
+This ensures models and data aren't re-downloaded/lost between container restarts.
 
 ## Configuration Options
 
@@ -105,6 +135,13 @@ DIARIZATION_TIMEOUT=10                # Minutes
 # Temporal Configuration
 TEMPORAL_TASK_QUEUE=whisperx-task-queue
 TEMPORAL_MAX_ATTEMPTS=3
+
+# Neo4j Configuration (optional)
+NEO4J_ENABLED=false                    # Enable Neo4j knowledge graph
+NEO4J_PASSWORD=change_this_secure_password  # IMPORTANT: Change in production
+NEO4J_HEAP_INITIAL=4G                  # Heap memory (adjust for your system)
+NEO4J_HEAP_MAX=4G
+NEO4J_PAGECACHE_SIZE=4G                # Page cache size
 ```
 
 ### GPU-Specific Settings
