@@ -220,6 +220,15 @@ app.include_router(medical.router)
 app.include_router(patient_workflows.router)
 app.include_router(admin.router)  # Admin endpoints
 
+# Initialize SQLAdmin for database management
+from sqladmin import Admin
+from .patients.models import engine
+from .patients.admin import PatientWorkflowAdmin
+
+admin_panel = Admin(app, engine, title="whisperX Admin")
+admin_panel.add_view(PatientWorkflowAdmin)
+logger.info("SQLAdmin initialized at /admin")
+
 
 @app.get("/", include_in_schema=False)
 async def index():
