@@ -49,7 +49,7 @@ tags_metadata = [
     {
         "name": "Speech-2-Text",
         "description": """Complete speech-to-text processing pipeline with transcription, alignment, and diarization.
-        
+
 **Primary Endpoints:**
 - `/speech-to-text` - Upload audio/video files for processing
 - `/speech-to-text-url` - Process files from URLs
@@ -67,7 +67,7 @@ tags_metadata = [
     {
         "name": "Speech-2-Text services",
         "description": """Individual processing services for granular control.
-        
+
 Use these endpoints when you need specific processing steps rather than the full pipeline:
 - **Transcribe** - Convert speech to text
 - **Align** - Add precise word-level timestamps
@@ -78,7 +78,7 @@ Use these endpoints when you need specific processing steps rather than the full
     {
         "name": "Tasks Management",
         "description": """Monitor and manage Temporal workflow tasks.
-        
+
 **Capabilities:**
 - Check workflow status and progress
 - Retrieve completed results
@@ -91,7 +91,7 @@ All speech-to-text operations return a workflow ID that can be used with these e
     {
         "name": "Medical",
         "description": """Medical transcript processing with HIPAA compliance features.
-        
+
 **Features:**
 - PHI (Protected Health Information) detection
 - Medical entity extraction (diagnoses, medications, procedures)
@@ -106,7 +106,7 @@ All speech-to-text operations return a workflow ID that can be used with these e
     {
         "name": "Health",
         "description": """Health check endpoints for monitoring and orchestration.
-        
+
 - `/health` - Simple health check
 - `/health/live` - Kubernetes liveness probe
 - `/health/ready` - Readiness check with dependency validation

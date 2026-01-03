@@ -62,7 +62,7 @@ install-dev-gpu:
 lint:
 	@echo "Running linting checks..."
 	@echo "✓ Running ruff linter (required)..."
-	uv run ruff check app/ tests/ --config pyproject.toml
+	uv run ruff check app/ tests/ streamlit_app/ --config pyproject.toml
 	@echo ""
 	@echo "✓ Running optional linters..."
 	@echo "  - yamllint (YAML files)..."
@@ -77,8 +77,8 @@ lint:
 # Format code with ruff
 format:
 	@echo "Formatting code with ruff..."
-	uv run ruff check app/ tests/ --fix --config pyproject.toml
-	uv run ruff format app/ tests/ --config pyproject.toml
+	uv run ruff check app/ tests/ streamlit_app/ --fix --unsafe-fixes --config pyproject.toml
+	uv run ruff format app/ tests/ streamlit_app/ --config pyproject.toml
 	@echo "Code formatting completed"
 
 # ============================================================================

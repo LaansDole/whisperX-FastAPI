@@ -5,18 +5,15 @@ Main Streamlit application providing upload, workflow tracking, and patient mana
 """
 
 import streamlit as st
-from utils import get_api_client, get_status_emoji, format_time_ago
+from utils import get_api_client, format_time_ago
 import httpx
 
 # Page configuration
-st.set_page_config(
-    page_title="whisperX Medical Transcription",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+st.set_page_config(page_title="whisperX Medical Transcription", layout="wide", initial_sidebar_state="expanded")
 
 # Custom CSS for better styling
-st.markdown("""
+st.markdown(
+    """
 <style>
     .main-header {
         font-size: 2.5rem;
@@ -33,7 +30,9 @@ st.markdown("""
         border: 1px solid rgba(255, 255, 255, 0.1);
     }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 with st.sidebar:
     st.markdown("#### Navigation")
@@ -45,7 +44,7 @@ with st.sidebar:
 st.markdown('<h1 class="main-header">whisperX Medical Transcription</h1>', unsafe_allow_html=True)
 
 st.markdown("""
-Welcome to the **whisperX Medical Transcription System**. This application provides 
+Welcome to the **whisperX Medical Transcription System**. This application provides
 HIPAA-compliant audio transcription with optional medical processing capabilities.
 
 **Features:**
@@ -66,61 +65,55 @@ api_client = get_api_client()
 
 try:
     stats = api_client.get_database_stats()
-    
+
     col1, col2, col3 = st.columns(3)
-    
+
     with col1:
         st.metric(
             label="Total Workflows",
             value=stats.get("total_mappings", 0),
-            help="Total number of processed consultations"
+            help="Total number of processed consultations",
         )
-    
+
     with col2:
         st.metric(
             label="Unique Patients",
             value=stats.get("unique_patients", 0),
-            help="Number of distinct patients in the system"
+            help="Number of distinct patients in the system",
         )
-    
+
     with col3:
-        avg_workflows = (
-            stats.get("total_mappings", 0) / max(stats.get("unique_patients", 1), 1)
-        )
-        st.metric(
-            label="Avg Workflows/Patient",
-            value=f"{avg_workflows:.1f}",
-            help="Average consultations per patient"
-        )
-    
+        avg_workflows = stats.get("total_mappings", 0) / max(stats.get("unique_patients", 1), 1)
+        st.metric(label="Avg Workflows/Patient", value=f"{avg_workflows:.1f}", help="Average consultations per patient")
+
     st.divider()
-    
+
     # Recent activity
     st.subheader("🕐 Recent Activity")
-    
+
     recent = stats.get("recent_entries", [])
-    
+
     if recent:
         for entry in recent[:5]:
             col1, col2, col3 = st.columns([3, 2, 1])
-            
+
             with col1:
                 # Truncate workflow ID for display
                 workflow_id = entry.get("workflow_id", "N/A")
                 if len(workflow_id) > 40:
                     workflow_id = f"{workflow_id[:37]}..."
                 st.markdown(f"**{workflow_id}**")
-            
+
             with col2:
                 patient_hash = entry.get("patient_hash", "N/A")
                 st.caption(f"Patient: `{patient_hash}`")
-            
+
             with col3:
                 created_at = entry.get("created_at", "N/A")
                 st.caption(format_time_ago(created_at))
     else:
         st.info("No recent activity. Upload an audio file to get started!")
-    
+
 except httpx.HTTPError as e:
     st.error("Unable to fetch statistics from backend")
     st.caption(f"Error: {str(e)}")
@@ -139,7 +132,7 @@ with col1:
     - Select an audio or video file
     - Enter patient information
     - Enable medical processing if needed
-    
+
     **2. Track Progress**
     - View workflow status in **Workflows** page
     - Auto-refresh shows real-time updates
@@ -153,7 +146,7 @@ with col2:
     - Extracted medical entities
     - Generated SOAP notes
     - Consultation statistics
-    
+
     **4. Search History**
     - Use **Patients** page to search by hash
     - View all consultations for a patient
@@ -162,4 +155,6 @@ with col2:
 
 # Footer
 st.divider()
-st.caption("⚠️ **HIPAA Notice**: This system handles Protected Health Information (PHI). Ensure proper authentication and access controls are in place for production use.")
+st.caption(
+    "⚠️ **HIPAA Notice**: This system handles Protected Health Information (PHI). Ensure proper authentication and access controls are in place for production use."
+)
