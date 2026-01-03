@@ -230,6 +230,7 @@ pytest -m integration
 - Always mock model downloads: patch `load_model`, `load_align_model`, `DiarizationPipeline`
 - GPU tests should skip if CUDA unavailable: `@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")`
 - Shared fixtures in `tests/conftest.py`
+- **Excluded from test coverage**: `streamlit_app/` is a demonstration-only directory and does not require test coverage. Only review logic issues if they exist.
 
 ---
 
