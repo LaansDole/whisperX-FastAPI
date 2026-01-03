@@ -6,7 +6,6 @@ services:
     image: temporalio/auto-setup:latest
     ports:
       - "7233:7233"
-      - "8233:8233"  # Web UI
     environment:
       - DB=postgres12
       - DB_PORT=5432
@@ -215,6 +214,29 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+
+  streamlit-ui:
+    build:
+      context: .
+      dockerfile: Dockerfile.streamlit
+    ports:
+      - "8501:8501"
+    environment:
+      - WHISPERX_API_URL=http://whisperx-api:8000
+    volumes:
+      - ./streamlit_app:/app/streamlit_app
+    depends_on:
+      whisperx-api:
+        condition: service_healthy
+    networks:
+      - whisperx-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
 networks:
   whisperx-network:

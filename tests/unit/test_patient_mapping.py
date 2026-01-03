@@ -45,7 +45,7 @@ def test_db():
     """)
 
     cursor.execute("""
-        CREATE INDEX IF NOT EXISTS idx_patient_hash 
+        CREATE INDEX IF NOT EXISTS idx_patient_hash
         ON patient_workflow_mappings(patient_hash)
     """)
 
