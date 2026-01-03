@@ -184,6 +184,7 @@ The following are already covered by CI/CD pipelines:
 ### Do NOT Comment On These (CI Covers It)
 - Code style violations (handled by ruff)
 - Missing imports (caught by linter/tests)
+- Unused imports or variables (caught by ruff with Pyflakes rules)
 - Formatting issues (handled by ruff format)
 - Basic type errors (caught by mypy if enabled)
 - Simple syntax errors (caught by linter)
@@ -230,7 +231,6 @@ pytest -m integration
 - Always mock model downloads: patch `load_model`, `load_align_model`, `DiarizationPipeline`
 - GPU tests should skip if CUDA unavailable: `@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA not available")`
 - Shared fixtures in `tests/conftest.py`
-- **Excluded from test coverage**: `streamlit_app/` is a demonstration-only directory and does not require test coverage. Only review logic issues if they exist.
 
 ---
 
