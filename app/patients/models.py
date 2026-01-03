@@ -25,9 +25,11 @@ class PatientWorkflowMapping(Base):
     __tablename__ = "patient_workflow_mappings"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    patient_name = Column(
-        Text, nullable=False, comment="Plain text patient name (HIPAA-compliant hashing done separately)"
-    )
+    # SECURITY NOTE: Patient name stored as plain text in development/demo.
+    # For production HIPAA compliance, implement database-level encryption at rest (AES-256)
+    # or application-level encryption before storage. The patient_hash provides
+    # de-identification for URLs and logs, but the full name is needed for admin lookups.
+    patient_name = Column(Text, nullable=False, comment="Patient name - REQUIRES encryption at rest for production")
     patient_hash = Column(Text, nullable=False, index=True, comment="8-character patient hash for HIPAA compliance")
     workflow_id = Column(Text, nullable=False, unique=True, comment="Temporal workflow ID")
     file_path = Column(Text, nullable=False, comment="Path to uploaded audio file")
