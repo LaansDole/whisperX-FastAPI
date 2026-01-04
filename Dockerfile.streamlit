@@ -22,9 +22,8 @@ RUN uv sync --no-dev
 # Expose Streamlit port
 EXPOSE 8501
 
-# Healthcheck endpoint (Streamlit provides /healthz)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:8501/healthz || exit 1
+    CMD curl -f http://localhost:8501/_stcore/health || exit 1
 
 # Run Streamlit using uv to access the virtual environment
 CMD ["uv", "run", "streamlit", "run", "streamlit_app/app.py", "--server.address", "0.0.0.0", "--server.port", "8501"]
