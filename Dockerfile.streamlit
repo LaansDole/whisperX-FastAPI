@@ -11,12 +11,13 @@ RUN apt-get update && apt-get install -y \
 # Install uv for package management
 RUN pip install uv
 
-# Copy project files
-COPY pyproject.toml ./
+# Copy project dependency files for reproducible builds
+COPY pyproject.toml uv.lock ./
 COPY streamlit_app/ ./streamlit_app/
 
-# Install Python dependencies (Streamlit and required packages)
-RUN uv pip install --system streamlit streamlit-autorefresh httpx pandas
+# Install Python dependencies from pyproject.toml (ensures version consistency)
+# Using --no-dev to skip dev dependencies, only installing runtime deps
+RUN uv sync --no-dev
 
 # Expose Streamlit port
 EXPOSE 8501
@@ -25,5 +26,5 @@ EXPOSE 8501
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:8501/healthz || exit 1
 
-# Run Streamlit
-CMD ["streamlit", "run", "streamlit_app/app.py", "--server.address", "0.0.0.0", "--server.port", "8501"]
+# Run Streamlit using uv to access the virtual environment
+CMD ["uv", "run", "streamlit", "run", "streamlit_app/app.py", "--server.address", "0.0.0.0", "--server.port", "8501"]

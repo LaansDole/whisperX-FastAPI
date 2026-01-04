@@ -48,12 +48,14 @@ class PatientWorkflowAdmin(ModelView, model=PatientWorkflowMapping):
         PatientWorkflowMapping.status: "Status",
     }
 
-    # Formatters for better display
+    # Formatters for better display (with defensive None checks)
     column_formatters = {
-        PatientWorkflowMapping.workflow_id: lambda m, a: m.workflow_id[:40] + "..."
-        if len(m.workflow_id) > 40
-        else m.workflow_id,
-        PatientWorkflowMapping.file_path: lambda m, a: m.file_path.split("/")[-1],  # Show only filename
+        PatientWorkflowMapping.workflow_id: lambda m, a: (
+            m.workflow_id[:40] + "..." if len(m.workflow_id) > 40 else m.workflow_id
+        ) if m.workflow_id else "",
+        PatientWorkflowMapping.file_path: lambda m, a: (
+            m.file_path.split("/")[-1] if m.file_path else ""
+        ),  # Show only filename
     }
 
     # Permissions (read-only by default for safety)
