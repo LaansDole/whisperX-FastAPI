@@ -49,6 +49,7 @@ HIPAA-compliant audio transcription with optional medical processing capabilitie
 
 **Features:**
 - 🎙️ Audio/video transcription with WhisperX
+- 🔴 Live voice recording from microphone
 - 👥 Speaker diarization and identification
 - 🏥 Medical entity extraction
 - 📋 Automated SOAP note generation
