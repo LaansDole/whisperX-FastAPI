@@ -48,13 +48,13 @@ def init_database(fresh_start: bool = True):
 
     # Create index on patient_hash for fast lookups
     cursor.execute("""
-        CREATE INDEX IF NOT EXISTS idx_patient_hash 
+        CREATE INDEX IF NOT EXISTS idx_patient_hash
         ON patient_workflow_mappings(patient_hash)
     """)
 
     # Create index on status for filtering active/pending workflows
     cursor.execute("""
-        CREATE INDEX IF NOT EXISTS idx_status 
+        CREATE INDEX IF NOT EXISTS idx_status
         ON patient_workflow_mappings(status)
     """)
 
@@ -108,7 +108,7 @@ def store_patient_workflow_db(
         cursor = conn.cursor()
         cursor.execute(
             """
-            INSERT INTO patient_workflow_mappings 
+            INSERT INTO patient_workflow_mappings
             (patient_name, patient_hash, workflow_id, file_path, department, created_at, status)
             VALUES (?, ?, ?, ?, ?, ?, 'active')
         """,
@@ -159,7 +159,7 @@ def reserve_workflow_mapping_db(
         cursor = conn.cursor()
         cursor.execute(
             """
-            INSERT INTO patient_workflow_mappings 
+            INSERT INTO patient_workflow_mappings
             (patient_name, patient_hash, workflow_id, file_path, department, created_at, status)
             VALUES (?, ?, ?, ?, ?, ?, 'pending')
         """,
@@ -185,7 +185,7 @@ def commit_workflow_mapping_db(workflow_id: str):
         cursor = conn.cursor()
         cursor.execute(
             """
-            UPDATE patient_workflow_mappings 
+            UPDATE patient_workflow_mappings
             SET status = 'active'
             WHERE workflow_id = ? AND status = 'pending'
         """,
@@ -211,7 +211,7 @@ def rollback_workflow_mapping_db(workflow_id: str):
         cursor = conn.cursor()
         cursor.execute(
             """
-            DELETE FROM patient_workflow_mappings 
+            DELETE FROM patient_workflow_mappings
             WHERE workflow_id = ? AND status = 'pending'
         """,
             (workflow_id,),
@@ -322,7 +322,7 @@ def get_all_patients_db() -> list:
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT 
+            SELECT
                 patient_hash,
                 patient_name,
                 COUNT(*) as workflow_count,

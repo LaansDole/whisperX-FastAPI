@@ -1,7 +1,8 @@
 .PHONY: help install-prod install-prod-gpu install-dev install-dev-gpu \
 	dev server worker start-temporal lint format \
 	start-temporal stop-temporal stop test-api temporal-fresh check-activities \
-	test test-unit test-integration test-medical test-coverage test-all test-quick
+	test test-unit test-integration test-medical test-coverage test-all test-quick \
+	docker-up down
 
 # Default target - show help
 help:
@@ -18,6 +19,8 @@ help:
 	@echo "  stop              		- Stop all running processes (pkill)"
 	@echo "  temporal-fresh     	- Stop all workers, clean Temporal data, and start fresh"
 	@echo "  check-activities  	- Check running Temporal activities via CLI"
+	@echo "  docker-up         	- Build and start all services in Docker (detached)"
+	@echo "  down       	- Stop and remove all Docker containers"
 	@echo ""
 	@echo "Code quality targets:"
 	@echo "  lint              	- Run all linting checks (ruff, yamllint, etc.)"
@@ -59,7 +62,7 @@ install-dev-gpu:
 lint:
 	@echo "Running linting checks..."
 	@echo "✓ Running ruff linter (required)..."
-	uv run ruff check app/ tests/ --config pyproject.toml
+	uv run ruff check app/ tests/ streamlit_app/ --config pyproject.toml
 	@echo ""
 	@echo "✓ Running optional linters..."
 	@echo "  - yamllint (YAML files)..."
@@ -74,8 +77,8 @@ lint:
 # Format code with ruff
 format:
 	@echo "Formatting code with ruff..."
-	uv run ruff check app/ tests/ --fix --config pyproject.toml
-	uv run ruff format app/ tests/ --config pyproject.toml
+	uv run ruff check app/ tests/ streamlit_app/ --fix --unsafe-fixes --config pyproject.toml
+	uv run ruff format app/ tests/ streamlit_app/ --config pyproject.toml
 	@echo "Code formatting completed"
 
 # ============================================================================
@@ -373,3 +376,16 @@ check-activities:
 	@echo "================================="
 	@echo "ACTIVITY CHECK COMPLETED"
 	@echo "================================="
+# ============================================================================
+# Docker targets
+# ============================================================================
+
+# Build and start all services in Docker (detached)
+docker-up:
+	docker-compose up --build -d
+	@echo "Docker services started"
+
+# Stop and remove all Docker containers
+down:
+	docker-compose down
+	@echo "Docker services stopped"
