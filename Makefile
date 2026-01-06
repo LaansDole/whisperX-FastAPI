@@ -1,5 +1,5 @@
 .PHONY: help install-prod install-prod-gpu install-dev install-dev-gpu \
-	dev server worker start-temporal lint format \
+	dev server worker streamlit start-temporal lint format \
 	start-temporal stop-temporal stop test-api temporal-fresh check-activities \
 	test test-unit test-integration test-medical test-coverage test-all test-quick \
 	docker-up down
@@ -11,9 +11,10 @@ help:
 	@echo "  install-prod-gpu     	- Install production dependencies with GPU support"
 	@echo "  install-dev          	- Install development dependencies (CPU only)"
 	@echo "  install-dev-gpu      	- Install development dependencies with GPU support"
-	@echo "  dev                  	- Start worker + FastAPI server (full app)"
+	@echo "  dev                  	- Start worker + FastAPI server + Streamlit UI"
 	@echo "  server            		- Start FastAPI server only"
 	@echo "  worker           		- Start Temporal server + worker"
+	@echo "  streamlit        		- Start Streamlit UI only"
 	@echo "  start-temporal     	- Start local Temporal server"
 	@echo "  stop-temporal      	- Stop local Temporal server"
 	@echo "  stop              		- Stop all running processes (pkill)"
@@ -85,19 +86,30 @@ format:
 # Run targets
 # ============================================================================
 
-# Start full application (Temporal worker + FastAPI server)
+# Start full application (Temporal worker + FastAPI server + Streamlit UI)
 dev:
 	@echo "Starting full application..."
 	$(MAKE) worker
 	@echo "Waiting for worker to initialize..."
 	uv run python scripts/wait_for_worker.py
 	$(MAKE) server
+	@echo "Waiting for server to start..."
+	@sleep 2
+	$(MAKE) streamlit
 	@echo "Full application started"
+	@echo "  FastAPI:   http://localhost:8000"
+	@echo "  Streamlit: http://localhost:8501"
+	@echo "  Temporal:  http://localhost:8233"
+
+# Start Streamlit UI only
+streamlit:
+	uv run streamlit run streamlit_app/app.py --server.port 8501 &
+	@echo "Streamlit UI started at http://localhost:8501"
 
 # Start FastAPI server only
 server:
-	uv run python -m start_server
-	@echo "FastAPI server started"
+	uv run python -m start_server &
+	@echo "FastAPI server started at http://localhost:8000"
 
 # Start Temporal server + worker
 worker: stop start-temporal
@@ -137,6 +149,8 @@ stop:
 	@pkill -f "uvicorn.*app.main:app" || true
 	@pkill -f "uvicorn.*main:app" || true
 	@pkill -f "start_server" || true
+	@echo "Stopping Streamlit processes..."
+	@pkill -f "streamlit run" || true
 	@echo "Stopping Temporal processes..."
 	@pkill -f "temporal_server" || true
 	@pkill -f "temporal.worker" || true
