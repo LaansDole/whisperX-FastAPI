@@ -1,0 +1,43 @@
+# WhisperX FastAPI Configuration
+# Runtime defaults - overridable per-request via API/Streamlit
+
+# WhisperX Speech Recognition
+whisperx:
+  model: base                # tiny, base, small, medium, large-v3, large-v3-turbo
+  language: en               # en, vi, zh, yue
+  device: cpu                # cpu, cuda
+  compute_type: int8         # int8, float16, float32
+
+# Temporal Orchestration
+temporal:
+  server_url: localhost:7233
+  namespace: default
+  task_queue: whisperx-task-queue
+  retry:
+    max_attempts: 3
+    initial_interval: 5
+    backoff_coefficient: 2.0
+    max_interval: 300
+  timeouts:
+    transcription_minutes: 30
+    alignment_minutes: 10
+    diarization_minutes: 10
+    speaker_assignment_minutes: 5
+    medical_activity_minutes: 15
+    medical_workflow_minutes: 30
+
+# Vector Database (when enabled)
+vector_db:
+  path: ./vector_storage
+  index_type: IndexFlatL2
+  search_limit: 10
+
+# Database Paths
+database:
+  medical_db_path: ./medical_metadata.db
+  patient_db_path: ./data/patient_mappings.db
+
+# Performance
+performance:
+  parallel_medical_processing: true
+  medical_processing_workers: 2

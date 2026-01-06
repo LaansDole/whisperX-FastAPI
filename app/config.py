@@ -1,118 +1,131 @@
 """Configuration module for the WhisperX FastAPI application."""
 
 import os
+from pathlib import Path
 from zoneinfo import ZoneInfo
+
+import yaml
 from dotenv import load_dotenv
 
 # Load environment variables from .env
 load_dotenv()
 
 
+def _load_yaml_config() -> dict:
+    """Load configuration from config.yaml file."""
+    config_path = Path(__file__).parent.parent / "config.yaml"
+    if config_path.exists():
+        with open(config_path) as f:
+            return yaml.safe_load(f) or {}
+    return {}
+
+
+# Load YAML config once at module import
+_yaml = _load_yaml_config()
+
+
+def _get_yaml(section: str, key: str, default=None):
+    """Get a value from YAML config with fallback to default."""
+    return _yaml.get(section, {}).get(key, default)
+
+
+def _get_yaml_nested(section: str, subsection: str, key: str, default=None):
+    """Get a nested value from YAML config with fallback to default."""
+    return _yaml.get(section, {}).get(subsection, {}).get(key, default)
+
+
 class Config:
     """Configuration class for WhisperX FastAPI application settings."""
 
-    # Timezone Configuration
-    TIMEZONE_NAME = os.getenv("TIMEZONE", "Asia/Bangkok")  # UTC+7 for Vietnam
+    # ========== FROM .env (secrets/environment-specific) ==========
+    HF_TOKEN = os.getenv("HF_TOKEN")
+    ENVIRONMENT = os.getenv("ENVIRONMENT", "development").lower()
+    LOG_LEVEL = os.getenv("LOG_LEVEL", "DEBUG" if ENVIRONMENT == "development" else "INFO").upper()
+    TIMEZONE_NAME = os.getenv("TIMEZONE", "Asia/Ho_Chi_Minh")
     TIMEZONE = ZoneInfo(TIMEZONE_NAME)
 
-    # Core WhisperX Configuration
-    LANG = os.getenv("DEFAULT_LANG", "en")
-    HF_TOKEN = os.getenv("HF_TOKEN")
-    WHISPER_MODEL = os.getenv("WHISPER_MODEL")
+    # Feature flags
+    FILTER_WARNING = os.getenv("FILTER_WARNING", "true").lower() == "true"
+    DB_FRESH_START = os.getenv("DB_FRESH_START", "false").lower() == "true"
+
+    # HIPAA (secrets)
+    HIPAA_ENCRYPTION_KEY = os.getenv("HIPAA_ENCRYPTION_KEY")
+    HIPAA_SALT = os.getenv("HIPAA_SALT", "default_salt_change_in_production")
+
+    # Optional paths from env
     DIARIZATION_MODEL_PATH = os.getenv("DIARIZATION_MODEL_PATH")
-    DEVICE = os.getenv("DEVICE", "cpu")  # Default to CPU for stability
-    COMPUTE_TYPE = os.getenv("COMPUTE_TYPE", "int8")  # Default to int8 for CPU compatibility
-    ENVIRONMENT = os.getenv("ENVIRONMENT", "production").lower()
-    LOG_LEVEL = os.getenv("LOG_LEVEL", "DEBUG" if ENVIRONMENT == "development" else "INFO").upper()
+
+    # ========== LM STUDIO (from .env - required for medical) ==========
+    LM_STUDIO_BASE_URL = os.getenv("LM_STUDIO_BASE_URL", "http://localhost:1234/v1")
+    LM_STUDIO_MODEL = os.getenv("LM_STUDIO_MODEL", "")
+    LM_STUDIO_MAX_TOKENS = int(os.getenv("LM_STUDIO_MAX_TOKENS", "8192"))
+    EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-bge-reranker-v2-m3")
+    EMBEDDING_DIMENSION = int(os.getenv("EMBEDDING_DIMENSION", "1024"))
+
+    # LM Studio advanced settings (hardcoded defaults, rarely changed)
+    LM_STUDIO_ENABLED = False
+    LM_STUDIO_TIMEOUT = 120
+    LM_STUDIO_TEMPERATURE = 0.1
+    LM_STUDIO_MAX_RETRIES = 3
+
+    # ========== FROM config.yaml (runtime defaults) ==========
+
+    # WhisperX
+    LANG = _get_yaml("whisperx", "language", "en")
+    WHISPER_MODEL = _get_yaml("whisperx", "model", "base")
+    DEVICE = _get_yaml("whisperx", "device", "cpu")
+    COMPUTE_TYPE = _get_yaml("whisperx", "compute_type", "int8")
 
     AUDIO_EXTENSIONS = {
-        ".mp3",
-        ".wav",
-        ".awb",
-        ".aac",
-        ".ogg",
-        ".oga",
-        ".m4a",
-        ".wma",
-        ".amr",
+        ".mp3", ".wav", ".awb", ".aac", ".ogg", ".oga", ".m4a", ".wma", ".amr",
     }
     VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".wmv", ".mkv"}
     ALLOWED_EXTENSIONS = AUDIO_EXTENSIONS | VIDEO_EXTENSIONS
 
-    # LM Studio Configuration
-    LM_STUDIO_ENABLED = os.getenv("LM_STUDIO_ENABLED", "false").lower() == "true"
-    LM_STUDIO_BASE_URL = os.getenv("LM_STUDIO_BASE_URL", "http://localhost:1234/v1")
-    LM_STUDIO_TIMEOUT = int(os.getenv("LM_STUDIO_TIMEOUT", "120"))
-    LM_STUDIO_TEMPERATURE = float(os.getenv("LM_STUDIO_TEMPERATURE", "0.1"))
-    LM_STUDIO_MAX_TOKENS = int(os.getenv("LM_STUDIO_MAX_TOKENS", "2048"))
-    LM_STUDIO_MAX_RETRIES = int(os.getenv("LM_STUDIO_MAX_RETRIES", "3"))
+    # Medical RAG
+    MEDICAL_RAG_ENABLED = _get_yaml("medical", "enabled", False)
+    ENABLE_PHI_DETECTION = _get_yaml_nested("medical", "features", "phi_detection", True)
+    ENABLE_ENTITY_EXTRACTION = _get_yaml_nested("medical", "features", "entity_extraction", True)
+    ENABLE_SOAP_GENERATION = _get_yaml_nested("medical", "features", "soap_generation", True)
+    ENABLE_DOCUMENT_STRUCTURING = _get_yaml_nested("medical", "features", "document_structuring", True)
+    ENABLE_VECTOR_STORAGE = _get_yaml_nested("medical", "features", "vector_storage", False)
 
-    # LLM Model Configuration
-    LM_STUDIO_MODEL = os.getenv("LM_STUDIO_MODEL", "")  # Leave empty to use loaded model
+    # Medical Processing
+    MEDICAL_BATCH_SIZE = 1
+    MEDICAL_MAX_RETRIES = 2
+    MEDICAL_TIMEOUT_MINUTES = 10
 
-    # Medical RAG Configuration
-    MEDICAL_RAG_ENABLED = os.getenv("MEDICAL_RAG_ENABLED", "false").lower() == "true"
-    ENABLE_PHI_DETECTION = os.getenv("ENABLE_PHI_DETECTION", "true").lower() == "true"
-    ENABLE_ENTITY_EXTRACTION = os.getenv("ENABLE_ENTITY_EXTRACTION", "true").lower() == "true"
-    ENABLE_SOAP_GENERATION = os.getenv("ENABLE_SOAP_GENERATION", "true").lower() == "true"
-    ENABLE_DOCUMENT_STRUCTURING = os.getenv("ENABLE_DOCUMENT_STRUCTURING", "true").lower() == "true"
-    ENABLE_VECTOR_STORAGE = os.getenv("ENABLE_VECTOR_STORAGE", "false").lower() == "true"
+    # Vector Database
+    VECTOR_DB_PATH = _get_yaml("vector_db", "path", "./vector_storage")
+    VECTOR_INDEX_TYPE = _get_yaml("vector_db", "index_type", "IndexFlatL2")
+    VECTOR_SEARCH_LIMIT = _get_yaml("vector_db", "search_limit", 10)
 
-    # Medical Processing Configuration
-    MEDICAL_BATCH_SIZE = int(os.getenv("MEDICAL_BATCH_SIZE", "1"))  # Process one transcript at a time
-    MEDICAL_MAX_RETRIES = int(os.getenv("MEDICAL_MAX_RETRIES", "2"))
-    MEDICAL_TIMEOUT_MINUTES = int(os.getenv("MEDICAL_TIMEOUT_MINUTES", "10"))
+    # HIPAA (non-secret defaults)
+    HIPAA_AUDIT_LOG_PATH = "./audit_logs"
+    HIPAA_MINIMUM_NECESSARY = True
 
-    # Vector Database Configuration
-    VECTOR_DB_PATH = os.getenv("VECTOR_DB_PATH", "./vector_storage")
-    EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "nomic-embed-text-v1.5")
-    EMBEDDING_DIMENSION = int(os.getenv("EMBEDDING_DIMENSION", "768"))  # Default for nomic-embed-text-v1.5
-    VECTOR_INDEX_TYPE = os.getenv("VECTOR_INDEX_TYPE", "IndexFlatL2")  # Start with simple, can upgrade to IndexIVFFlat
-    VECTOR_SEARCH_LIMIT = int(os.getenv("VECTOR_SEARCH_LIMIT", "10"))
-
-    # Neo4j Knowledge Graph Configuration
-    NEO4J_ENABLED = os.getenv("NEO4J_ENABLED", "false").lower() == "true"
-    NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-    NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
-    NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "neo4j-password")
-    NEO4J_DATABASE = os.getenv("NEO4J_DATABASE", "neo4j")
-    NEO4J_TIMEOUT = int(os.getenv("NEO4J_TIMEOUT", "30"))
-
-    # Neo4j Memory Configuration (for Docker deployment)
-    NEO4J_HEAP_INITIAL = os.getenv("NEO4J_HEAP_INITIAL", "4G")
-    NEO4J_HEAP_MAX = os.getenv("NEO4J_HEAP_MAX", "4G")
-    NEO4J_PAGECACHE_SIZE = os.getenv("NEO4J_PAGECACHE_SIZE", "4G")
-
-    # HIPAA Compliance Configuration
-    HIPAA_ENCRYPTION_KEY = os.getenv("HIPAA_ENCRYPTION_KEY")  # Must be set in production
-    HIPAA_SALT = os.getenv("HIPAA_SALT", "default_salt_change_in_production")
-    HIPAA_AUDIT_LOG_PATH = os.getenv("HIPAA_AUDIT_LOG_PATH", "./audit_logs")
-    HIPAA_MINIMUM_NECESSARY = os.getenv("HIPAA_MINIMUM_NECESSARY", "true").lower() == "true"
-
-    # Authentication & Authorization
+    # Authentication (disabled for POC)
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
-    JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
-    JWT_ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
-    ENABLE_AUTHENTICATION = os.getenv("ENABLE_AUTHENTICATION", "false").lower() == "true"
+    JWT_ALGORITHM = "HS256"
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES = 30
+    ENABLE_AUTHENTICATION = False
 
-    # Database Configuration (for medical metadata)
-    MEDICAL_DB_PATH = os.getenv("MEDICAL_DB_PATH", "./medical_metadata.db")
+    # Database paths
+    MEDICAL_DB_PATH = _get_yaml("database", "medical_db_path", "./medical_metadata.db")
+    PATIENT_DB_PATH = _get_yaml("database", "patient_db_path", "./data/patient_mappings.db")
 
-    # Patient Workflow Mappings Database
-    PATIENT_DB_PATH = os.getenv("PATIENT_DB_PATH", "./data/patient_mappings.db")
+    # Performance
+    ENABLE_PARALLEL_MEDICAL_PROCESSING = _get_yaml("performance", "parallel_medical_processing", True)
+    MEDICAL_PROCESSING_WORKERS = _get_yaml("performance", "medical_processing_workers", 2)
 
-    # Performance Configuration
-    ENABLE_PARALLEL_MEDICAL_PROCESSING = os.getenv("ENABLE_PARALLEL_MEDICAL_PROCESSING", "true").lower() == "true"
-    MEDICAL_PROCESSING_WORKERS = int(os.getenv("MEDICAL_PROCESSING_WORKERS", "2"))  # Conservative for medical workloads
+    # Feature Flags (hardcoded for POC)
+    REAL_TIME_ENTITY_EXTRACTION = False
+    BATCH_ENTITY_EXTRACTION = True
+    ADVANCED_MEDICAL_REASONING = False
 
-    # Feature Flags for Gradual Rollout
-    REAL_TIME_ENTITY_EXTRACTION = os.getenv("REAL_TIME_ENTITY_EXTRACTION", "false").lower() == "true"
-    BATCH_ENTITY_EXTRACTION = os.getenv("BATCH_ENTITY_EXTRACTION", "true").lower() == "true"
-    ADVANCED_MEDICAL_REASONING = os.getenv("ADVANCED_MEDICAL_REASONING", "false").lower() == "true"
-
-    # Temporal Configuration for Medical Workflows
-    MEDICAL_ACTIVITY_TIMEOUT_MINUTES = int(os.getenv("MEDICAL_ACTIVITY_TIMEOUT_MINUTES", "15"))
-    MEDICAL_WORKFLOW_TIMEOUT_MINUTES = int(os.getenv("MEDICAL_WORKFLOW_TIMEOUT_MINUTES", "30"))
+    # Temporal timeouts (from YAML)
+    MEDICAL_ACTIVITY_TIMEOUT_MINUTES = _get_yaml_nested("temporal", "timeouts", "medical_activity_minutes", 15)
+    MEDICAL_WORKFLOW_TIMEOUT_MINUTES = _get_yaml_nested("temporal", "timeouts", "medical_workflow_minutes", 30)
 
     @classmethod
     def validate_medical_config(cls) -> list[str]:
@@ -128,12 +141,6 @@ class Config:
 
             if cls.ENABLE_AUTHENTICATION and not cls.JWT_SECRET_KEY:
                 missing.append("JWT_SECRET_KEY required when ENABLE_AUTHENTICATION is true")
-
-        if cls.NEO4J_ENABLED:
-            if not cls.NEO4J_URI:
-                missing.append("NEO4J_URI required when NEO4J_ENABLED is true")
-            if not cls.NEO4J_PASSWORD or cls.NEO4J_PASSWORD == "neo4j-password":
-                missing.append("NEO4J_PASSWORD must be changed from default in production")
 
         return missing
 

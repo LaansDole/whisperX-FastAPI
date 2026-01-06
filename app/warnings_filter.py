@@ -1,16 +1,13 @@
 """This module filters specific warnings from various libraries used in the project."""
 
-import os
 import warnings
 
-from dotenv import load_dotenv
-
-load_dotenv()
+from .config import Config
 
 
 def filter_warnings():
     """Filter specific warnings from various libraries used in the project."""
-    if os.getenv("FILTER_WARNING", "true").lower() == "true":
+    if Config.FILTER_WARNING:
         warnings.filterwarnings("ignore", category=UserWarning, module="torchaudio")
         warnings.filterwarnings("ignore", category=UserWarning, module="pyannote.audio")
         warnings.filterwarnings("ignore", category=UserWarning, module="speechbrain")
