@@ -1,6 +1,6 @@
 .PHONY: help install-prod install-prod-gpu install-dev install-dev-gpu \
 	dev server worker streamlit start-temporal lint format \
-	start-temporal stop-temporal stop test-api temporal-fresh check-activities \
+	stop-temporal stop test-api temporal-fresh check-activities \
 	test test-unit test-integration test-medical test-coverage test-all test-quick \
 	docker-up down
 
@@ -94,7 +94,7 @@ dev:
 	uv run python scripts/wait_for_worker.py
 	$(MAKE) server
 	@echo "Waiting for server to start..."
-	@sleep 2
+	uv run python scripts/wait_for_server.py
 	$(MAKE) streamlit
 	@echo "Full application started"
 	@echo "  FastAPI:   http://localhost:8000"
