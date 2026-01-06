@@ -16,7 +16,8 @@ RUN apt-get update && apt-get install -y \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install uv
+# Install uv (pinned version for supply-chain security)
+RUN pip install uv==0.9.21
 
 WORKDIR /app
 

@@ -24,6 +24,13 @@ class WhisperXAPIClient:
         enable_medical: bool = False,
         provider_id: Optional[str] = None,
         encounter_date: Optional[str] = None,
+        # WhisperX configuration options
+        model: str = "base",
+        language: str = "en",
+        compute_type: str = "int8",
+        min_speakers: Optional[int] = None,
+        max_speakers: Optional[int] = None,
+        initial_prompt: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Upload audio file for transcription.
@@ -35,6 +42,12 @@ class WhisperXAPIClient:
             enable_medical: Enable medical processing pipeline
             provider_id: Healthcare provider ID (required if enable_medical=True)
             encounter_date: Date of encounter (ISO format, optional)
+            model: Whisper model to use (e.g., 'base', 'large-v3')
+            language: Language code (en, vi, zh, yue)
+            compute_type: Computation precision (int8, float16, float32)
+            min_speakers: Minimum expected speakers for diarization
+            max_speakers: Maximum expected speakers for diarization
+            initial_prompt: Custom prompt with context or vocabulary hints
 
         Returns:
             Response with workflow ID
@@ -47,6 +60,10 @@ class WhisperXAPIClient:
             data = {
                 "patient_name": patient_name,
                 "enable_medical_processing": str(enable_medical).lower(),
+                # WhisperX model params
+                "model": model,
+                "language": language,
+                "compute_type": compute_type,
             }
 
             if enable_medical and provider_id:
@@ -54,6 +71,17 @@ class WhisperXAPIClient:
 
             if encounter_date:
                 data["encounter_date"] = encounter_date
+
+            # Diarization params
+            if min_speakers is not None:
+                data["min_speakers"] = str(min_speakers)
+
+            if max_speakers is not None:
+                data["max_speakers"] = str(max_speakers)
+
+            # ASR options
+            if initial_prompt:
+                data["initial_prompt"] = initial_prompt
 
             response = client.post(f"{self.base_url}/speech-to-text", files=files, data=data)
             response.raise_for_status()

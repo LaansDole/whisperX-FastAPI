@@ -8,8 +8,9 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install uv for package management (with timeout/retry for slow networks)
-RUN pip install --timeout 120 --retries 5 uv
+# Install uv for package management (pinned version for supply-chain security)
+# Update this version periodically after verifying the package integrity
+RUN pip install --timeout 120 --retries 5 uv==0.9.21
 
 # Copy project dependency files for reproducible builds
 COPY pyproject.toml uv.lock ./
