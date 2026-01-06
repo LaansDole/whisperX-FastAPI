@@ -25,8 +25,123 @@ st.markdown("Upload an audio file or record directly from your microphone for tr
 # Initialize API client
 api_client = get_api_client()
 
+# ============================================================================
+# SHARED: Transcription Settings (applies to both tabs)
+# ============================================================================
+with st.expander("⚙️ Transcription Settings", expanded=False):
+    st.markdown("Configure WhisperX model and processing options.")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        # Model selection with descriptions
+        model_options = {
+            "tiny": "Tiny - Fastest, lowest accuracy",
+            "base": "Base - Fast, good accuracy (recommended)",
+            "small": "Small - Balanced speed/accuracy",
+            "medium": "Medium - Higher accuracy, slower",
+            "large-v3": "Large-v3 - Best accuracy, slowest",
+            "large-v3-turbo": "Large-v3 Turbo - Fast + high accuracy",
+        }
+        selected_model = st.selectbox(
+            "Whisper Model",
+            options=list(model_options.keys()),
+            index=1,  # Default to 'base'
+            format_func=lambda x: model_options[x],
+            help="Larger models are more accurate but slower. Use 'base' for most cases.",
+            key="whisper_model",
+        )
+
+    with col2:
+        # Language selection
+        language_options = {
+            "en": "🇬🇧 English",
+            "vi": "🇻🇳 Vietnamese",
+            "zh": "🇨🇳 Chinese (Mandarin)",
+            "yue": "🇭🇰 Cantonese",
+        }
+        selected_language = st.selectbox(
+            "Language",
+            options=list(language_options.keys()),
+            index=0,  # Default to English
+            format_func=lambda x: language_options[x],
+            help="Select the primary language spoken in the audio.",
+            key="whisper_language",
+        )
+
+    with col3:
+        # Compute type
+        compute_options = {
+            "int8": "int8 - Fast (recommended for CPU)",
+            "float16": "float16 - Balanced (GPU recommended)",
+            "float32": "float32 - Most accurate, slowest",
+        }
+        selected_compute = st.selectbox(
+            "Compute Type",
+            options=list(compute_options.keys()),
+            index=0,  # Default to int8
+            format_func=lambda x: compute_options[x],
+            help="Computation precision. Use int8 for CPU, float16 for GPU.",
+            key="compute_type",
+        )
+
+    # Speaker diarization settings
+    st.markdown("---")
+    st.markdown("**Speaker Settings** (for diarization)")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        min_speakers = st.number_input(
+            "Minimum Speakers",
+            min_value=0,
+            max_value=10,
+            value=0,
+            help="Minimum expected speakers. 0 = auto-detect.",
+            key="min_speakers",
+        )
+        # Convert 0 to None for API
+        min_speakers_val = min_speakers if min_speakers > 0 else None
+
+    with col2:
+        max_speakers = st.number_input(
+            "Maximum Speakers",
+            min_value=0,
+            max_value=10,
+            value=0,
+            help="Maximum expected speakers. 0 = auto-detect.",
+            key="max_speakers",
+        )
+        # Convert 0 to None for API
+        max_speakers_val = max_speakers if max_speakers > 0 else None
+
+    # Initial prompt for domain-specific vocabulary
+    st.markdown("---")
+    initial_prompt = st.text_area(
+        "Initial Prompt (Optional)",
+        placeholder="e.g., Medical terms: hypertension, metformin, diabetes mellitus...",
+        help="Provide context or vocabulary hints to improve transcription accuracy for domain-specific terms.",
+        key="initial_prompt",
+        height=80,
+    )
+    initial_prompt_val = initial_prompt.strip() if initial_prompt else None
+
 # Tab-based input selection
 upload_tab, record_tab = st.tabs(["📁 Upload File", "🎙️ Record Audio"])
+
+
+# Helper function to get current settings
+def get_transcription_settings():
+    """Get current transcription settings from session state."""
+    return {
+        "model": st.session_state.get("whisper_model", "base"),
+        "language": st.session_state.get("whisper_language", "en"),
+        "compute_type": st.session_state.get("compute_type", "int8"),
+        "min_speakers": st.session_state.get("min_speakers", 0) or None,
+        "max_speakers": st.session_state.get("max_speakers", 0) or None,
+        "initial_prompt": st.session_state.get("initial_prompt", "").strip() or None,
+    }
+
 
 # ============================================================================
 # TAB 1: File Upload
@@ -110,6 +225,9 @@ with upload_tab:
                         # Format encounter date
                         encounter_date_str = encounter_date_upload.isoformat()
 
+                        # Get transcription settings
+                        settings = get_transcription_settings()
+
                         # Upload to backend
                         response = api_client.upload_audio(
                             file_bytes=file_bytes,
@@ -118,6 +236,13 @@ with upload_tab:
                             enable_medical=enable_medical_upload,
                             provider_id=provider_id_upload.strip() if provider_id_upload else None,
                             encounter_date=encounter_date_str,
+                            # Transcription settings
+                            model=settings["model"],
+                            language=settings["language"],
+                            compute_type=settings["compute_type"],
+                            min_speakers=settings["min_speakers"],
+                            max_speakers=settings["max_speakers"],
+                            initial_prompt=settings["initial_prompt"],
                         )
 
                         # Success!
@@ -129,7 +254,7 @@ with upload_tab:
                         st.markdown(f"""
                         **Workflow ID**: `{workflow_id}`
                         **Status**: {message}
-                        **Patient**: {patient_name_upload} (stored as hash)
+                        **Model**: {settings["model"]} | **Language**: {settings["language"]}
                         **Medical Processing**: {"Enabled" if enable_medical_upload else "Disabled"}
                         """)
 
@@ -148,6 +273,7 @@ with upload_tab:
                                 "filename": uploaded_file.name,
                                 "medical_enabled": enable_medical_upload,
                                 "source": "upload",
+                                "model": settings["model"],
                             },
                         )
 
@@ -247,6 +373,9 @@ with record_tab:
                         # Format encounter date
                         encounter_date_str = encounter_date_record.isoformat()
 
+                        # Get transcription settings
+                        settings = get_transcription_settings()
+
                         # Upload to backend
                         response = api_client.upload_audio(
                             file_bytes=audio_bytes,
@@ -255,6 +384,13 @@ with record_tab:
                             enable_medical=enable_medical_record,
                             provider_id=provider_id_record.strip() if provider_id_record else None,
                             encounter_date=encounter_date_str,
+                            # Transcription settings
+                            model=settings["model"],
+                            language=settings["language"],
+                            compute_type=settings["compute_type"],
+                            min_speakers=settings["min_speakers"],
+                            max_speakers=settings["max_speakers"],
+                            initial_prompt=settings["initial_prompt"],
                         )
 
                         # Success!
@@ -266,7 +402,7 @@ with record_tab:
                         st.markdown(f"""
                         **Workflow ID**: `{workflow_id}`
                         **Status**: {message}
-                        **Patient**: {patient_name_record} (stored as hash)
+                        **Model**: {settings["model"]} | **Language**: {settings["language"]}
                         **Medical Processing**: {"Enabled" if enable_medical_record else "Disabled"}
                         """)
 
@@ -285,6 +421,7 @@ with record_tab:
                                 "filename": filename,
                                 "medical_enabled": enable_medical_record,
                                 "source": "recording",
+                                "model": settings["model"],
                             },
                         )
 
@@ -306,11 +443,13 @@ if "recent_uploads" in st.session_state and st.session_state.recent_uploads:
 
     for idx, upload in enumerate(st.session_state.recent_uploads):
         source_icon = "🎙️" if upload.get("source") == "recording" else "📁"
-        with st.expander(f"{source_icon} {upload['filename']} - {upload['workflow_id'][:40]}..."):
+        model_badge = f"[{upload.get('model', 'base')}]" if upload.get("model") else ""
+        with st.expander(f"{source_icon} {upload['filename']} {model_badge}"):
             st.markdown(f"""
             - **Workflow ID**: `{upload["workflow_id"]}`
             - **Patient**: {upload["patient_name"]}
             - **Source**: {"Recording" if upload.get("source") == "recording" else "File Upload"}
+            - **Model**: {upload.get("model", "base")}
             - **Medical Processing**: {"✅ Enabled" if upload["medical_enabled"] else "❌ Disabled"}
             """)
 
@@ -328,36 +467,29 @@ with st.expander("ℹ️ Help & Tips"):
         - **Video**: MP4, AVI, MOV, MKV (audio will be extracted)
         - Maximum upload size: 500 MB
 
-        **Patient Name Security:**
-        - Names are sent securely in the request body
-        - Names are hashed for filename and workflow ID
-        - Only the hash is used in logs and tracking
-        """)
-
-    with col2:
-        st.markdown("""
         **🎙️ Voice Recording:**
         - Click the microphone button to start recording
         - Click again to stop recording
         - Audio is captured at 16kHz (optimal for speech recognition)
-        - Recorded as WAV format
+        """)
 
-        **Browser Requirements:**
-        - Microphone permission must be granted
-        - Works best in Chrome, Firefox, or Edge
-        - HTTPS required for microphone access in production
+    with col2:
+        st.markdown("""
+        **⚙️ Model Selection Tips:**
+        - **base**: Best for most use cases (fast + accurate)
+        - **large-v3**: Best accuracy for difficult audio
+        - **large-v3-turbo**: Fast + high accuracy (GPU recommended)
+
+        **🗣️ Speaker Settings:**
+        - Set min/max speakers if you know how many
+        - Leave at 0 for auto-detection
         """)
 
     st.markdown("""
-    **Medical Processing:**
-    - Detects and flags Protected Health Information (PHI)
-    - Extracts medical entities (diagnoses, medications, symptoms)
-    - Generates structured SOAP notes
-    - Requires LM Studio to be running with a medical model
-
-    **Processing Time:**
-    - Transcription: ~1-2 minutes per 10 minutes of audio
-    - Medical processing: Additional 15-30 seconds
+    **Initial Prompt:**
+    Use the initial prompt to provide domain-specific vocabulary hints. For example:
+    - Medical: "hypertension, metformin, diabetes mellitus, cardiovascular"
+    - Legal: "plaintiff, defendant, deposition, litigation"
     """)
 
 # Footer
