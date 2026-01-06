@@ -15,7 +15,7 @@ from utils import get_api_client, format_time_ago
 import httpx
 
 # Page configuration
-st.set_page_config(page_title="whisperX Medical Transcription", page_icon="🏠", layout="wide")
+st.set_page_config(page_title="whisperX Medical Transcription", page_icon="💊", layout="wide")
 
 st.markdown('<h1 style="background: linear-gradient(90deg, #2196F3, #4CAF50); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">whisperX Medical Transcription</h1>', unsafe_allow_html=True)
 
