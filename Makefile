@@ -152,6 +152,7 @@ stop:
 	@echo "Stopping Streamlit processes..."
 	@pkill -f "streamlit run" || true
 	@echo "Stopping Temporal processes..."
+	@pkill -f "temporal server" || true
 	@pkill -f "temporal_server" || true
 	@pkill -f "temporal.worker" || true
 	@pkill -f "app.temporal.worker" || true
