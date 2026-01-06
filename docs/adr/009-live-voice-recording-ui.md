@@ -1,55 +1,59 @@
-# ADR 009: Live Voice Recording in Streamlit UI
+# ADR 009: Streamlit Demonstration UI
 
-- **Date**: 2026-01-05
+- **Date**: 2026-01-06
 - **Status**: Accepted
 
 ## Context
 
-The whisperX Medical Transcription system required an additional input method for audio capture beyond file uploads. Users needed the ability to record audio directly from their microphone within the Streamlit UI, similar to the file upload functionality but without needing to pre-record audio externally.
+The whisperX Medical Transcription API needed a demonstration interface to showcase capabilities without requiring API integration. A lightweight, easy-to-deploy UI was needed for:
+- Testing and demonstration purposes
+- Non-technical stakeholders to interact with the system
+- Quick prototyping of workflow scenarios
 
 ## Decision
 
-We will use **Streamlit's built-in `st.audio_input` widget** to implement live voice recording.
+We implemented a **Streamlit-based demonstration UI** with the following features:
+
+### Pages
+
+| Page | Purpose |
+|------|---------|
+| 🏠 Home | Dashboard with stats and recent activity |
+| 📤 Upload | File upload + live voice recording |
+| 📊 Workflows | Real-time workflow tracking |
+| 👥 Patients | Patient search by hash |
 
 ### Key Design Choices
 
-1. **Built-in Widget Over Third-Party Libraries**
-   - `st.audio_input` is native to Streamlit 1.52+ (already a dependency)
-   - No additional packages (e.g., `streamlit-audiorecorder`, `streamlit-mic-recorder`)
-   - No ffmpeg dependency required
-   - Returns standard `UploadedFile` (BytesIO) compatible with existing API
+1. **Multi-page Navigation**
+   - Consistent sidebar navigation across all pages
+   - Numbered page files (`0_🏠_Home.py`, `1_📤_Upload.py`, etc.)
 
-2. **Tab-Based UI**
-   - Two tabs: "📁 Upload File" and "🎙️ Record Audio"
-   - Clear separation of input methods
-   - Shared patient information form structure
+2. **Dual Input Methods**
+   - Tab-based UI: "📁 Upload File" and "🎙️ Record Audio"
+   - `st.audio_input` widget for browser-based recording (16kHz WAV)
+   - No external dependencies (ffmpeg not required)
 
-3. **Audio Configuration**
-   - 16000 Hz sample rate (optimal for speech recognition)
-   - WAV format output (compatible with WhisperX)
-   - Generated filename pattern: `recorded_YYYYMMDD_HHMMSS.wav`
+3. **Sidebar Configuration**
+   - WhisperX model selection (tiny → large-v3-turbo)
+   - Language selection (en, vi, zh, yue)
+   - Speaker diarization settings (min/max speakers)
+   - Initial prompt for vocabulary hints
 
-4. **Same Backend API**
-   - Both upload and recording use identical `api_client.upload_audio()` method
-   - No backend changes required
-   - Recordings processed through existing workflow pipeline
+4. **API Client Integration**
+   - Thin wrapper around FastAPI backend (`api_client.py`)
+   - Cached client instance via `@st.cache_resource`
 
 ## Consequences
 
 ### Positive
-- Zero new dependencies
-- Consistent with existing upload flow
-- Optimal audio quality for speech recognition
-- Works in Docker environments (browser-based capture)
+- Zero additional infrastructure (runs alongside FastAPI)
+- Rapid iteration for UI/UX testing
+- Browser-based audio capture works in Docker
+- No HIPAA-critical data stored in UI layer
 
 ### Negative
-- Requires user to grant microphone permission in browser
-- HTTPS required for production (browser security policy)
-- Recording quality depends on user's microphone
-
-### Alternatives Considered
-
-1. **`streamlit-audiorecorder`**: Requires ffmpeg system dependency
-2. **`streamlit-mic-recorder`**: Additional package, similar functionality
-3. **`streamlit-webrtc`**: Over-engineered for simple recording use case
-4. **External recording app**: Poor UX, requires file upload step
+- Not production-ready (demo only)
+- No authentication/authorization
+- Limited error handling compared to production UI
+- Test coverage not required (per project policy)
