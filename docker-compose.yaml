@@ -64,18 +64,15 @@ services:
     ports:
       - "8000:8000"
     environment:
-      # Secrets from .env
       - HF_TOKEN=${HF_TOKEN:-}
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - DIARIZATION_MODEL_PATH=${DIARIZATION_MODEL_PATH:-}
+      - TEMPORAL_SERVER_URL=temporal:7233
     volumes:
-      # Config file (runtime defaults)
       - ./config.yaml:/app/config.yaml:ro
-      # Model cache
       - whisperx-huggingface-cache:/root/.cache/huggingface
       - whisperx-torch-cache:/root/.cache/torch
-      # Data persistence
       - ./vector_storage:/app/vector_storage
       - ./data:/app/data
       - ./audit_logs:/app/audit_logs
@@ -100,20 +97,16 @@ services:
       args:
         - INSTALL_GPU=false
     environment:
-      # Secrets from .env
       - HF_TOKEN=${HF_TOKEN:-}
       - ENVIRONMENT=${ENVIRONMENT:-production}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - DIARIZATION_MODEL_PATH=${DIARIZATION_MODEL_PATH:-}
+      - TEMPORAL_SERVER_URL=temporal:7233
     volumes:
-      # Config file (runtime defaults)
       - ./config.yaml:/app/config.yaml:ro
-      # Model cache
       - whisperx-huggingface-cache:/root/.cache/huggingface
       - whisperx-torch-cache:/root/.cache/torch
-      # File processing
       - ./uploads:/tmp/uploads
-      # Data persistence
       - ./vector_storage:/app/vector_storage
       - ./data:/app/data
       - ./audit_logs:/app/audit_logs

@@ -5,11 +5,10 @@
 whisperx:
   model: base                # tiny, base, small, medium, large-v3, large-v3-turbo
   language: en               # en, vi, zh, yue
-  device: cpu                # cpu, cuda
-  compute_type: int8         # int8, float16, float32
 
 # Temporal Orchestration
 temporal:
+  # server_url can be overridden via TEMPORAL_SERVER_URL env var for Docker (temporal:7233)
   server_url: localhost:7233
   namespace: default
   task_queue: whisperx-task-queue
@@ -41,3 +40,13 @@ database:
 performance:
   parallel_medical_processing: true
   medical_processing_workers: 2
+
+# Medical RAG Features
+medical:
+  enabled: false
+  features:
+    phi_detection: true
+    entity_extraction: true
+    soap_generation: true
+    document_structuring: true
+    vector_storage: false

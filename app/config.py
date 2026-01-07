@@ -12,11 +12,20 @@ load_dotenv()
 
 
 def _load_yaml_config() -> dict:
-    """Load configuration from config.yaml file."""
+    """Load configuration from config.yaml file.
+
+    Raises:
+        RuntimeError: If config.yaml exists but cannot be read or parsed.
+    """
     config_path = Path(__file__).parent.parent / "config.yaml"
     if config_path.exists():
-        with open(config_path) as f:
-            return yaml.safe_load(f) or {}
+        try:
+            with open(config_path) as f:
+                return yaml.safe_load(f) or {}
+        except OSError as e:
+            raise RuntimeError(f"Failed to read config.yaml: {e}") from e
+        except yaml.YAMLError as e:
+            raise RuntimeError(f"Failed to parse config.yaml: {e}") from e
     return {}
 
 
@@ -73,8 +82,8 @@ class Config:
     # WhisperX
     LANG = _get_yaml("whisperx", "language", "en")
     WHISPER_MODEL = _get_yaml("whisperx", "model", "base")
-    DEVICE = _get_yaml("whisperx", "device", "cpu")
-    COMPUTE_TYPE = _get_yaml("whisperx", "compute_type", "int8")
+    DEVICE = os.getenv("DEVICE", "cpu")
+    COMPUTE_TYPE = os.getenv("COMPUTE_TYPE", "int8")
 
     AUDIO_EXTENSIONS = {
         ".mp3", ".wav", ".awb", ".aac", ".ogg", ".oga", ".m4a", ".wma", ".amr",

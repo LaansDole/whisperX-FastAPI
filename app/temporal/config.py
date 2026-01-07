@@ -1,3 +1,4 @@
+import os
 from datetime import timedelta
 from pathlib import Path
 
@@ -6,11 +7,20 @@ from temporalio.common import RetryPolicy
 
 
 def _load_yaml_config() -> dict:
-    """Load configuration from config.yaml file."""
+    """Load configuration from config.yaml file.
+
+    Raises:
+        RuntimeError: If config.yaml exists but cannot be read or parsed.
+    """
     config_path = Path(__file__).parent.parent.parent / "config.yaml"
     if config_path.exists():
-        with open(config_path) as f:
-            return yaml.safe_load(f) or {}
+        try:
+            with open(config_path) as f:
+                return yaml.safe_load(f) or {}
+        except OSError as e:
+            raise RuntimeError(f"Failed to read config.yaml: {e}") from e
+        except yaml.YAMLError as e:
+            raise RuntimeError(f"Failed to parse config.yaml: {e}") from e
     return {}
 
 
@@ -32,7 +42,7 @@ class TemporalConfig:
     """Temporal configuration with retry policies."""
 
     # All settings from config.yaml
-    TEMPORAL_SERVER_URL = _get_temporal("server_url", "localhost:7233")
+    TEMPORAL_SERVER_URL = os.getenv("TEMPORAL_SERVER_URL") or _get_temporal("server_url", "localhost:7233")
     TEMPORAL_NAMESPACE = _get_temporal("namespace", "default")
     TEMPORAL_TASK_QUEUE = _get_temporal("task_queue", "whisperx-task-queue")
 
