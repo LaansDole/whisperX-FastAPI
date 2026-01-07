@@ -2,7 +2,7 @@
 	dev server worker streamlit start-temporal lint format \
 	stop-temporal stop test-api temporal-fresh check-activities \
 	test test-unit test-integration test-medical test-coverage test-all test-quick \
-	docker-up down
+	docker-build docker-up docker-start docker-restart docker-down down
 
 # Default target - show help
 help:
@@ -20,8 +20,13 @@ help:
 	@echo "  stop              		- Stop all running processes (pkill)"
 	@echo "  temporal-fresh     	- Stop all workers, clean Temporal data, and start fresh"
 	@echo "  check-activities  	- Check running Temporal activities via CLI"
-	@echo "  docker-up         	- Build and start all services in Docker (detached)"
-	@echo "  down       	- Stop and remove all Docker containers"
+	@echo ""
+	@echo "Docker targets:"
+	@echo "  docker-build      	- Build Docker images only"
+	@echo "  docker-up         	- Build and start all services (with build)"
+	@echo "  docker-start      	- Start services without rebuild (faster)"
+	@echo "  docker-restart    	- Restart running services"
+	@echo "  docker-down       	- Stop and remove all containers"
 	@echo ""
 	@echo "Code quality targets:"
 	@echo "  lint              	- Run all linting checks (ruff, yamllint, etc.)"
@@ -97,9 +102,7 @@ dev:
 	uv run python scripts/wait_for_server.py
 	$(MAKE) streamlit
 	@echo "Full application started"
-	@echo "  FastAPI:   http://localhost:8000"
-	@echo "  Streamlit: http://localhost:8501"
-	@echo "  Temporal:  http://localhost:8233"
+	@$(MAKE) list-servers
 
 # Start Streamlit UI only
 streamlit:
@@ -141,6 +144,13 @@ start-temporal:
 # ============================================================================
 # Process management
 # ============================================================================
+
+list-servers:
+	@echo "List of running servers:"
+	@echo "  FastAPI:   http://localhost:8000"
+	@echo "  Admin:     http://localhost:8000/admin"
+	@echo "  Streamlit: http://localhost:8501"
+	@echo "  Temporal:  http://localhost:8233"
 
 # Stop all running processes (FastAPI, Temporal, worker, etc.)
 stop:
@@ -395,12 +405,21 @@ check-activities:
 # Docker targets
 # ============================================================================
 
-# Build and start all services in Docker (detached)
-docker-up:
+build:
 	docker-compose up --build -d
-	@echo "Docker services started"
+	@echo "Docker images built"
+	@$(MAKE) list-servers
 
-# Stop and remove all Docker containers
+up:
+	docker-compose up -d
+	@echo "Docker services started"
+	@$(MAKE) list-servers
+
+restart:
+	docker-compose restart
+	@echo "Docker services restarted"
+	@$(MAKE) list-servers
+
 down:
 	docker-compose down
 	@echo "Docker services stopped"
