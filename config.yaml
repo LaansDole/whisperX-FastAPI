@@ -42,11 +42,17 @@ performance:
   medical_processing_workers: 2
 
 # Medical RAG Features
+# Note: LM_STUDIO_BASE_URL, LM_STUDIO_MODEL, LM_STUDIO_MAX_TOKENS, EMBEDDING_MODEL, EMBEDDING_DIMENSION are in .env
 medical:
-  enabled: false
+  enabled: true
+  lm_studio:
+    enabled: true           # Enable/disable LM Studio integration
+    timeout: 120            # Request timeout in seconds
+    temperature: 0.1        # Model temperature for consistency
+    max_retries: 3          # Max retry attempts on failure
   features:
     phi_detection: true
     entity_extraction: true
     soap_generation: true
     document_structuring: true
-    vector_storage: false
+    vector_storage: true

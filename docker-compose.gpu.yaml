@@ -59,7 +59,7 @@ services:
       # Model cache
       - whisperx-huggingface-cache:/root/.cache/huggingface
       - whisperx-torch-cache:/root/.cache/torch
-      # File uploads
+      # Shared file uploads (must match worker)
       - ./uploads:/tmp/uploads
       # Data persistence
       - ./vector_storage:/app/vector_storage
