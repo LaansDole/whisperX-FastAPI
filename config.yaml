@@ -1,4 +1,4 @@
-# WhisperX FastAPI Configuration
+# MedVoice Configuration
 # Runtime defaults - overridable per-request via API/Streamlit
 
 # WhisperX Speech Recognition
