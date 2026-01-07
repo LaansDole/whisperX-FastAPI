@@ -188,109 +188,98 @@ temporal-fresh:
 	$(MAKE) stop
 	@echo "   Ensuring Temporal server is completely stopped..."
 	@pkill -9 -f "temporal server" || true
-	@echo "   ✅ All processes stopped (including workers)"
+	@echo " ✓ All processes stopped (including workers)"
 	@echo ""
 	@echo "2️⃣  Cleaning Temporal data directories..."
-	@echo "   🗂️  Removing controlled Temporal database: $(TEMPORAL_DB_PATH)..."
+	@echo "Removing controlled Temporal database: $(TEMPORAL_DB_PATH)..."
 	@if [ -f "$(TEMPORAL_DB_PATH)" ]; then \
-		echo "   🗂️  Removing database file: $(TEMPORAL_DB_PATH)"; \
+		echo "Removing database file: $(TEMPORAL_DB_PATH)"; \
 		rm -f "$(TEMPORAL_DB_PATH)"; \
-		echo "   ✅ Temporal database removed"; \
+		echo " ✓ Temporal database removed"; \
 	else \
-		echo "   ℹ️  Temporal database not found at $(TEMPORAL_DB_PATH)"; \
+		echo "Temporal database not found at $(TEMPORAL_DB_PATH)"; \
 	fi
 	@if [ -d "$$(dirname "$(TEMPORAL_DB_PATH)")" ]; then \
-		echo "   🗂️  Removing database directory: $$(dirname "$(TEMPORAL_DB_PATH)")"; \
+		echo "Removing database directory: $$(dirname "$(TEMPORAL_DB_PATH)")"; \
 		rmdir $$(dirname "$(TEMPORAL_DB_PATH)") 2>/dev/null || true; \
 	fi
 	@if [ -d "/tmp/temporal" ]; then \
-		echo "   🗂️  Removing /tmp/temporal directory..."; \
+		echo "Removing /tmp/temporal directory..."; \
 		rm -rf /tmp/temporal; \
-		echo "   ✅ /tmp/temporal removed"; \
+		echo " ✓ /tmp/temporal removed"; \
 	else \
-		echo "   ℹ️  /tmp/temporal directory not found"; \
+		echo "/tmp/temporal directory not found"; \
 	fi
 	@if [ -d "~/.temporal" ]; then \
-		echo "   🗂️  Removing ~/.temporal directory..."; \
+		echo "Removing ~/.temporal directory..."; \
 		rm -rf ~/.temporal; \
-		echo "   ✅ ~/.temporal removed"; \
+		echo " ✓ ~/.temporal removed"; \
 	else \
-		echo "   ℹ️  ~/.temporal directory not found"; \
+		echo "~/.temporal directory not found"; \
 	fi
 	@echo ""
 	@echo "3️⃣  Cleaning Temporal databases..."
-	@echo "   🗑️  Searching for Temporal database files..."
+	@echo "Searching for Temporal database files..."
 	@find /tmp -name "*.db" -name "*temporal*" -o -name "*.temporal_*" 2>/dev/null | while read db_file; do \
-		echo "   🗂️  Removing database file: $$db_file"; \
+		echo "Removing database file: $$db_file"; \
 		rm -f "$$db_file" 2>/dev/null || true; \
 	done
 	@if [ -f "/var/db/temporal.db" ]; then \
-		echo "   🗑️  Removing main database: /var/db/temporal.db"; \
+		echo "Removing main database: /var/db/temporal.db"; \
 		rm -f /var/db/temporal.db 2>/dev/null || true; \
 	fi
-	echo "   ✅ Temporal database files cleaned"
+	echo " ✓ Temporal database files cleaned"
 	@echo ""
 	@echo "4️⃣  Cleaning Temporal logs..."
 	@if [ -d "./temporal_logs" ]; then \
-		echo "   🗂️  Removing ./temporal_logs directory..."; \
+		echo "Removing ./temporal_logs directory..."; \
 		rm -rf ./temporal_logs; \
-		echo "   ✅ Temporal logs removed"; \
+		echo " ✓ Temporal logs removed"; \
 	else \
-		echo "   ℹ️  ./temporal_logs directory not found"; \
+		echo "Temporal logs directory not found"; \
 	fi
 	@echo ""
 	@echo "5️⃣  Clearing Docker Temporal images (if present)..."
-	@echo "   🐳  Checking for Temporal Docker images..."
+	@echo "Checking for Temporal Docker images..."
 	@docker images | grep "temporalio" 2>/dev/null | while read line; do \
-		echo "   🗑️  Found Temporal image: $$line"; \
+		echo "Found Temporal image: $$line"; \
 		image_id=$$(echo $$line | awk '{print $$3}'); \
 		if [ -n "$$image_id" ]; then \
-			echo "   🗑️  Removing image: $$image_id"; \
+			echo "Removing image: $$image_id"; \
 			docker rmi "$$image_id" 2>/dev/null || true; \
 		fi; \
-	done || echo "   ℹ️  Docker not available or no Temporal images found"
+	done || echo "Docker not available or no Temporal images found"
 	@echo ""
-	@echo "6️⃣  Cleaning Temporal CLI configuration..."
-	@echo "   🗑️  Clearing Temporal CLI namespace data..."
+	@echo "Cleaning Temporal CLI configuration..."
+	@echo "Clearing Temporal CLI namespace data..."
 	@if temporal --version > /dev/null 2>&1; then \
-		echo "   🧹  Clearing Temporal CLI namespace data..." && \
+		echo "Clearing Temporal CLI namespace data..." && \
 		temporal operator namespace describe default > /dev/null 2>&1 && temporal workflow list --namespace default --limit 1 | grep -q . && \
 		temporal workflow list --namespace default | awk 'NR>1 {print $$2}' | xargs -I {} temporal workflow delete --namespace default --workflow-id {} 2>/dev/null || true && \
-		echo "   ✅ Temporal CLI namespace cleared" || echo "   ℹ️  Could not clear Temporal CLI namespace"; \
+		echo " ✓ Temporal CLI namespace cleared" || echo "Could not clear Temporal CLI namespace"; \
 	else \
-		echo "   ℹ️  Temporal CLI not available"; \
+		echo "Temporal CLI not available"; \
 	fi
 	@echo ""
 	@echo "7️⃣  Starting fresh Temporal server..."
 	$(MAKE) start-temporal
-	@echo "   ✅ Fresh Temporal server started"
+	@echo " ✓ Fresh Temporal server started"
 	@echo ""
 	@echo "8️⃣  Waiting for Temporal server to initialize..."
 	sleep 8
-	@echo "   ⏳ Temporal server should be ready"
+	@echo " ✓ Temporal server should be ready"
 	@echo ""
 	@echo "9️⃣  Opening Temporal UI in browser..."
-	@echo "   🌐 Opening http://localhost:8233 (Temporal UI) in browser..."
-	@open http://localhost:8233 2>/dev/null || echo "   📝 Temporal UI available at: http://localhost:8233"
+	@echo "Opening http://localhost:8233 (Temporal UI) in browser..."
+	@open http://localhost:8233 2>/dev/null || echo "Temporal UI available at: http://localhost:8233"
 	@echo ""
 	@echo "============================================"
-	@echo "🎉 TEMPORAL FRESH START COMPLETED!"
-	@echo "   ✅ All old workflows cleared from Temporal UI"
-	@echo "   ✅ All databases and logs cleaned"
-	@echo "   ✅ Fresh Temporal server started with database at $(TEMPORAL_DB_PATH)"
-	@echo "   ✅ Clean Temporal CLI namespace"
-	@echo ""
-	@echo "📚 NEXT STEPS:"
-	@echo "   🌐 Temporal UI: http://localhost:8233"
-	@echo "   🧪 Start worker: make worker"
-	@echo "   🚀 Start server: make server"
-	@echo "   🧪 Test workflows: make test-api"
-	@echo ""
-	@echo "🔍 WHAT TO EXPECT:"
-	@echo "   • Empty Temporal UI with no old workflows"
-	@echo "   • Clean database ready for new workflows"
-	@echo "   • Fresh worker processes with updated code"
-	@echo "   • No leftover Temporal cache or data"
+	@echo "TEMPORAL FRESH START COMPLETED!"
+	@echo " ✓ All old workflows cleared from Temporal UI"
+	@echo " ✓ All databases and logs cleaned"
+	@echo " ✓ Fresh Temporal server started with database at $(TEMPORAL_DB_PATH)"
+	@echo " ✓ Clean Temporal CLI namespace"
+
 	@echo "============================================"
 
 # ============================================================================
