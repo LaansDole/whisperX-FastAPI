@@ -71,11 +71,11 @@ class Config:
     EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-bge-reranker-v2-m3")
     EMBEDDING_DIMENSION = int(os.getenv("EMBEDDING_DIMENSION", "1024"))
 
-    # LM Studio advanced settings (hardcoded defaults, rarely changed)
-    LM_STUDIO_ENABLED = False
-    LM_STUDIO_TIMEOUT = 120
-    LM_STUDIO_TEMPERATURE = 0.1
-    LM_STUDIO_MAX_RETRIES = 3
+    # LM Studio advanced settings (from YAML)
+    LM_STUDIO_ENABLED = _get_yaml_nested("medical", "lm_studio", "enabled", False)
+    LM_STUDIO_TIMEOUT = _get_yaml_nested("medical", "lm_studio", "timeout", 120)
+    LM_STUDIO_TEMPERATURE = _get_yaml_nested("medical", "lm_studio", "temperature", 0.1)
+    LM_STUDIO_MAX_RETRIES = _get_yaml_nested("medical", "lm_studio", "max_retries", 3)
 
     # ========== FROM config.yaml (runtime defaults) ==========
 
