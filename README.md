@@ -144,15 +144,15 @@ make format           # Format code
 # - nomic-embed-text-v1.5 (embeddings)
 
 # Configure .env
-LM_STUDIO_ENABLED=true
-MEDICAL_RAG_ENABLED=true
-ENABLE_PHI_DETECTION=true
-ENABLE_SOAP_GENERATION=true
+cp .env.example .env
 
 # Start LM Studio server
 # Local Server tab → Select model → Start Server
 
-# Start application
+# Start application with Docker
+make build
+
+# Or start application with local Python
 make dev
 ```
 
@@ -183,7 +183,6 @@ Client → FastAPI → Temporal → Activities (Transcribe → Align → Diarize
 - [Docker Guide](docs/DOCKER.md)
 - [Temporal Retry Policies](docs/TEMPORAL_RETRY_POLICIES.md)
 - [Architecture Decisions](docs/adr/)
-- [Agent Workflows](.agent/workflows/)
 
 ## Troubleshooting
 

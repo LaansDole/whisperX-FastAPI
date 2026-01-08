@@ -242,15 +242,7 @@ docker run --rm --gpus all nvidia/cuda:11.0-base nvidia-smi
 docker-compose -f docker-compose.gpu.yaml exec whisperx-api python -c "import torch; print(torch.cuda.is_available())"
 ```
 
-#### 3. Out of Memory Errors
-
-**Solutions**:
-- Use smaller model (`tiny`, `base` instead of `large`)
-- Increase Docker memory limits
-- Use `int8` compute type for CPU
-- For GPU, try `float16` instead of `float32`
-
-#### 4. Temporal Connection Issues
+#### 3. Temporal Connection Issues
 
 ```bash
 # Check temporal service status
