@@ -69,14 +69,21 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - DIARIZATION_MODEL_PATH=${DIARIZATION_MODEL_PATH:-}
       - TEMPORAL_SERVER_URL=temporal:7233
+      - HIPAA_ENCRYPTION_KEY=${HIPAA_ENCRYPTION_KEY:-default}
+      # LM Studio configuration for medical processing (host.docker.internal for Docker-to-host connectivity)
+      - LM_STUDIO_BASE_URL=${LM_STUDIO_BASE_URL:-http://host.docker.internal:1234/v1}
+      - LM_STUDIO_MODEL=${LM_STUDIO_MODEL:-}
+      - LM_STUDIO_MAX_TOKENS=${LM_STUDIO_MAX_TOKENS:-8192}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-text-embedding-bge-reranker-v2-m3}
+      - EMBEDDING_DIMENSION=${EMBEDDING_DIMENSION:-1024}
     volumes:
       # Config file (runtime defaults)
       - ./config.yaml:/app/config.yaml:ro
       # Model cache
       - whisperx-huggingface-cache:/root/.cache/huggingface
       - whisperx-torch-cache:/root/.cache/torch
-      # Shared file uploads (must match worker)
-      - ./uploads:/tmp/uploads
+      # Shared file uploads (Docker volume, not host directory)
+      - whisperx-uploads:/tmp/uploads
       # Data persistence
       - ./vector_storage:/app/vector_storage
       - ./data:/app/data
@@ -86,6 +93,8 @@ services:
         condition: service_healthy
     networks:
       - whisperx-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -107,11 +116,18 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - DIARIZATION_MODEL_PATH=${DIARIZATION_MODEL_PATH:-}
       - TEMPORAL_SERVER_URL=temporal:7233
+      - HIPAA_ENCRYPTION_KEY=${HIPAA_ENCRYPTION_KEY:-default}
+      # LM Studio configuration for medical processing (host.docker.internal for Docker-to-host connectivity)
+      - LM_STUDIO_BASE_URL=${LM_STUDIO_BASE_URL:-http://host.docker.internal:1234/v1}
+      - LM_STUDIO_MODEL=${LM_STUDIO_MODEL:-}
+      - LM_STUDIO_MAX_TOKENS=${LM_STUDIO_MAX_TOKENS:-8192}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-text-embedding-bge-reranker-v2-m3}
+      - EMBEDDING_DIMENSION=${EMBEDDING_DIMENSION:-1024}
     volumes:
       - ./config.yaml:/app/config.yaml:ro
       - whisperx-huggingface-cache:/root/.cache/huggingface
       - whisperx-torch-cache:/root/.cache/torch
-      - ./uploads:/tmp/uploads
+      - whisperx-uploads:/tmp/uploads
       - ./vector_storage:/app/vector_storage
       - ./data:/app/data
       - ./audit_logs:/app/audit_logs
@@ -121,6 +137,8 @@ services:
         condition: service_healthy
     networks:
       - whisperx-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     deploy:
       replicas: 1
@@ -157,3 +175,4 @@ volumes:
   postgres-data:
   whisperx-huggingface-cache:
   whisperx-torch-cache:
+  whisperx-uploads:
