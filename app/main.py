@@ -33,10 +33,9 @@ async def lifespan(app: FastAPI):
         app (FastAPI): The FastAPI application instance.
     """
     # Initialize patient database
-    import os
     from .patients.database import init_db
 
-    fresh_start = os.getenv("DB_FRESH_START", "false").lower() == "true"
+    fresh_start = Config.DB_FRESH_START
     init_db(fresh_start=fresh_start)
     logger.info(f"Patient database initialized (fresh_start={fresh_start})")
 

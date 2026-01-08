@@ -1,6 +1,5 @@
 """This module contains the schema definitions for the WhisperX FastAPI application."""
 
-import os
 from datetime import datetime
 from enum import Enum
 from typing import Any, List, Optional
@@ -9,8 +8,10 @@ import numpy as np
 from fastapi import Query
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 
-WHISPER_MODEL = os.getenv("WHISPER_MODEL")
-LANG = os.getenv("DEFAULT_LANG", "en")
+from .config import Config
+
+WHISPER_MODEL = Config.WHISPER_MODEL
+LANG = Config.LANG
 
 # Supported languages - restricted to 4 primary languages
 SUPPORTED_LANGUAGES = ["en", "vi", "zh", "yue"]

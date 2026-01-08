@@ -6,7 +6,6 @@ filter_warnings()
 
 import asyncio  # noqa: E402
 import concurrent.futures  # noqa: E402
-import os  # noqa: E402
 import torch  # noqa: E402
 from temporalio.worker import Worker  # noqa: E402
 from app.logger import logger  # noqa: E402
@@ -51,13 +50,7 @@ async def main():
     # Smart defaults based on GPU availability:
     # - GPU detected: Default to 1 worker to prevent OOM errors
     # - CPU only: Default to 5 workers for high throughput
-    # Set MAX_ACTIVITY_WORKERS environment variable to override
-    if torch.cuda.is_available():
-        default_workers = "1"  # Safe default for GPU to prevent OOM
-    else:
-        default_workers = "5"  # Optimal for CPU deployments
-
-    max_activity_workers = int(os.getenv("MAX_ACTIVITY_WORKERS", default_workers))
+    max_activity_workers = config.get_max_activity_workers()
 
     logger.info("=" * 70)
     logger.info("Temporal Worker Configuration")

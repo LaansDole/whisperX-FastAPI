@@ -52,7 +52,9 @@ class PatientWorkflowAdmin(ModelView, model=PatientWorkflowMapping):
     column_formatters = {
         PatientWorkflowMapping.workflow_id: lambda m, a: (
             m.workflow_id[:40] + "..." if len(m.workflow_id) > 40 else m.workflow_id
-        ) if m.workflow_id else "",
+        )
+        if m.workflow_id
+        else "",
         PatientWorkflowMapping.file_path: lambda m, a: (
             m.file_path.split("/")[-1] if m.file_path else ""
         ),  # Show only filename

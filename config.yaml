@@ -1,0 +1,58 @@
+# MedVoice Configuration
+# Runtime defaults - overridable per-request via API/Streamlit
+
+# WhisperX Speech Recognition
+whisperx:
+  model: base                # tiny, base, small, medium, large-v3, large-v3-turbo
+  language: en               # en, vi, zh, yue
+
+# Temporal Orchestration
+temporal:
+  # server_url can be overridden via TEMPORAL_SERVER_URL env var for Docker (temporal:7233)
+  server_url: localhost:7233
+  namespace: default
+  task_queue: whisperx-task-queue
+  retry:
+    max_attempts: 3
+    initial_interval: 5
+    backoff_coefficient: 2.0
+    max_interval: 300
+  timeouts:
+    transcription_minutes: 30
+    alignment_minutes: 10
+    diarization_minutes: 10
+    speaker_assignment_minutes: 5
+    medical_activity_minutes: 15
+    medical_workflow_minutes: 30
+
+# Vector Database (when enabled)
+vector_db:
+  path: ./vector_storage
+  index_type: IndexFlatL2
+  search_limit: 10
+
+# Database Paths
+database:
+  medical_db_path: ./medical_metadata.db
+  patient_db_path: ./data/patient_mappings.db
+
+# Performance
+performance:
+  parallel_medical_processing: true
+  medical_processing_workers: 2
+
+# Medical RAG Features
+# Note: LM_STUDIO_BASE_URL, LM_STUDIO_MODEL, LM_STUDIO_MAX_TOKENS, EMBEDDING_MODEL, EMBEDDING_DIMENSION are in .env
+medical:
+  enabled: true
+  lm_studio:
+    enabled: true           # Enable/disable LM Studio integration
+    timeout: 120            # Request timeout in seconds
+    temperature: 0.1        # Model temperature for consistency
+    max_retries: 3          # Max retry attempts on failure
+  features:
+    phi_detection: true
+    entity_extraction: true
+    soap_generation: true
+    document_structuring: true
+    vector_storage: true

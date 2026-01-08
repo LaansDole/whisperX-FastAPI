@@ -16,14 +16,14 @@ This guide provides instructions for running WhisperX-FastAPI using Docker Compo
 # Copy the example environment file
 cp .env.example .env
 
-# Edit .env file with your settings
+# Edit .env file with your HF_TOKEN
 nano .env
 ```
 
 **Required environment variables:**
-- `HF_TOKEN`: Your Hugging Face token for model downloads
-- `WHISPER_MODEL`: Model to use (tiny, base, small, medium, large)
-- Other optional settings as per `.env.example`
+- `HF_TOKEN`: Your Hugging Face token for pyannote speaker diarization models
+
+**Runtime defaults** are in `config.yaml` (model, language, device, etc.)
 
 ### 2. Choose Your Setup
 
@@ -55,7 +55,7 @@ docker-compose -f docker-compose.gpu.yaml down
 
 ## Service Architecture
 
-The Docker Compose setup includes three main services:
+The Docker Compose setup includes these main services:
 
 ### 1. `temporal` - Workflow Orchestration Server
 - **Purpose**: Manages workflow execution and state
@@ -74,33 +74,10 @@ The Docker Compose setup includes three main services:
 - **Purpose**: Executes audio processing workflows
 - **Scaling**: Increase `replicas` in compose file for more workers
 
-### 4. `neo4j` - Knowledge Graph (Optional)
-- **Purpose**: Medical knowledge graph for ontology integration
-- **Ports**:
-  - `7474`: HTTP Browser UI
-  - `7687`: Bolt protocol
-- **Browser UI**: Access at `http://localhost:7474`
-- **Status**: **Disabled by default** - enable with `--profile neo4j` flag
-- **Mac M4 Compatibility**: Includes Java workaround for M4 chips
-
-#### Enabling Neo4j
-
-Neo4j is optional and must be explicitly enabled using Docker Compose profiles:
-
-```bash
-# Enable Neo4j in .env
-echo "NEO4J_ENABLED=true" >> .env
-echo "NEO4J_PASSWORD=your-secure-password" >> .env
-
-# Start services including Neo4j
-docker-compose --profile neo4j up -d
-
-# Verify Neo4j is running
-docker ps | grep neo4j
-curl http://localhost:7474
-```
-
-**Note**: Neo4j requires **~12GB RAM** and **4 vCPUs**. See [ADR 008](../docs/adr/008-knowledge-graph-integration.md) for details.
+### 4. `streamlit-ui` - Demo Web Interface
+- **Purpose**: Upload audio and view transcriptions
+- **Port**: `8501`
+- **Access**: `http://localhost:8501`
 
 ## Persistent Storage
 
@@ -109,48 +86,43 @@ The setup includes persistent volumes for:
 - **`whisperx-huggingface-cache`**: Stores downloaded Whisper and other models
 - **`whisperx-torch-cache`**: Stores PyTorch model cache
 - **`temporal-data`**: Temporal server data and workflow state
-- **`neo4j-data`**: Neo4j graph database storage (when enabled)
-- **`neo4j-logs`**: Neo4j server logs (when enabled)
 
 This ensures models and data aren't re-downloaded/lost between container restarts.
 
-## Configuration Options
+## Configuration
 
-### Environment Variables
+### Environment Variables (.env)
 
-Key environment variables you can customize in your `.env` file:
+Secrets and environment-specific settings only:
 
 ```bash
-# Model Configuration
+# Required
 HF_TOKEN=your_huggingface_token_here
-WHISPER_MODEL=small                    # tiny, base, small, medium, large
-DEVICE=cpu                            # cpu or cuda
-COMPUTE_TYPE=int8                     # int8 (CPU), float16/float32 (GPU)
 
-# Performance Tuning
-TRANSCRIPTION_TIMEOUT=30              # Minutes - increase for long audio
-ALIGNMENT_TIMEOUT=10                  # Minutes
-DIARIZATION_TIMEOUT=10                # Minutes
-
-# Temporal Configuration
-TEMPORAL_TASK_QUEUE=whisperx-task-queue
-TEMPORAL_MAX_ATTEMPTS=3
-
-# Neo4j Configuration (optional)
-NEO4J_ENABLED=false                    # Enable Neo4j knowledge graph
-NEO4J_PASSWORD=change_this_secure_password  # IMPORTANT: Change in production
-NEO4J_HEAP_INITIAL=4G                  # Heap memory (adjust for your system)
-NEO4J_HEAP_MAX=4G
-NEO4J_PAGECACHE_SIZE=4G                # Page cache size
+# Environment
+ENVIRONMENT=development
+LOG_LEVEL=INFO
 ```
 
-### GPU-Specific Settings
+### Runtime Defaults (config.yaml)
 
-For GPU setup (`docker-compose.gpu.yaml`):
+All other settings are in `config.yaml` and can be overridden per-request:
+
+```yaml
+whisperx:
+  model: base      # tiny, base, small, medium, large-v3
+  language: en     # en, vi, zh, yue
+  device: cpu      # cpu, cuda
+  compute_type: int8  # int8, float16, float32
+```
+
+### GPU-Specific Overrides
+
+For GPU setup, override defaults via environment:
 
 ```bash
 DEVICE=cuda
-COMPUTE_TYPE=float16                  # More accurate than int8, faster than float32
+COMPUTE_TYPE=float16
 ```
 
 ### Scaling Workers
@@ -270,15 +242,7 @@ docker run --rm --gpus all nvidia/cuda:11.0-base nvidia-smi
 docker-compose -f docker-compose.gpu.yaml exec whisperx-api python -c "import torch; print(torch.cuda.is_available())"
 ```
 
-#### 3. Out of Memory Errors
-
-**Solutions**:
-- Use smaller model (`tiny`, `base` instead of `large`)
-- Increase Docker memory limits
-- Use `int8` compute type for CPU
-- For GPU, try `float16` instead of `float32`
-
-#### 4. Temporal Connection Issues
+#### 3. Temporal Connection Issues
 
 ```bash
 # Check temporal service status

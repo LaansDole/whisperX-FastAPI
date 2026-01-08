@@ -57,13 +57,11 @@ class WhisperXAPIClient:
         """
         with httpx.Client(timeout=self.timeout) as client:
             files = {"file": (filename, file_bytes)}
+
+            # Form data for body (PHI and file metadata)
             data = {
                 "patient_name": patient_name,
                 "enable_medical_processing": str(enable_medical).lower(),
-                # WhisperX model params
-                "model": model,
-                "language": language,
-                "compute_type": compute_type,
             }
 
             if enable_medical and provider_id:
@@ -72,18 +70,25 @@ class WhisperXAPIClient:
             if encounter_date:
                 data["encounter_date"] = encounter_date
 
+            # Query parameters for URL (WhisperX config)
+            params = {
+                "model": model,
+                "language": language,
+                "compute_type": compute_type,
+            }
+
             # Diarization params
             if min_speakers is not None:
-                data["min_speakers"] = str(min_speakers)
+                params["min_speakers"] = str(min_speakers)
 
             if max_speakers is not None:
-                data["max_speakers"] = str(max_speakers)
+                params["max_speakers"] = str(max_speakers)
 
             # ASR options
             if initial_prompt:
-                data["initial_prompt"] = initial_prompt
+                params["initial_prompt"] = initial_prompt
 
-            response = client.post(f"{self.base_url}/speech-to-text", files=files, data=data)
+            response = client.post(f"{self.base_url}/speech-to-text", files=files, data=data, params=params)
             response.raise_for_status()
             return response.json()
 
