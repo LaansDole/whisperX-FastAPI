@@ -83,7 +83,7 @@ lint:
 # Format code with ruff
 format:
 	@echo "Formatting code with ruff..."
-	uv run ruff check app/ tests/ streamlit_app/ --fix --unsafe-fixes --config pyproject.toml
+	uv run ruff check app/ tests/ streamlit_app/ --fix --config pyproject.toml
 	uv run ruff format app/ tests/ streamlit_app/ --config pyproject.toml
 	@echo "Code formatting completed"
 
