@@ -60,7 +60,12 @@ class Config:
     # HIPAA (secrets)
     HIPAA_ENCRYPTION_KEY = os.getenv("HIPAA_ENCRYPTION_KEY")
     HIPAA_SALT = os.getenv("HIPAA_SALT", "default_salt_change_in_production")
-
+    # Prevent insecure default HIPAA_SALT from being used in production
+    if ENVIRONMENT == "production" and HIPAA_SALT == "default_salt_change_in_production":
+        raise RuntimeError(
+            "HIPAA_SALT must be set to a secure, non-default value in production. "
+            "Current value is the insecure default 'default_salt_change_in_production'."
+        )
     # Optional paths from env
     DIARIZATION_MODEL_PATH = os.getenv("DIARIZATION_MODEL_PATH")
 
