@@ -64,6 +64,7 @@ class TemporalConfig:
     def get_max_activity_workers(cls) -> int:
         """Get max activity workers based on hardware."""
         import torch
+
         if torch.cuda.is_available():
             return 1  # Safe default for GPU
         return 5  # Optimal for CPU

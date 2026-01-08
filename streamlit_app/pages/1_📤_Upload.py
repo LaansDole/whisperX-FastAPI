@@ -103,6 +103,7 @@ def get_transcription_settings():
         "initial_prompt": st.session_state.get("initial_prompt", "").strip() or None,
     }
 
+
 st.title("📤 Upload Audio")
 st.markdown("Upload an audio file or record directly from your microphone for transcription.")
 

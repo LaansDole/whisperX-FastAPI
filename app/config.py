@@ -86,7 +86,15 @@ class Config:
     COMPUTE_TYPE = os.getenv("COMPUTE_TYPE", "int8")
 
     AUDIO_EXTENSIONS = {
-        ".mp3", ".wav", ".awb", ".aac", ".ogg", ".oga", ".m4a", ".wma", ".amr",
+        ".mp3",
+        ".wav",
+        ".awb",
+        ".aac",
+        ".ogg",
+        ".oga",
+        ".m4a",
+        ".wma",
+        ".amr",
     }
     VIDEO_EXTENSIONS = {".mp4", ".mov", ".avi", ".wmv", ".mkv"}
     ALLOWED_EXTENSIONS = AUDIO_EXTENSIONS | VIDEO_EXTENSIONS
