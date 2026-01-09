@@ -1,4 +1,4 @@
-# WhisperX-FastAPI
+# MedVoice Service
 
 Production-ready REST API for audio processing using WhisperX with Temporal workflow orchestration. Features transcription, alignment, diarization, and medical RAG integration with local LLMs via LM Studio.
 
