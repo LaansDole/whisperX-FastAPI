@@ -102,6 +102,7 @@ elif search_mode == "Patient Hash":
 # Display Functions
 # ============================================================================
 
+
 def display_workflow_detail(workflow_id: str):
     """Display detailed workflow results with tabs."""
     try:
@@ -115,69 +116,102 @@ def display_workflow_detail(workflow_id: str):
             # Fetch full results
             result = api_client.get_workflow_result(workflow_id)
 
-            # Tabs for different result sections
-            tab1, tab2, tab3 = st.tabs(["📄 Transcription", "🏥 Medical Results", "📊 Raw Data"])
+            # Check if medical processing was enabled
+            workflow_type = result.get("workflow_type", "")
+            has_medical = "medical" in workflow_type.lower() or "dialogue_transformation" in result
 
-            with tab1:
-                st.subheader("Transcription")
+            if has_medical:
+                # Full tabs with medical results
+                tab1, tab2, tab3 = st.tabs(["📄 Transcription", "🏥 Medical Results", "📊 Raw Data"])
 
-                # Check if we have transcript data
-                if "whisperx_transcription" in result:
-                    transcription = result["whisperx_transcription"]
+                with tab1:
+                    st.subheader("Transcription")
+                    # Use dialogue_transformation for properly attributed dialogue
+                    if "dialogue_transformation" in result:
+                        dialogue_data = result["dialogue_transformation"]
 
-                    # Display speaker-attributed dialogue
-                    if "dialogue" in transcription and transcription["dialogue"]:
-                        st.markdown("### Speaker Dialogue")
-                        for entry in transcription["dialogue"]:
-                            speaker = entry.get("speaker", "Unknown")
-                            text = entry.get("text", "")
-                            st.markdown(f"**{speaker}**: {text}")
+                        # Display speaker-attributed dialogue using full_transcript_markdown
+                        if "full_transcript_markdown" in dialogue_data:
+                            st.markdown(dialogue_data["full_transcript_markdown"])
+                        elif "dialogue" in dialogue_data:
+                            # Fallback to dialogue array
+                            for entry in dialogue_data["dialogue"]:
+                                speaker_role = entry.get("speaker_role", "Unknown").title()
+                                text = entry.get("text", "")
+                                st.markdown(f"**{speaker_role}:** {text}")
 
-                    # Show full text
-                    if "text" in transcription:
-                        with st.expander("📝 Full Text"):
+                        # Show full text in expander
+                        if "full_transcript" in dialogue_data:
+                            with st.expander("📝 Full Text"):
+                                st.text_area(
+                                    "Full Transcription",
+                                    value=dialogue_data["full_transcript"],
+                                    height=300,
+                                    disabled=True,
+                                )
+
+                        # Speaker mapping
+                        if "speaker_mapping" in dialogue_data:
+                            with st.expander("👥 Speaker Mapping"):
+                                speaker_map = dialogue_data["speaker_mapping"]
+                                for speaker_id, mapping_data in speaker_map.items():
+                                    if isinstance(mapping_data, dict):
+                                        role = mapping_data.get("role", "Unknown").title()
+                                        confidence = mapping_data.get("confidence", 0) * 100
+                                        st.markdown(f"- **{speaker_id}**: {role} ({confidence:.0f}% confidence)")
+                                    else:
+                                        st.markdown(f"- **{speaker_id}**: {mapping_data}")
+                    else:
+                        st.info("No transcription data available.")
+
+                with tab2:
+                    st.subheader("Medical Processing Results")
+                    display_medical_results(result)
+
+                with tab3:
+                    st.subheader("Raw Data")
+                    json_str = json.dumps(result, indent=2)
+                    st.download_button(
+                        label="📥 Download JSON",
+                        data=json_str,
+                        file_name=f"{workflow_id}_results.json",
+                        mime="application/json",
+                    )
+                    st.json(result)
+
+            else:
+                # Simple transcription-only view
+                tab1, tab2 = st.tabs(["📄 Transcription", "📊 Raw Data"])
+
+                with tab1:
+                    st.subheader("Transcription")
+                    # Use whisperx_final for non-medical workflows
+                    if "whisperx_final" in result:
+                        final_result = result["whisperx_final"]
+                        # Extract full text from segments
+                        if "segments" in final_result:
+                            full_text = " ".join(seg.get("text", "").strip() for seg in final_result["segments"])
                             st.text_area(
                                 "Full Transcription",
-                                value=transcription["text"],
-                                height=300,
+                                value=full_text,
+                                height=400,
                                 disabled=True,
                             )
+                        else:
+                            st.info("No transcription segments available.")
+                    else:
+                        st.info("No transcription data available.")
 
-                    # Speaker mapping
-                    if "speaker_mapping" in transcription:
-                        with st.expander("👥 Speaker Mapping"):
-                            speaker_map = transcription["speaker_mapping"]
-                            for speaker_id, label in speaker_map.items():
-                                st.markdown(f"- **{speaker_id}**: {label}")
-                else:
-                    st.info("No transcription data available for this workflow.")
-
-            with tab2:
-                st.subheader("Medical Processing Results")
-
-                # Check if medical processing was enabled
-                workflow_type = result.get("workflow_type", "")
-
-                if "medical" in workflow_type.lower():
-                    # Display all medical sections from Results page
-                    display_medical_results(result)
-                else:
-                    st.info("Medical processing was not enabled for this workflow.")
-
-            with tab3:
-                st.subheader("Raw JSON Data")
-
-                # Download button
-                json_str = json.dumps(result, indent=2)
-                st.download_button(
-                    label="📥 Download JSON",
-                    data=json_str,
-                    file_name=f"{workflow_id}_results.json",
-                    mime="application/json",
-                )
-
-                # Display JSON
-                st.json(result)
+                with tab2:
+                    st.subheader("Raw Data")
+                    json_str = json.dumps(result, indent=2)
+                    st.download_button(
+                        label="📥 Download JSON",
+                        data=json_str,
+                        file_name=f"{workflow_id}_results.json",
+                        mime="application/json",
+                    )
+                    st.json(result)
 
         elif status == "RUNNING":
             st.warning("⏳ Workflow is still running.")
@@ -204,71 +238,71 @@ def display_workflow_detail(workflow_id: str):
 
 def display_medical_results(result: dict):
     """Display comprehensive medical processing results."""
-    # 1. Dialogue Transformation
+    # 1. Dialogue - use full_transcript_markdown from dialogue_transformation
+    st.markdown("### Dialogue")
+
+    # Get dialogue_transformation data
     if "dialogue_transformation" in result:
-        st.markdown("### 🗣️ Dialogue")
         dialogue_data = result["dialogue_transformation"]
 
-        if dialogue_data and "dialogue" in dialogue_data:
+        # Use full_transcript_markdown for proper speaker attribution
+        if "full_transcript_markdown" in dialogue_data:
+            st.markdown(dialogue_data["full_transcript_markdown"])
+            st.divider()
+        elif "dialogue" in dialogue_data:
+            # Fallback to dialogue array
             dialogue = dialogue_data["dialogue"]
             speaker_mapping = dialogue_data.get("speaker_mapping", {})
 
             for entry in dialogue:
-                speaker = entry.get("speaker", "Unknown")
+                speaker_role = entry.get("speaker_role", "Unknown").title()
                 text = entry.get("text", "")
-
-                # Use different icons for different speakers
-                if "provider" in speaker.lower() or "doctor" in speaker.lower():
-                    icon = "👨‍⚕️"
-                elif "patient" in speaker.lower():
-                    icon = "👤"
-                else:
-                    icon = "🗣️"
-
-                st.markdown(f"{icon} **{speaker}**: {text}")
+                st.markdown(f"**{speaker_role}:** {text}")
 
             # Show speaker mapping
             if speaker_mapping:
                 with st.expander("👥 Speaker Mapping"):
-                    for speaker_id, label in speaker_mapping.items():
-                        st.markdown(f"- **{speaker_id}** → {label}")
-        else:
-            st.info("No dialogue data available.")
-
+                    for speaker_id, mapping_data in speaker_mapping.items():
+                        if isinstance(mapping_data, dict):
+                            role = mapping_data.get("role", "Unknown").title()
+                            confidence = mapping_data.get("confidence", 0) * 100
+                            st.markdown(f"- **{speaker_id}**: {role} ({confidence:.0f}% confidence)")
+                        else:
+                            st.markdown(f"- **{speaker_id}**: {mapping_data}")
+            st.divider()
+    else:
+        st.info("No dialogue data available.")
         st.divider()
 
     # 2. PHI Detection
     if "phi_detection" in result:
-        st.markdown("### 🔒 PHI Detection")
+        st.markdown("### PHI Detection")
         phi_data = result["phi_detection"]
 
         if phi_data and isinstance(phi_data, dict):
-            phi_counts = {}
-            total_phi = 0
+            # Check for phi_detected flag first
+            phi_detected = phi_data.get("phi_detected", False)
+            phi_entities = phi_data.get("entities", [])
 
-            for phi_type, instances in phi_data.items():
-                if isinstance(instances, list):
-                    count = len(instances)
-                    if count > 0:
-                        phi_counts[phi_type] = count
-                        total_phi += count
+            if phi_detected and phi_entities:
+                st.warning(f"⚠️ {len(phi_entities)} PHI entities detected")
 
-            if phi_counts:
-                col1, col2 = st.columns([1, 2])
-                with col1:
-                    st.metric("Total PHI Detected", total_phi)
+                # Group by type
+                phi_by_type = {}
+                for entity in phi_entities:
+                    phi_type = entity.get("type", "unknown")
+                    if phi_type not in phi_by_type:
+                        phi_by_type[phi_type] = []
+                    phi_by_type[phi_type].append(entity)
 
-                with col2:
-                    st.markdown("**PHI Types:**")
-                    for phi_type, count in phi_counts.items():
-                        st.markdown(f"- **{phi_type.replace('_', ' ').title()}**: {count} instance(s)")
-
-                with st.expander("🔍 View Details"):
-                    for phi_type, instances in phi_data.items():
-                        if isinstance(instances, list) and instances:
-                            st.markdown(f"**{phi_type.replace('_', ' ').title()}:**")
-                            for item in instances:
-                                st.caption(f"• {item}")
+                # Display grouped PHI
+                for phi_type, items in phi_by_type.items():
+                    with st.expander(f"{phi_type.replace('_', ' ').title()} ({len(items)})"):
+                        for entity in items:
+                            text = entity.get("text", "Unknown")
+                            confidence = entity.get("confidence", 0) * 100
+                            st.markdown(f"**{text}**")
+                            st.caption(f"Confidence: {confidence:.0f}%")
             else:
                 st.success("✅ No PHI detected")
         else:
@@ -278,81 +312,131 @@ def display_medical_results(result: dict):
 
     # 3. Entity Extraction
     if "entity_extraction" in result:
-        st.markdown("### 🔬 Medical Entities")
+        st.markdown("### Medical Entities")
         entities_data = result["entity_extraction"]
 
         if entities_data and isinstance(entities_data, dict):
-            if "entities_by_speaker" in entities_data:
-                # Speaker-aware entities
+            # Check for entities array (new format)
+            if "entities" in entities_data and entities_data["entities"]:
+                entities = entities_data["entities"]
+                entity_count = entities_data.get("entity_count", len(entities))
+
+                st.markdown(f"**Found {entity_count} medical entities**")
+
+                # Group by type
+                entities_by_type = {}
+                for entity in entities:
+                    entity_type = entity.get("type", "unknown")
+                    if entity_type not in entities_by_type:
+                        entities_by_type[entity_type] = []
+                    entities_by_type[entity_type].append(entity)
+
+                # Display grouped entities
+                for entity_type, items in entities_by_type.items():
+                    with st.expander(f"{entity_type.replace('_', ' ').title()} ({len(items)})"):
+                        for entity in items:
+                            text = entity.get("text", "Unknown")
+                            normalized = entity.get("normalized", text)
+                            speaker_role = entity.get("speaker_role", "Unknown").title()
+                            confidence = entity.get("confidence", 0) * 100
+
+                            st.markdown(f"**{normalized}**")
+                            st.caption(f"Original: {text} | Speaker: {speaker_role} | Confidence: {confidence:.0f}%")
+                            if "details" in entity:
+                                st.caption(f"Details: {entity['details']}")
+            elif "entities_by_speaker" in entities_data:
+                # Speaker-aware entities (old format)
                 for speaker, speaker_entities in entities_data["entities_by_speaker"].items():
                     if speaker_entities:
-                        with st.expander(f"🗣️ {speaker}"):
+                        with st.expander(f"{speaker}"):
                             for entity_type, items in speaker_entities.items():
                                 if items:
                                     st.markdown(f"**{entity_type.replace('_', ' ').title()}**:")
                                     for item in items:
                                         st.markdown(f"  • {item}")
             else:
-                # Flat entity structure
-                for entity_type, items in entities_data.items():
-                    if items and isinstance(items, list):
-                        with st.expander(f"{entity_type.replace('_', ' ').title()} ({len(items)})"):
-                            for item in items:
-                                st.markdown(f"• {item}")
+                st.info("No medical entities extracted.")
         else:
-            st.info("No medical entities extracted.")
+            st.info("No medical entities data available.")
 
         st.divider()
 
     # 4. SOAP Note
     if "soap_generation" in result:
-        st.markdown("### 📋 SOAP Note")
+        st.markdown("### SOAP Note")
         soap_data = result["soap_generation"]
 
         if soap_data and isinstance(soap_data, dict):
+            # Check for soap_note sub-object first
+            soap_note = soap_data.get("soap_note", soap_data)
+
             soap_sections = {
-                "subjective": ("🩺", "Subjective", "Patient's reported symptoms and history"),
-                "objective": ("🔍", "Objective", "Clinical findings and observations"),
-                "assessment": ("💡", "Assessment", "Diagnosis and clinical impression"),
-                "plan": ("📝", "Plan", "Treatment plan and follow-up"),
+                "subjective": ("S", "Subjective", "Patient's reported symptoms and history"),
+                "objective": ("O", "Objective", "Clinical findings and observations"),
+                "assessment": ("A", "Assessment", "Diagnosis and clinical impression"),
+                "plan": ("P", "Plan", "Treatment plan and follow-up"),
             }
 
-            for section_key, (icon, title, description) in soap_sections.items():
-                if section_key in soap_data:
-                    content = soap_data[section_key]
-                    with st.expander(f"{icon} {title}", expanded=(section_key == "subjective")):
-                        st.caption(description)
-                        st.markdown(content)
+            has_content = any(soap_note.get(key, "").strip() for key in soap_sections.keys())
+
+            if has_content:
+                for section_key, (icon, title, description) in soap_sections.items():
+                    content = soap_note.get(section_key, "")
+                    if content and content.strip():
+                        with st.expander(f"{icon} {title}", expanded=(section_key == "subjective")):
+                            st.caption(description)
+                            st.markdown(content)
+            else:
+                st.info("SOAP note sections are empty (expected for non-medical conversations).")
         else:
-            st.info("No SOAP note generated.")
+            st.info("No SOAP note data available.")
 
         st.divider()
 
     # 5. Vector Storage
     if "vector_storage" in result:
-        st.markdown("### 💾 Vector Storage")
+        st.markdown("### Vector Storage")
         storage_data = result["vector_storage"]
 
-        if storage_data:
-            if isinstance(storage_data, dict):
+        if storage_data and isinstance(storage_data, dict):
+            # Check if vector_id exists (new format)
+            if "vector_id" in storage_data:
+                st.success("✅ Consultation data stored in vector database")
+
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    if "consultation_id" in storage_data:
+                        st.markdown(f"**Consultation ID**: `{storage_data['consultation_id']}`")
+
+                with col2:
+                    if "vector_id" in storage_data:
+                        st.markdown(f"**Vector ID**: {storage_data['vector_id']}")
+
+                with col3:
+                    if "stored_at" in storage_data:
+                        st.markdown(f"**Stored At**: {storage_data['stored_at'][:19]}")
+
+                # Show metadata if available
+                if "metadata" in storage_data:
+                    metadata = storage_data["metadata"]
+                    with st.expander("📋 Storage Metadata"):
+                        if "entity_count" in metadata:
+                            st.markdown(f"- **Entities**: {metadata['entity_count']}")
+                        if "has_soap_note" in metadata:
+                            st.markdown(f"- **SOAP Note**: {'Yes' if metadata['has_soap_note'] else 'No'}")
+                        if "has_phi" in metadata:
+                            st.markdown(f"- **PHI Detected**: {'Yes' if metadata['has_phi'] else 'No'}")
+            else:
+                # Old format with success flag
                 success = storage_data.get("success", False)
                 if success:
                     st.success("✅ Consultation data stored in vector database")
-
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        if "document_id" in storage_data:
-                            st.markdown(f"**Document ID**: `{storage_data['document_id']}`")
-
-                    with col2:
-                        if "indexed_count" in storage_data:
-                            st.markdown(f"**Indexed Items**: {storage_data['indexed_count']}")
+                    if "document_id" in storage_data:
+                        st.markdown(f"**Document ID**: `{storage_data['document_id']}`")
                 else:
                     st.warning("⚠️ Vector storage encountered an issue")
                     if "error" in storage_data:
                         st.caption(storage_data["error"])
-            else:
-                st.success("✅ Data stored successfully")
         else:
             st.info("Vector storage not configured or disabled.")
 
@@ -375,18 +459,16 @@ def display_workflow_list(workflows: list):
                     st.session_state.switch_to_workflow = workflow_id
                     st.rerun()
 
-            # Quick preview
+            # Quick preview from whisperx_final
             if status == "COMPLETED":
                 try:
                     result = api_client.get_workflow_result(workflow_id)
-                    if "whisperx_transcription" in result:
-                        transcription = result["whisperx_transcription"]
-                        if "text" in transcription:
-                            preview_text = (
-                                transcription["text"][:200] + "..."
-                                if len(transcription["text"]) > 200
-                                else transcription["text"]
-                            )
+                    if "whisperx_final" in result:
+                        final_result = result["whisperx_final"]
+                        if "segments" in final_result and final_result["segments"]:
+                            # Build text from segments
+                            full_text = " ".join(seg.get("text", "").strip() for seg in final_result["segments"])
+                            preview_text = full_text[:200] + "..." if len(full_text) > 200 else full_text
                             st.markdown("**Preview:**")
                             st.caption(preview_text)
                 except Exception:

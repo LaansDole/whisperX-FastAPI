@@ -185,9 +185,7 @@ class WhisperXAPIClient:
             response.raise_for_status()
             return response.json()
 
-    def medical_chat(
-        self, query: str, patient_hash: str, session_id: Optional[str] = None
-    ) -> Dict[str, Any]:
+    def medical_chat(self, query: str, patient_hash: str, session_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Query patient medical records using RAG chatbot.
 
