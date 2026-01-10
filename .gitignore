@@ -170,6 +170,7 @@ cython_debug/
 .temporal.pid
 
 report/
+misc/
 app/docs/*
 
 AGENTS.md

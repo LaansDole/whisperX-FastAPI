@@ -609,7 +609,7 @@ Use professional medical language and be clinically precise.""",
         for line in lines:
             line_stripped = line.strip()
 
-            # Detect section headers (various formats, only at line start)
+            # Pattern 1: Standalone section headers (on their own line)
             if re.match(r"^(?:\*\*|#+\s*)?subjective(?:\*\*)?:?\s*$", line_stripped, re.IGNORECASE):
                 current_section = "subjective"
                 continue
@@ -621,6 +621,20 @@ Use professional medical language and be clinically precise.""",
                 continue
             elif re.match(r"^(?:\*\*|#+\s*)?plan(?:\*\*)?:?\s*$", line_stripped, re.IGNORECASE):
                 current_section = "plan"
+                continue
+
+            # Pattern 2: Inline headers with content on the same line (e.g., **Subjective**: content)
+            inline_match = re.match(
+                r"^(?:\*\*|#+\s*)?(subjective|objective|assessment|plan)(?:\*\*)?:\s*(.+)$",
+                line_stripped,
+                re.IGNORECASE,
+            )
+            if inline_match:
+                section_name = inline_match.group(1).lower()
+                content = inline_match.group(2).strip()
+                current_section = section_name
+                if content:
+                    sections[current_section] = content
                 continue
 
             # Add content to current section
