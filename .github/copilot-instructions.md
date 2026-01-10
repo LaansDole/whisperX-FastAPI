@@ -2,7 +2,7 @@
 
 **Project**: whisperX-FastAPI - Audio Processing API
 **Stack**: Python 3.10+, FastAPI, Temporal, WhisperX, SQLite, PyTorch
-**Last Updated**: 2025-12-28
+**Last Updated**: 2025-01-10
 
 ---
 
@@ -13,6 +13,12 @@
 - Focus on actionable feedback, not observations
 - When reviewing text, only comment on clarity issues if the text is genuinely confusing or could lead to errors
 - Prioritize correctness, performance, and maintainability
+
+### Excluded from Reviews
+- **`streamlit_app/`**: This directory contains UI demonstration code only and does not require reviews. Skip all files in this directory.
+
+### Critical Caution Areas
+- **Dependencies & Docker**: Be EXTREMELY conservative with dependency and Docker-related suggestions. Previous reviews have caused service breakages. Only comment if there is a CRITICAL security vulnerability or confirmed bug. DO NOT suggest version upgrades, package changes, or Docker configuration modifications unless absolutely necessary for security or correctness.
 
 ---
 
