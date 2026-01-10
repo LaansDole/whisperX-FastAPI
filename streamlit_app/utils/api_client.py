@@ -185,6 +185,29 @@ class WhisperXAPIClient:
             response.raise_for_status()
             return response.json()
 
+    def medical_chat(
+        self, query: str, patient_hash: str, session_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Query patient medical records using RAG chatbot.
+
+        Args:
+            query: User's question about the patient
+            patient_hash: 8-character patient hash (same as stored in vector DB)
+            session_id: Optional session ID for conversation history
+
+        Returns:
+            RAG response with answer and sources
+        """
+        # Use patient_hash directly - it's already the encrypted ID stored in vector DB
+        with httpx.Client(timeout=60.0) as client:  # Longer timeout for LLM
+            response = client.post(
+                f"{self.base_url}/medical/chat",
+                params={"query": query, "patient_id_encrypted": patient_hash, "session_id": session_id},
+            )
+            response.raise_for_status()
+            return response.json()
+
 
 @st.cache_resource
 def get_api_client() -> WhisperXAPIClient:
