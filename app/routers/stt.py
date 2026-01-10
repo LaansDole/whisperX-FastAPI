@@ -185,20 +185,16 @@ async def speech_to_text(
     # Choose workflow based on medical processing flag
     try:
         if enable_medical_processing:
-            # Encrypt patient ID for storage
-            from ..hipaa.encryption import HIPAAEncryption
-
-            encryption_service = HIPAAEncryption()
-            patient_id_encrypted = encryption_service.encrypt_patient_id(patient_name)
-
             # Prepare medical params
+            # Use patient_hash for vector storage lookup (consistent 8-char identifier)
+            # This allows Q&A queries to find records using the same hash from workflow ID
             from datetime import datetime
             from ..config import Config
 
             medical_params = {
                 "workflow_id": workflow_id,
                 "patient_id": patient_name,
-                "patient_id_encrypted": patient_id_encrypted,
+                "patient_id_encrypted": patient_hash,  # Use patient_hash for consistent lookup
                 "provider_id": provider_id,
                 "encounter_date": encounter_date or datetime.now(Config.TIMEZONE).date().isoformat(),
             }
