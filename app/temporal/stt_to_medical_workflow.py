@@ -88,7 +88,6 @@ class STTToMedicalWorkflow:
                     maximum_attempts=3,
                 ),
             )
-            results["whisperx_transcription"] = transcription_result
             TemporalMetrics.log_workflow_progress("transcription_complete", consultation_id)
 
             # 1.2: Alignment
@@ -107,7 +106,6 @@ class STTToMedicalWorkflow:
                     maximum_attempts=2,
                 ),
             )
-            results["whisperx_alignment"] = aligned_result
             TemporalMetrics.log_workflow_progress("alignment_complete", consultation_id)
 
             # 1.3: Diarization
@@ -123,7 +121,6 @@ class STTToMedicalWorkflow:
                     maximum_attempts=3,
                 ),
             )
-            results["whisperx_diarization"] = diarization_result
             TemporalMetrics.log_workflow_progress("diarization_complete", consultation_id)
 
             # 1.4: Speaker Assignment
@@ -269,21 +266,17 @@ class STTToMedicalWorkflow:
         }
 
         # WhisperX stages
-        if "whisperx_transcription" in results:
-            summary["stages_completed"].append("transcription")
-            summary["outputs"]["transcript_length"] = len(results["whisperx_transcription"].get("text", ""))
+        summary["stages_completed"].extend(["transcription", "alignment", "diarization", "speaker_assignment"])
 
-        if "whisperx_alignment" in results:
-            summary["stages_completed"].append("alignment")
-
-        if "whisperx_diarization" in results:
-            summary["stages_completed"].append("diarization")
-            segments = results["whisperx_diarization"].get("segments", [])
-            speakers = set(seg.get("speaker", "UNKNOWN") for seg in segments)
-            summary["outputs"]["speakers_detected"] = len(speakers)
-
-        if "whisperx_final" in results:
-            summary["stages_completed"].append("speaker_assignment")
+        # Extract speaker count from whisperx_final
+        final_segments = results["whisperx_final"].get("segments", [])
+        speakers = set()
+        for seg in final_segments:
+            if "words" in seg:
+                for word in seg["words"]:
+                    if "speaker" in word:
+                        speakers.add(word["speaker"])
+        summary["outputs"]["speakers_detected"] = len(speakers) if speakers else 0
 
         # Medical stages
         if results["medical_processing_enabled"]:
