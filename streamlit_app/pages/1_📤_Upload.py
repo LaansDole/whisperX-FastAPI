@@ -160,15 +160,13 @@ with upload_tab:
             key="enable_medical_upload",
         )
 
-        provider_id_upload = None
-        if enable_medical_upload:
-            st.info("ℹ️ Medical processing requires a Provider ID")
-            provider_id_upload = st.text_input(
-                "Provider ID *",
-                help="Healthcare provider identifier",
-                placeholder="DR001",
-                key="provider_id_upload",
-            )
+        provider_id_upload = st.text_input(
+            "Provider ID" + (" *" if enable_medical_upload else ""),
+            value="DR001",
+            help="Healthcare provider identifier (required when medical processing is enabled)",
+            placeholder="e.g., DR001, PROV123",
+            key="provider_id_upload",
+        )
 
         # Submit button
         submitted_upload = st.form_submit_button("Upload & Process", type="primary", use_container_width=True)
@@ -276,13 +274,13 @@ with record_tab:
             key="enable_medical_record",
         )
 
-        provider_id_record = None
-        if enable_medical_record:
-            provider_id_record = st.text_input(
-                "Provider ID *",
-                placeholder="DR001",
-                key="provider_id_record",
-            )
+        provider_id_record = st.text_input(
+            "Provider ID" + (" *" if enable_medical_record else ""),
+            value="DR001",
+            help="Healthcare provider identifier (required when medical processing is enabled)",
+            placeholder="e.g., DR001, PROV123",
+            key="provider_id_record",
+        )
 
         submitted_record = st.form_submit_button("Submit Recording", type="primary", use_container_width=True)
 

@@ -202,7 +202,9 @@ def get_transcription_model(
     global _transcription_model_cache, _transcription_model_lock, _transcription_cache_hits, _transcription_cache_misses
 
     compute_type_param = compute_type_param or compute_type
-    cache_key = f"transcription_{model_name}_{device_param}_{compute_type_param}"
+    # IMPORTANT: Include language and task in cache key to prevent model state corruption
+    # between requests with different language/task combinations
+    cache_key = f"transcription_{model_name}_{device_param}_{compute_type_param}_{language}_{task}"
 
     # Double-checked locking pattern for thread safety
     with _transcription_model_lock:
