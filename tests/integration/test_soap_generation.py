@@ -19,9 +19,9 @@ from pathlib import Path
 BASE_URL = "http://localhost:8000"
 TIMEOUT = 600.0  # 10 minutes
 
-# Medical audio from Kaggle dataset
-AUDIO_DIR = Path(__file__).parent / "datasets" / "kaggle-simulated-patient-physician-interviews" / "audios"
-MEDICAL_AUDIO = AUDIO_DIR / "MSK0040.mp3"  # Musculoskeletal case
+# Kaggle dataset - use project root datasets directory
+DATASET_DIR = Path(__file__).resolve().parents[2] / "datasets" / "kaggle-simulated-patient-physician-interviews"
+MEDICAL_AUDIO = DATASET_DIR / "audios" / "MSK0040.mp3"  # Musculoskeletal case
 
 
 @pytest.fixture(scope="module")
@@ -201,12 +201,4 @@ def test_medical_conversation(medical_audio_file):
 
 
 if __name__ == "__main__":
-    try:
-        success = test_medical_conversation()
-        exit(0 if success else 1)
-    except Exception as e:
-        print(f"\n❌ TEST FAILED: {e}")
-        import traceback
-
-        traceback.print_exc()
-        exit(1)
+    pytest.main([__file__, "-v", "-s", "--tb=short", "-m", "integration"])

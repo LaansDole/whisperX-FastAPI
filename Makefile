@@ -1,6 +1,6 @@
 .PHONY: help install-prod install-prod-gpu install-dev install-dev-gpu \
 	dev server worker streamlit start-temporal lint format \
-	stop-temporal stop test-api temporal-fresh check-activities \
+	stop-temporal stop temporal-fresh check-activities \
 	test unit-test integration-test \
 	docker-build docker-up docker-start docker-restart docker-down down
 
@@ -36,7 +36,6 @@ help:
 	@echo "  test              	- Run all tests (unit + integration)"
 	@echo "  unit-test         	- Run unit tests only"
 	@echo "  integration-test  	- Run integration tests only"
-	@echo "  all-test          	- Run comprehensive test suite"
 	@echo ""
 	@echo "Environment Variables:"
 	@echo "  TEMPORAL_DB_PATH  	- Path for Temporal database (default: ./temporal_data/temporal.db)"
@@ -294,8 +293,12 @@ temporal-fresh:
 
 # Run all tests (unit + integration)
 test:
-	@echo "Running all tests..."
-	uv run pytest tests/ -v --tb=short
+	@echo "Running comprehensive test suite..."
+	@echo "This includes all tests with coverage and detailed output..."
+	uv run pytest tests/ --cov=app --cov-report=term-missing --cov-report=html:htmlcov --cov-report=xml -v --tb=short
+	@echo "Comprehensive test suite completed"
+	@echo "HTML coverage report available at: htmlcov/index.html"
+	@echo "XML coverage report available at: coverage.xml"
 
 unit-test:
 	@echo "========================================" 
@@ -313,28 +316,6 @@ integration-test:
 	@echo "Make sure server is running: make dev"
 	uv run pytest tests/integration/ -v --tb=short -s && \
 	echo "Integration tests passed"
-
-# Run tests excluding slow ones
-test-quick:
-	@echo "Running quick tests (excluding slow ones)..."
-	uv run pytest tests/ -v -m "not slow"
-	@echo "Quick tests completed"
-
-# Run tests with coverage report
-test-coverage:
-	@echo "Running tests with coverage report..."
-	uv run pytest tests/ --cov=app --cov-report=term-missing --cov-report=html:htmlcov -v
-	@echo "Coverage report generated"
-	@echo "HTML coverage report available at: htmlcov/index.html"
-
-# Run comprehensive test suite with all options
-test-all:
-	@echo "Running comprehensive test suite..."
-	@echo "This includes all tests with coverage and detailed output..."
-	uv run pytest tests/ --cov=app --cov-report=term-missing --cov-report=html:htmlcov --cov-report=xml -v --tb=short
-	@echo "Comprehensive test suite completed"
-	@echo "HTML coverage report available at: htmlcov/index.html"
-	@echo "XML coverage report available at: coverage.xml"
 
 # ============================================================================
 # Activity monitoring
