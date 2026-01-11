@@ -1,7 +1,7 @@
 .PHONY: help install-prod install-prod-gpu install-dev install-dev-gpu \
 	dev server worker streamlit start-temporal lint format \
 	stop-temporal stop test-api temporal-fresh check-activities \
-	test test-unit test-integration test-medical test-coverage test-all test-quick \
+	test unit-test integration-test \
 	docker-build docker-up docker-start docker-restart docker-down down
 
 # Default target - show help
@@ -34,12 +34,9 @@ help:
 	@echo ""
 	@echo "Testing targets:"
 	@echo "  test              	- Run all tests (unit + integration)"
-	@echo "  test-unit         	- Run unit tests only"
-	@echo "  test-integration  	- Run integration tests only"
-	@echo "  test-medical      	- Run medical RAG tests only"
-	@echo "  test-quick        	- Run tests excluding slow ones"
-	@echo "  test-coverage     	- Run tests with coverage report"
-	@echo "  test-all          	- Run comprehensive test suite"
+	@echo "  unit-test         	- Run unit tests only"
+	@echo "  integration-test  	- Run integration tests only"
+	@echo "  all-test          	- Run comprehensive test suite"
 	@echo ""
 	@echo "Environment Variables:"
 	@echo "  TEMPORAL_DB_PATH  	- Path for Temporal database (default: ./temporal_data/temporal.db)"
@@ -239,7 +236,16 @@ temporal-fresh:
 		echo "Temporal logs directory not found"; \
 	fi
 	@echo ""
-	@echo "5️⃣  Clearing Docker Temporal images (if present)..."
+	@echo "5️⃣  Cleaning patient workflow mapping database..."
+	@if [ -f "./data/patient_mappings.db" ]; then \
+		echo "Removing patient database: ./data/patient_mappings.db"; \
+		rm -f ./data/patient_mappings.db; \
+		echo " ✓ Patient database removed"; \
+	else \
+		echo "Patient database not found at ./data/patient_mappings.db"; \
+	fi
+	@echo ""
+	@echo "6️⃣  Clearing Docker Temporal images (if present)..."
 	@echo "Checking for Temporal Docker images..."
 	@docker images | grep "temporalio" 2>/dev/null | while read line; do \
 		echo "Found Temporal image: $$line"; \
@@ -276,7 +282,7 @@ temporal-fresh:
 	@echo "============================================"
 	@echo "TEMPORAL FRESH START COMPLETED!"
 	@echo " ✓ All old workflows cleared from Temporal UI"
-	@echo " ✓ All databases and logs cleaned"
+	@echo " ✓ All databases and logs cleaned (including patient mappings)"
 	@echo " ✓ Fresh Temporal server started with database at $(TEMPORAL_DB_PATH)"
 	@echo " ✓ Clean Temporal CLI namespace"
 
@@ -307,24 +313,6 @@ integration-test:
 	@echo "Make sure server is running: make dev"
 	uv run pytest tests/integration/ -v --tb=short -s && \
 	echo "Integration tests passed"
-
-# Run unit tests only (exclude integration and slow tests)
-test-unit:
-	@echo "Running unit tests only..."
-	uv run pytest tests/ -v -m "not integration and not slow"
-	@echo "Unit tests completed"
-
-# Run integration tests only
-test-integration:
-	@echo "Running integration tests only..."
-	uv run pytest tests/ -v -m integration
-	@echo "Integration tests completed"
-
-# Run medical RAG tests only
-test-medical:
-	@echo "Running medical RAG tests..."
-	uv run pytest tests/ -v -m medical
-	@echo "Medical tests completed"
 
 # Run tests excluding slow ones
 test-quick:

@@ -634,7 +634,11 @@ Use professional medical language and be clinically precise.""",
                 content = inline_match.group(2).strip()
                 current_section = section_name
                 if content:
-                    sections[current_section] = content
+                    # Append to existing content instead of overwriting
+                    if sections[current_section]:
+                        sections[current_section] += "\n" + content
+                    else:
+                        sections[current_section] = content
                 continue
 
             # Add content to current section

@@ -12,6 +12,7 @@ Verifies:
 import httpx
 import time
 import json
+import pytest
 from pathlib import Path
 
 # Configuration
@@ -22,7 +23,13 @@ TIMEOUT = 600.0  # 10 minutes
 AUDIO_DIR = Path(__file__).parent / "datasets" / "kaggle-simulated-patient-physician-interviews" / "audios"
 MEDICAL_AUDIO = AUDIO_DIR / "MSK0040.mp3"  # Musculoskeletal case
 
-assert MEDICAL_AUDIO.exists(), f"Audio file not found: {MEDICAL_AUDIO}"
+
+@pytest.fixture(scope="module")
+def medical_audio_file():
+    """Fixture to check for medical audio dataset."""
+    if not MEDICAL_AUDIO.exists():
+        pytest.skip(f"Audio file not found: {MEDICAL_AUDIO}. Skipping integration test.")
+    return MEDICAL_AUDIO
 
 
 def wait_for_completion(client: httpx.Client, workflow_id: str, max_wait: int = 480):
@@ -51,7 +58,8 @@ def wait_for_completion(client: httpx.Client, workflow_id: str, max_wait: int = 
     raise TimeoutError(f"Workflow did not complete within {max_wait}s")
 
 
-def test_medical_conversation():
+@pytest.mark.integration
+def test_medical_conversation(medical_audio_file):
     """Test SOAP generation and response optimization with medical audio."""
     print("\n" + "=" * 80)
     print("INTEGRATION TEST: Medical Conversation Processing")
@@ -66,10 +74,10 @@ def test_medical_conversation():
 
         # 2. Upload medical audio with medical processing enabled
         print("\n2️⃣  Uploading medical conversation...")
-        print(f"   File: {MEDICAL_AUDIO.name} ({MEDICAL_AUDIO.stat().st_size / 1024:.1f} KB)")
+        print(f"   File: {medical_audio_file.name} ({medical_audio_file.stat().st_size / 1024:.1f} KB)")
 
-        with open(MEDICAL_AUDIO, "rb") as f:
-            files = {"file": (MEDICAL_AUDIO.name, f, "audio/mpeg")}
+        with open(medical_audio_file, "rb") as f:
+            files = {"file": (medical_audio_file.name, f, "audio/mpeg")}
             data = {
                 "patient_name": "John Doe",
                 "enable_medical_processing": "true",
@@ -130,13 +138,15 @@ def test_medical_conversation():
                 all_populated = False
 
         if not all_populated:
-            print("\n   ⚠️  WARNING: Some SOAP sections are empty")
+            print("\n   ❌ FAIL: Some SOAP sections are empty")
             print("   Showing actual SOAP content:")
             soap_note = soap.get("soap_note", {})
             for section in ["subjective", "objective", "assessment", "plan"]:
                 content = soap_note.get(section, "")
                 print(f"\n   {section.upper()}:")
                 print(f"   {content[:200]}..." if len(content) > 200 else f"   {content}")
+            # Make this a hard failure for deterministic testing
+            raise AssertionError("SOAP note has empty sections. All sections must be populated.")
         else:
             print("   ✅ PASS: All SOAP sections populated")
 
@@ -184,10 +194,8 @@ def test_medical_conversation():
         print(f"   Segments in whisperx_final: {len(result.get('whisperx_final', {}).get('segments', []))}")
 
         print("\n" + "=" * 80)
-        if all_populated:
-            print("✅ ALL TESTS PASSED!")
-        else:
-            print("⚠️  TESTS PASSED WITH WARNINGS (some SOAP sections empty)")
+        # If we reached here, all_populated must be True (otherwise AssertionError was raised)
+        print("✅ ALL TESTS PASSED!")
         print("=" * 80)
         return True
 

@@ -129,7 +129,6 @@ async def detect_phi_in_dialogue_activity(dialogue_data: Dict[str, Any]) -> Dict
             is_retryable = not isinstance(e, (ValueError, TypeError))
             raise TemporalErrorHandler.create_application_error(
                 e,
-                "PHI Detection (Dialogue)",
                 retryable=is_retryable,
             )
 
