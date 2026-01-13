@@ -896,27 +896,48 @@ async def process_whisperx_result(
         # Step 1: Get WhisperX result (fetch if workflow_id provided)
         whisperx_result = None
         if request.workflow_id:
-            try:
-                # Fetch from Temporal workflow
-                async with httpx.AsyncClient(timeout=30.0) as http_client:
-                    response = await http_client.get(f"http://localhost:8000/temporal/workflow/{request.workflow_id}")
-                    if response.status_code != 200:
-                        raise HTTPException(
-                            status_code=status.HTTP_404_NOT_FOUND,
-                            detail=f"Workflow {request.workflow_id} not found or not completed",
-                        )
-                    workflow_data = response.json()
-                    whisperx_result = workflow_data.get("result")
-                    if not whisperx_result:
-                        raise HTTPException(
-                            status_code=status.HTTP_400_BAD_REQUEST,
-                            detail=f"Workflow {request.workflow_id} has no result data",
-                        )
-            except httpx.HTTPError as e:
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail=f"Failed to fetch workflow result: {str(e)}",
-                )
+            # Fetch from Temporal workflow result endpoint
+            async with httpx.AsyncClient(timeout=30.0) as http_client:
+                # First check workflow status
+                try:
+                    status_response = await http_client.get(
+                        f"http://localhost:8000/temporal/workflow/{request.workflow_id}"
+                    )
+                except httpx.HTTPError as e:
+                    raise HTTPException(
+                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                        detail=f"Failed to connect to workflow service: {str(e)}",
+                    )
+
+                if status_response.status_code != 200:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail=f"Workflow {request.workflow_id} not found",
+                    )
+                workflow_status = status_response.json()
+                if workflow_status.get("status") != "COMPLETED":
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Workflow {request.workflow_id} is not completed (status: {workflow_status.get('status')})",
+                    )
+
+                # Fetch the actual result from /result endpoint
+                try:
+                    result_response = await http_client.get(
+                        f"http://localhost:8000/temporal/workflow/{request.workflow_id}/result"
+                    )
+                except httpx.HTTPError as e:
+                    raise HTTPException(
+                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                        detail=f"Failed to fetch workflow result: {str(e)}",
+                    )
+
+                if result_response.status_code != 200:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Workflow {request.workflow_id} has no result data",
+                    )
+                whisperx_result = result_response.json()
         else:
             whisperx_result = request.whisperx_result
 
