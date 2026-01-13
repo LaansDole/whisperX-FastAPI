@@ -8,6 +8,13 @@ import httpx
 import os
 import pytest
 import time
+import sys
+from pathlib import Path
+
+# Add tests directory to path for conftest import
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from conftest import wait_for_workflow_completion
+
 
 # Base URL for integration tests
 BASE_URL = "http://localhost:8000"
@@ -24,44 +31,8 @@ assert os.path.exists(VN_AUDIO_2), f"Audio file not found: {VN_AUDIO_2}"
 
 
 def wait_for_task_completion(workflow_id, max_wait=300, poll_interval=30):
-    """Wait for a workflow to complete by polling its status.
-
-    Args:
-        workflow_id: Workflow identifier
-        max_wait: Maximum wait time in seconds
-        poll_interval: Time between polls in seconds (default: 30s to prevent request storms)
-
-    Returns:
-        Final workflow result when completed
-
-    Raises:
-        TimeoutError: If workflow doesn't complete within max_wait
-        ValueError: If workflow fails
-    """
-    start_time = time.time()
-
-    while time.time() - start_time < max_wait:
-        # Check workflow status
-        response = client.get(f"/temporal/workflow/{workflow_id}")
-        if response.status_code == 404:
-            raise ValueError(f"Workflow not found: {workflow_id}")
-
-        assert response.status_code == 200, f"Failed to get workflow status: {response.text}"
-
-        data = response.json()
-        status = data.get("status")
-
-        if status == "COMPLETED":
-            # Get the result
-            result_response = client.get(f"/temporal/workflow/{workflow_id}/result")
-            assert result_response.status_code == 200, f"Failed to get workflow result: {result_response.text}"
-            return result_response.json()
-        elif status in ["FAILED", "TERMINATED", "TIMED_OUT", "CANCELED"]:
-            raise ValueError(f"Workflow {status.lower()}")
-
-        time.sleep(poll_interval)
-
-    raise TimeoutError(f"Workflow {workflow_id} did not complete within {max_wait}s")
+    """Wait for a workflow to complete. Wrapper around shared helper."""
+    return wait_for_workflow_completion(client, workflow_id, max_wait=max_wait, poll_interval=poll_interval)
 
 
 # ============================================================================
@@ -129,7 +100,7 @@ def test_speech_to_text_vietnamese_small():
 
     db_record = admin_response.json()
     assert db_record.get("status") == "active", f"Expected status='active', got '{db_record.get('status')}'"
-    print("✓ Two-phase commit: Database record marked ACTIVE")
+    print("[OK] Two-phase commit: Database record marked ACTIVE")
     print(f"  Patient: {db_record['patient_name']}")
     print(f"  Hash: {db_record['patient_hash']}")
 

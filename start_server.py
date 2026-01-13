@@ -11,9 +11,9 @@ env = os.getenv("ENVIRONMENT", "production").lower()
 hipaa_salt = os.getenv("HIPAA_SALT", "default_salt_change_in_production")
 if env != "development" and hipaa_salt == "default_salt_change_in_production":
     print("=" * 80)
-    print("⚠️  SECURITY WARNING: Using default HIPAA_SALT in production!")
-    print("⚠️  This is a CRITICAL security issue for patient data.")
-    print("⚠️  Set a strong, unique HIPAA_SALT in your environment variables.")
+    print("SECURITY WARNING: Using default HIPAA_SALT in production!")
+    print("This is a CRITICAL security issue for patient data.")
+    print("Set a strong, unique HIPAA_SALT in your environment variables.")
     print("=" * 80)
     # TODO: In strict production, consider raising an error instead of just warning
     # raise RuntimeError("Default HIPAA_SALT not allowed in production")

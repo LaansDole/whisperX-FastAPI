@@ -42,9 +42,9 @@ install_ubuntu() {
     
     # Verify installation
     if ldconfig -p | grep -q libcudnn; then
-        echo "✓ cuDNN installation successful"
+        echo "[OK] cuDNN installation successful"
     else
-        echo "✗ cuDNN installation may have failed"
+        echo "[FAIL] cuDNN installation may have failed"
     fi
 }
 
@@ -65,9 +65,9 @@ install_centos() {
     
     # Verify installation
     if ldconfig -p | grep -q libcudnn; then
-        echo "✓ cuDNN installation successful"
+        echo "[OK] cuDNN installation successful"
     else
-        echo "✗ cuDNN installation may have failed"
+        echo "[FAIL] cuDNN installation may have failed"
     fi
 }
 

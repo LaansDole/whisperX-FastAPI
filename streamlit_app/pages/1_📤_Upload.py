@@ -174,11 +174,11 @@ with upload_tab:
         # Form validation and submission
         if submitted_upload:
             if not uploaded_file:
-                st.error("❌ Please select a file to upload")
+                st.error("Please select a file to upload")
             elif not patient_name_upload or len(patient_name_upload.strip()) == 0:
-                st.error("❌ Patient name is required")
+                st.error("Patient name is required")
             elif enable_medical_upload and (not provider_id_upload or len(provider_id_upload.strip()) == 0):
-                st.error("❌ Provider ID is required when medical processing is enabled")
+                st.error("Provider ID is required when medical processing is enabled")
             else:
                 with st.spinner("Uploading file and starting workflow..."):
                     try:
@@ -200,7 +200,7 @@ with upload_tab:
                             initial_prompt=settings["initial_prompt"],
                         )
 
-                        st.success("✅ Upload successful!")
+                        st.success("[DONE] Upload successful!")
                         workflow_id = response.get("identifier", "N/A")
                         message = response.get("message", "Workflow started")
 
@@ -228,9 +228,9 @@ with upload_tab:
                         st.session_state.recent_uploads = st.session_state.recent_uploads[:10]
 
                     except httpx.HTTPError as e:
-                        st.error(f"❌ Upload failed: {str(e)}")
+                        st.error(f"Upload failed: {str(e)}")
                     except Exception as e:
-                        st.error(f"❌ Unexpected error: {str(e)}")
+                        st.error(f"Unexpected error: {str(e)}")
 
 with record_tab:
     st.subheader("🎙️ Record from Microphone")
@@ -243,7 +243,7 @@ with record_tab:
     )
 
     if recorded_audio:
-        st.success("✅ Recording captured!")
+        st.success("[DONE] Recording captured!")
         st.audio(recorded_audio)
         st.caption(f"Size: {recorded_audio.size / 1024:.2f} KB")
 
@@ -286,11 +286,11 @@ with record_tab:
 
         if submitted_record:
             if not recorded_audio:
-                st.error("❌ Please record audio before submitting")
+                st.error("Please record audio before submitting")
             elif not patient_name_record or len(patient_name_record.strip()) == 0:
-                st.error("❌ Patient name is required")
+                st.error("Patient name is required")
             elif enable_medical_record and (not provider_id_record or len(provider_id_record.strip()) == 0):
-                st.error("❌ Provider ID is required")
+                st.error("Provider ID is required")
             else:
                 with st.spinner("Uploading recording..."):
                     try:
@@ -312,7 +312,7 @@ with record_tab:
                             initial_prompt=settings["initial_prompt"],
                         )
 
-                        st.success("✅ Recording submitted!")
+                        st.success("[DONE] Recording submitted!")
                         workflow_id = response.get("identifier", "N/A")
 
                         st.markdown(f"""
@@ -339,9 +339,9 @@ with record_tab:
                         st.session_state.recent_uploads = st.session_state.recent_uploads[:10]
 
                     except httpx.HTTPError as e:
-                        st.error(f"❌ Upload failed: {str(e)}")
+                        st.error(f"Upload failed: {str(e)}")
                     except Exception as e:
-                        st.error(f"❌ Unexpected error: {str(e)}")
+                        st.error(f"Unexpected error: {str(e)}")
 
 if "recent_uploads" in st.session_state and st.session_state.recent_uploads:
     st.divider()
