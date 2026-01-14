@@ -109,7 +109,7 @@ The following context contains relevant patient consultation records that you sh
 
         context_parts = []
         for i, result in enumerate(search_results, 1):
-            metadata = result.get("metadata", {})
+            metadata = result.get("metadata", {}) or {}
             has_phi = metadata.get("has_phi", False)
             phi_status = "[PHI Protected]" if has_phi else "[No PHI Detected]"
 

@@ -214,6 +214,14 @@ def mock_vector_store():
                     "encounter_date": "2025-12-18",
                     "similarity_score": 0.85,
                     "transcript": "Mock consultation about diabetes",
+                    "provider_id": "dr_mock_provider",
+                    "soap_note": {
+                        "subjective": "Patient reports elevated blood sugar levels",
+                        "objective": "Fasting glucose 165 mg/dL, HbA1c 7.8%",
+                        "assessment": "Type 2 Diabetes Mellitus, uncontrolled",
+                        "plan": "Start metformin 1000mg BID, lifestyle modifications",
+                    },
+                    "metadata": {"has_phi": True},
                 }
             ]
 
@@ -244,7 +252,19 @@ def mock_medical_chatbot():
                 "response": "The patient's HbA1c level is 7.8%.",
                 "session_id": session_id or "mock_session_123",
                 "sources": [
-                    {"consultation_id": "cons_mock_123", "encounter_date": "2025-12-18", "similarity_score": 0.85}
+                    {
+                        "consultation_id": "cons_mock_123",
+                        "encounter_date": "2025-12-18",
+                        "similarity_score": 0.85,
+                        "provider_id": "dr_mock_provider",
+                        "soap_note": {
+                            "subjective": "Patient reports elevated blood sugar levels",
+                            "objective": "Fasting glucose 165 mg/dL, HbA1c 7.8%",
+                            "assessment": "Type 2 Diabetes Mellitus, uncontrolled",
+                            "plan": "Start metformin 1000mg BID, lifestyle modifications",
+                        },
+                        "has_phi": True,
+                    }
                 ],
                 "context_used": True,
                 "timestamp": "2025-12-18T11:00:00.000000",

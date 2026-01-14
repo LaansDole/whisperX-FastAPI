@@ -68,6 +68,32 @@ SEARCH_RESULTS_PARTIAL_SOAP = [
     },
 ]
 
+SEARCH_RESULTS_WITH_PHI = [
+    {
+        "consultation_id": "cons_test_005",
+        "encounter_date": "2025-01-12",
+        "similarity_score": 0.90,
+        "metadata": {"has_phi": True},
+        "soap_note": {
+            "assessment": "Type 2 diabetes mellitus.",
+            "plan": "Metformin 500mg twice daily.",
+        },
+    },
+]
+
+SEARCH_RESULTS_WITHOUT_PHI = [
+    {
+        "consultation_id": "cons_test_006",
+        "encounter_date": "2025-01-13",
+        "similarity_score": 0.88,
+        "metadata": {"has_phi": False},
+        "soap_note": {
+            "assessment": "Seasonal allergies.",
+            "plan": "Antihistamine as needed.",
+        },
+    },
+]
+
 
 class TestChatbotSoapContextFormatting:
     """Test cases for SOAP note injection into LLM context."""
@@ -172,6 +198,28 @@ class TestChatbotSoapContextFormatting:
         first_assessment_idx = context.find("Assessment: Tension-type headache")
         first_plan_idx = context.find("Plan: Ibuprofen 400mg")
         assert first_assessment_idx < first_plan_idx
+
+    def test_format_context_includes_phi_protected_status(self, chatbot_service):
+        """Test that PHI Protected status is displayed for records with PHI."""
+        context = chatbot_service._format_context_from_results(SEARCH_RESULTS_WITH_PHI)
+
+        assert "[PHI Protected]" in context
+        assert "cons_test_005" in context
+
+    def test_format_context_includes_no_phi_status(self, chatbot_service):
+        """Test that No PHI Detected status is displayed for clean records."""
+        context = chatbot_service._format_context_from_results(SEARCH_RESULTS_WITHOUT_PHI)
+
+        assert "[No PHI Detected]" in context
+        assert "cons_test_006" in context
+
+    def test_format_context_defaults_to_no_phi_when_metadata_missing(self, chatbot_service):
+        """Test that missing metadata defaults to No PHI Detected."""
+        # Use existing test data that has no metadata field
+        context = chatbot_service._format_context_from_results(SEARCH_RESULTS_WITH_SOAP)
+
+        # Should default to [No PHI Detected] when metadata is missing
+        assert "[No PHI Detected]" in context
 
 
 class TestChatbotSoapContextIntegration:

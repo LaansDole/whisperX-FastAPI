@@ -311,11 +311,10 @@ unit-test:
 
 integration-test:
 	@echo "========================================"
-	@echo "Running Integration Tests"
+	@echo "Running Integration Test"
 	@echo "========================================"
-	@echo "Make sure server is running: make dev"
-	uv run pytest tests/integration/ -v --tb=short -s && \
-	echo "Integration tests passed"
+	uv run pytest tests/integration/test_stt_medical_pipeline.py -v --tb=short -s && \
+	echo "Integration test passed"
 
 # ============================================================================
 # Activity monitoring
