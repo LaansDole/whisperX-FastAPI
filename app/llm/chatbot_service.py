@@ -6,7 +6,7 @@ using vector similarity search and LLM-based response generation.
 
 import logging
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import numpy as np
 
 from .lm_studio_client import LMStudioClient, LMStudioConfig
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class ChatMessage:
     """Represents a single chat message."""
 
-    def __init__(self, role: str, content: str, timestamp: str = None):
+    def __init__(self, role: str, content: str, timestamp: Optional[str] = None):
         self.role = role  # "user", "assistant", or "system"
         self.content = content
         self.timestamp = timestamp or datetime.now(Config.TIMEZONE).isoformat()
@@ -71,10 +71,11 @@ Guidelines:
 - Always cite the source consultation when referencing specific information
 - If information is not available in the context, clearly state this
 - Never make up or assume medical information
+- **Privacy & PHI**: Some records have Protected Health Information (PHI) like names, dates, or addresses protected/redacted. If a user asks for identifying details that are not present, explain that they have been protected to maintain patient privacy.
 
 The following context contains relevant patient consultation records that you should use to answer questions."""
 
-    def __init__(self, client: LMStudioClient = None):
+    def __init__(self, client: Optional[LMStudioClient] = None):
         """Initialize chatbot service.
 
         Args:
@@ -108,11 +109,16 @@ The following context contains relevant patient consultation records that you sh
 
         context_parts = []
         for i, result in enumerate(search_results, 1):
+            metadata = result.get("metadata", {})
+            has_phi = metadata.get("has_phi", False)
+            phi_status = "[PHI Protected]" if has_phi else "[No PHI Detected]"
+
             context_parts.append(f"""
 --- Consultation {i} ---
 Date: {result.get("encounter_date", "Unknown")}
 Similarity Score: {result.get("similarity_score", 0):.2f}
 Consultation ID: {result.get("consultation_id", "Unknown")}
+Privacy Status: {phi_status}
 """)
             # Add structured document info if available
             if result.get("structured_document"):
@@ -145,8 +151,8 @@ Consultation ID: {result.get("consultation_id", "Unknown")}
         self,
         user_query: str,
         patient_id_encrypted: str,
-        session_id: str = None,
-        additional_context: List[Dict[str, Any]] = None,
+        session_id: Optional[str] = None,
+        additional_context: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         """
         Process a user query with RAG context.
@@ -201,6 +207,9 @@ Consultation ID: {result.get("consultation_id", "Unknown")}
                         "consultation_id": r.get("consultation_id"),
                         "encounter_date": r.get("encounter_date"),
                         "similarity_score": r.get("similarity_score"),
+                        "provider_id": r.get("provider_id"),
+                        "soap_note": r.get("soap_note"),
+                        "has_phi": r.get("metadata", {}).get("has_phi", False),
                     }
                     for r in additional_context
                 ],
