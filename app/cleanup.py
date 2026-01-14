@@ -72,14 +72,14 @@ def setup_cleanup_handlers():
         logger.debug("Cleanup handlers registered successfully")
     except Exception as e:
         logger.warning(f"Could not register cleanup handlers: {e}")
-        print(f"⚠️  Warning: Could not register cleanup handlers: {e}")
+        print(f"Warning: Could not register cleanup handlers: {e}")
         print("   Resource cleanup will not be available")
 
 
 if __name__ == "__main__":
     # Test the cleanup functions
     setup_cleanup_handlers()
-    print("✅ Cleanup handlers registered successfully")
+    print("Cleanup handlers registered successfully")
     print("   Thread cleanup: Will join audio/processing threads on shutdown")
     print("   Resource cleanup: Will force GC and clean CUDA cache on shutdown")
     print("   Warning filters: Will suppress resource tracker warnings")

@@ -158,8 +158,8 @@ The following metrics were computed:
 
 |               | Predicted Doctor | Predicted Patient |
 |---------------|------------------|-------------------|
-| **Actual Doctor** | ✓ 100% | 0% |
-| **Actual Patient** | 0% | ✓ 100% |
+| **Actual Doctor** | [OK] 100% | 0% |
+| **Actual Patient** | 0% | [OK] 100% |
 
 ### 3.4 Cross-Sample Performance Consistency
 
@@ -298,7 +298,7 @@ The system is ready for integration with downstream medical NLP workflows includ
 Recommended next steps for system enhancement:
 
 **Immediate:**
-- ✓ Multi-specialty validation completed (3 samples: respiratory, cardiology, musculoskeletal)
+- [OK] Multi-specialty validation completed (3 samples: respiratory, cardiology, musculoskeletal)
 - Expand validation to larger sample size (n=10-30) for statistical robustness
 - Compute inter-annotator agreement metrics
 - Establish confidence threshold guidelines based on clinical risk tolerance

@@ -157,7 +157,7 @@ class TestTemporalErrorHandler:
             # - NOT retry the activity
             # - Fail the workflow immediately
             # - Mark the activity as FAILED (not RETRYING)
-            print("\n✓ Non-retryable error correctly configured:")
+            print("\n[OK] Non-retryable error correctly configured:")
             print(f"  - non_retryable: {app_error.non_retryable}")
             print("  - Temporal behavior: Will NOT retry")
             print("  - Activity status: FAILED (permanent)")
@@ -198,7 +198,7 @@ class TestTemporalErrorHandler:
             # - Retry the activity based on retry policy
             # - Apply exponential backoff
             # - Mark the activity as RETRYING (not FAILED)
-            print("\n✓ Retryable error correctly configured:")
+            print("\n[OK] Retryable error correctly configured:")
             print(f"  - non_retryable: {app_error.non_retryable}")
             print("  - Temporal behavior: WILL retry with backoff")
             print("  - Activity status: RETRYING (transient failure)")

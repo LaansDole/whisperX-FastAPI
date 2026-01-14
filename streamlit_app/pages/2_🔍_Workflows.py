@@ -110,7 +110,7 @@ def display_workflow_detail(workflow_id: str):
         status_response = api_client.get_workflow_status(workflow_id)
         status = status_response.get("status", "UNKNOWN")
 
-        st.success(f"✅ Workflow **{format_workflow_id(workflow_id)}** - {status}")
+        st.success(f"Workflow **{format_workflow_id(workflow_id)}** - {status}")
 
         if status == "COMPLETED":
             # Fetch full results
@@ -214,26 +214,26 @@ def display_workflow_detail(workflow_id: str):
                     st.json(result)
 
         elif status == "RUNNING":
-            st.warning("⏳ Workflow is still running.")
+            st.warning("Workflow is still running.")
             st.info("Results will appear when processing is complete. Enable auto-refresh to monitor progress.")
 
         elif status == "FAILED":
-            st.error("❌ Workflow failed.")
+            st.error("Workflow failed.")
             if "error" in status_response:
                 with st.expander("Error Details"):
                     st.code(status_response["error"])
 
         else:
-            st.warning(f"⚠️ Unknown workflow status: {status}")
+            st.warning(f"Unknown workflow status: {status}")
 
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
-            st.error("❌ Workflow not found")
+            st.error("Workflow not found")
         else:
-            st.error(f"❌ HTTP Error: {e.response.status_code}")
+            st.error(f"HTTP Error: {e.response.status_code}")
 
     except Exception as e:
-        st.error(f"❌ Unexpected error: {str(e)}")
+        st.error(f"Unexpected error: {str(e)}")
 
 
 def display_medical_results(result: dict):
@@ -285,7 +285,7 @@ def display_medical_results(result: dict):
             phi_entities = phi_data.get("entities", [])
 
             if phi_detected and phi_entities:
-                st.warning(f"⚠️ {len(phi_entities)} PHI entities detected")
+                st.warning(f"{len(phi_entities)} PHI entities detected")
 
                 # Group by type
                 phi_by_type = {}
@@ -304,7 +304,7 @@ def display_medical_results(result: dict):
                             st.markdown(f"**{text}**")
                             st.caption(f"Confidence: {confidence:.0f}%")
             else:
-                st.success("✅ No PHI detected")
+                st.success("No PHI detected")
         else:
             st.info("No PHI detection data available.")
 
@@ -401,7 +401,7 @@ def display_medical_results(result: dict):
         if storage_data and isinstance(storage_data, dict):
             # Check if vector_id exists (new format)
             if "vector_id" in storage_data:
-                st.success("✅ Consultation data stored in vector database")
+                st.success("Consultation data stored in vector database")
 
                 col1, col2, col3 = st.columns(3)
                 with col1:
@@ -430,11 +430,11 @@ def display_medical_results(result: dict):
                 # Old format with success flag
                 success = storage_data.get("success", False)
                 if success:
-                    st.success("✅ Consultation data stored in vector database")
+                    st.success("Consultation data stored in vector database")
                     if "document_id" in storage_data:
                         st.markdown(f"**Document ID**: `{storage_data['document_id']}`")
                 else:
-                    st.warning("⚠️ Vector storage encountered an issue")
+                    st.warning("Vector storage encountered an issue")
                     if "error" in storage_data:
                         st.caption(storage_data["error"])
         else:
@@ -509,7 +509,7 @@ elif search_mode == "Patient Hash":
                     total_count = response.get("total_count", 0)
                     filtered_count = response.get("filtered_count", 0)
 
-                    st.success(f"✅ Found {filtered_count} workflow(s) for patient: `{patient_hash_input.strip()}`")
+                    st.success(f"Found {filtered_count} workflow(s) for patient: `{patient_hash_input.strip()}`")
 
                     if total_count != filtered_count:
                         st.info(f"ℹ️ Showing {filtered_count} out of {total_count} total workflows")
@@ -543,14 +543,14 @@ elif search_mode == "Patient Hash":
 
             except httpx.HTTPStatusError as e:
                 if e.response.status_code == 404:
-                    st.error(f"❌ No patient found with hash: `{patient_hash_input.strip()}`")
+                    st.error(f"No patient found with hash: `{patient_hash_input.strip()}`")
                 else:
-                    st.error(f"❌ HTTP Error: {e.response.status_code}")
+                    st.error(f"HTTP Error: {e.response.status_code}")
 
             except Exception as e:
-                st.error(f"❌ Unexpected error: {str(e)}")
+                st.error(f"Unexpected error: {str(e)}")
         else:
-            st.warning("⚠️ Patient hash must be exactly 8 characters")
+            st.warning("Patient hash must be exactly 8 characters")
 
 elif search_mode == "Recent Uploads":
     if "recent_uploads" in st.session_state and st.session_state.recent_uploads:
@@ -588,11 +588,6 @@ with st.expander("ℹ️ Help & Tips"):
     - See workflows from your current session
     - Auto-refresh to monitor progress
     - Limited to 5 most recent uploads
-
-    **Status Indicators:**
-    - ✅ COMPLETED: Results available
-    - ⏳ RUNNING: Still processing
-    - ❌ FAILED: Encountered an error
 
     **Performance:**
     - Processing: ~1-2 min per 10 min of audio

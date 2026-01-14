@@ -11,8 +11,9 @@ Requires:
 
 import pytest
 import httpx
-import time
 from pathlib import Path
+
+from conftest import wait_for_workflow_completion
 
 
 BASE_URL = "http://localhost:8000"
@@ -24,37 +25,13 @@ DATASET_DIR = Path(__file__).resolve().parents[2] / "datasets" / "kaggle-simulat
 
 def wait_for_workflow_result(client: httpx.Client, workflow_id: str, max_wait: int = 120, poll_interval: int = 5):
     """
-    Poll workflow until completion or failure.
+    Poll workflow until completion or failure. Returns tuple for error handling tests.
 
-    Returns:
-        tuple: (status, result_or_error)
+    This is a thin wrapper around the shared helper with return_tuple=True.
     """
-    elapsed = 0
-    print(f"\n⏳ Polling workflow {workflow_id}...")
-
-    while elapsed < max_wait:
-        response = client.get(f"/temporal/workflow/{workflow_id}")
-
-        if response.status_code == 200:
-            data = response.json()
-            status = data.get("status", "UNKNOWN")
-
-            if status == "COMPLETED":
-                result_response = client.get(f"/temporal/workflow/{workflow_id}/result")
-                if result_response.status_code == 200:
-                    return ("COMPLETED", result_response.json())
-
-            elif status == "FAILED":
-                error_response = client.get(f"/temporal/workflow/{workflow_id}")
-                return ("FAILED", error_response.json())
-
-            time.sleep(poll_interval)
-            elapsed += poll_interval
-        else:
-            time.sleep(poll_interval)
-            elapsed += poll_interval
-
-    return ("TIMEOUT", None)
+    return wait_for_workflow_completion(
+        client, workflow_id, max_wait=max_wait, poll_interval=poll_interval, return_tuple=True
+    )
 
 
 @pytest.mark.integration
@@ -95,7 +72,7 @@ def test_retryable_error_network_timeout():
         assert response.status_code == 200, f"Upload failed: {response.text}"
         workflow_id = response.json().get("identifier") or response.json().get("workflow_id")
 
-        print(f"✓ Workflow started: {workflow_id}")
+        print(f"[OK] Workflow started: {workflow_id}")
         print("  Expected: Network errors should trigger retries")
 
         # Note: In real scenarios, network timeouts would occur naturally
@@ -143,7 +120,7 @@ def test_non_retryable_error_invalid_input():
         assert response.status_code == 400, f"Expected 400, got {response.status_code}"
 
         error_data = response.json()
-        print(f"✓ Validation failed as expected: {error_data.get('detail', 'No detail')}")
+        print(f"[OK] Validation failed as expected: {error_data.get('detail', 'No detail')}")
         print("  Error classified as non-retryable (no workflow started)")
 
 
@@ -188,7 +165,7 @@ def test_non_retryable_error_missing_provider():
         assert response.status_code == 400, f"Expected 400, got {response.status_code}"
 
         error_data = response.json()
-        print(f"✓ Validation failed as expected: {error_data.get('detail', 'No detail')}")
+        print(f"[OK] Validation failed as expected: {error_data.get('detail', 'No detail')}")
         print("  Error classified as non-retryable (fail-fast)")
 
 
@@ -215,7 +192,7 @@ def test_retryable_error_string_default():
 
     # Should be retryable (non_retryable=False)
     assert not app_error.non_retryable, "String errors should default to retryable"
-    print("✓ String error correctly defaults to retryable")
+    print("[OK] String error correctly defaults to retryable")
 
 
 @pytest.mark.integration
@@ -247,7 +224,7 @@ def test_explicit_retryable_override():
 
     # Should be retryable (non_retryable=False) due to explicit override
     assert not app_error.non_retryable, "Explicit retryable=True should override classification"
-    print("✓ Explicit retryable parameter correctly overrides auto-classification")
+    print("[OK] Explicit retryable parameter correctly overrides auto-classification")
 
 
 @pytest.mark.integration
@@ -284,7 +261,7 @@ def test_workflow_with_successful_execution():
         assert response.status_code == 200, f"Upload failed: {response.text}"
         workflow_id = response.json().get("identifier") or response.json().get("workflow_id")
 
-        print(f"✓ Workflow started: {workflow_id}")
+        print(f"[OK] Workflow started: {workflow_id}")
         print("  Expected: Normal execution with no errors")
         print(f"  Monitor: http://localhost:8233/namespaces/default/workflows/{workflow_id}")
 

@@ -31,14 +31,14 @@ def wait_for_server(
             request = urllib.request.Request(url, method="GET")
             with urllib.request.urlopen(request, timeout=5) as response:
                 if response.status == 200:
-                    print(f"✓ FastAPI server is ready (attempt {attempt + 1})")
+                    print(f"[OK] FastAPI server is ready (attempt {attempt + 1})")
                     return True
         except urllib.error.URLError:
             pass
         except urllib.error.HTTPError as e:
             # Server is responding but returned an error - still means it's up
             if e.code < 500:
-                print(f"✓ FastAPI server is responding (attempt {attempt + 1})")
+                print(f"[OK] FastAPI server is responding (attempt {attempt + 1})")
                 return True
         except Exception:
             pass
@@ -46,7 +46,7 @@ def wait_for_server(
         print(f"Attempt {attempt + 1}/{max_attempts} - Server not ready yet...")
         time.sleep(delay)
 
-    print("✗ FastAPI server failed to start within timeout period")
+    print("[FAIL] FastAPI server failed to start within timeout period")
     return False
 
 

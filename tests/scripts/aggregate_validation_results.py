@@ -143,9 +143,9 @@ if __name__ == "__main__":
         try:
             sample_data = analyze_sample(result_path, gt_path, name)
             samples.append(sample_data)
-            print(f"✓ Analyzed {name}")
+            print(f"Analyzed {name}")
         except Exception as e:
-            print(f"✗ Error analyzing {name}: {e}")
+            print(f"Error analyzing {name}: {e}")
 
     if samples:
         aggregated = aggregate_results(samples)
@@ -184,4 +184,4 @@ if __name__ == "__main__":
         # Save aggregated results
         with open("/tmp/aggregated_validation_results.json", "w") as f:
             json.dump(aggregated, f, indent=2)
-        print("\n✓ Saved aggregated results to /tmp/aggregated_validation_results.json")
+        print("\n[OK] Saved aggregated results to /tmp/aggregated_validation_results.json")

@@ -43,7 +43,7 @@ class HIPAAEncryption:
         # Special case: allow "default" for development/testing
         if key_b64 == "default":
             logger.warning(
-                "⚠️  SECURITY WARNING: Using 'default' encryption key! "
+                "SECURITY WARNING: Using 'default' encryption key! "
                 "This is NOT SECURE. Use only for development/testing. "
                 "Generate secure key for production: HIPAAEncryption.generate_master_key()"
             )

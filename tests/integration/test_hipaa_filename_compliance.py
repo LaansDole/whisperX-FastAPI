@@ -1,6 +1,11 @@
-"""Real endpoint tests with Kaggle dataset and HIPAA-compliant filenames.
+"""HIPAA Filename Compliance Tests
 
-Tests actual Temporal workflow execution with real audio files.
+Tests HIPAA-compliant filename handling in Temporal workflows:
+- Patient names are hashed (not exposed in workflow IDs or filenames)
+- Two-phase commit for patient-workflow mapping
+- Patient hash queries for workflow retrieval
+
+Uses real audio files from the Kaggle patient-physician interviews dataset.
 """
 
 import pytest
@@ -39,7 +44,7 @@ class TestRealEndpointWithHIPAAFilenames:
         try:
             response = requests.get(f"{BASE_URL}/docs", timeout=5)
             assert response.status_code == 200
-            print("\n✓ Server is running")
+            print("\n[OK] Server is running")
         except requests.exceptions.ConnectionError:
             pytest.skip("Server not running. Start with 'make dev'")
 
@@ -53,8 +58,8 @@ class TestRealEndpointWithHIPAAFilenames:
         # Patient name with spaces (as doctor would type)
         patient_name = "John Michael Smith"
 
-        print(f"\n📁 Uploading: {audio_file.name}")
-        print(f"👤 Patient: {patient_name}")
+        print(f"\nUploading: {audio_file.name}")
+        print(f"Patient: {patient_name}")
 
         # Upload file with patient_name (in form body, not URL)
         with open(audio_file, "rb") as f:
@@ -68,13 +73,13 @@ class TestRealEndpointWithHIPAAFilenames:
         assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
 
         data = response.json()
-        print(f"✓ Response: {data}")
+        print(f"[OK] Response: {data}")
 
         # Should have workflow ID
         assert "identifier" in data or "workflow_id" in data
         workflow_id = data.get("identifier") or data.get("workflow_id")
 
-        print(f"🔄 Workflow ID: {workflow_id}")
+        print(f"Workflow ID: {workflow_id}")
 
         # Calculate patient hash for verification
         from app.patients.filename_utils import generate_patient_file_id
@@ -86,40 +91,40 @@ class TestRealEndpointWithHIPAAFilenames:
         assert f"pt_{patient_hash}" in workflow_id, (
             f"Expected patient hash {patient_hash} in workflow ID, got {workflow_id}"
         )
-        print(f"✓ Workflow ID contains patient hash: {patient_hash}")
+        print(f"[OK] Workflow ID contains patient hash: {patient_hash}")
 
         # Verify patient name NOT in workflow ID
         assert "john" not in workflow_id.lower()
         assert "michael" not in workflow_id.lower()
         assert "smith" not in workflow_id.lower()
 
-        print("✓ Patient name NOT in workflow ID")
+        print("[OK] Patient name NOT in workflow ID")
 
         # Wait a bit for workflow to start and commit to complete
         time.sleep(2)
 
         # Validate Two-Phase Commit SUCCESS
-        print("\n🔍 Validating two-phase commit...")
+        print("\nValidating two-phase commit...")
 
         # Check database record via admin endpoint
         admin_response = requests.get(f"{BASE_URL}/admin/workflow/{workflow_id}/patient", timeout=10)
 
         if admin_response.status_code == 200:
             db_record = admin_response.json()
-            print("✓ Database record found:")
+            print("[OK] Database record found:")
             print(f"  Patient: {db_record['patient_name']}")
             print(f"  Hash: {db_record['patient_hash']}")
             print(f"  Status: {db_record.get('status', 'N/A')}")
 
             # Verify status is 'active' (two-phase commit succeeded)
             assert db_record.get("status") == "active", f"Expected status='active', got '{db_record.get('status')}'"
-            print("✓ Two-phase commit: Database record marked ACTIVE")
+            print("[OK] Two-phase commit: Database record marked ACTIVE")
 
             # Verify patient hash matches
             assert db_record["patient_hash"] == patient_hash, (
                 f"Expected hash {patient_hash}, got {db_record['patient_hash']}"
             )
-            print(f"✓ Two-phase commit: Patient hash verified ({patient_hash})")
+            print(f"[OK] Two-phase commit: Patient hash verified ({patient_hash})")
         else:
             pytest.fail(
                 f"Database record not found! Two-phase commit may have failed. Status: {admin_response.status_code}"
@@ -132,13 +137,11 @@ class TestRealEndpointWithHIPAAFilenames:
 
         if status_response.status_code == 200:
             status_data = status_response.json()
-            print(f"✓ Workflow State: {status_data.get('status', 'unknown')}")
-            print("✓ Workflow started successfully")
+            print(f"[OK] Workflow State: {status_data.get('status', 'unknown')}")
+            print("[OK] Workflow started successfully")
 
             # Test patient-based query
             # Wait a moment for Temporal to index the workflow
-            print("\n🔍 Testing patient-based query...")
-            print("⏳ Waiting for Temporal to index workflow...")
             time.sleep(2)  # Give Temporal time to index the new workflow
 
             patient_workflows_response = requests.get(
@@ -149,14 +152,14 @@ class TestRealEndpointWithHIPAAFilenames:
                 patient_data = patient_workflows_response.json()
                 total_count = patient_data.get("total_count", 0)
                 workflows = patient_data.get("workflows", [])
-                print(f"✓ Found {total_count} workflows for patient")
+                print(f"[OK] Found {total_count} workflows for patient")
 
                 # Verify our workflow is in the list
                 workflow_ids = [w["workflow_id"] for w in workflows]
                 assert workflow_id in workflow_ids, (
                     f"Workflow {workflow_id} not found in patient query. Found: {workflow_ids}"
                 )
-                print("✓ Patient query successfully found workflow")
+                print("[OK] Patient query successfully found workflow")
 
                 # Verify all returned workflows have status='active' (pending excluded by query)
                 for wf in workflows:
@@ -164,11 +167,11 @@ class TestRealEndpointWithHIPAAFilenames:
                     # (pending workflows should be filtered out by the query)
                     print(f"  Workflow {wf['workflow_id'][:30]}... created at {wf.get('created_at', 'N/A')}")
 
-                print("✓ Two-phase commit: Only active workflows returned in patient query")
+                print("[OK] Two-phase commit: Only active workflows returned in patient query")
             else:
-                print(f"⚠ Patient query endpoint returned {patient_workflows_response.status_code}")
+                print(f"Patient query endpoint returned {patient_workflows_response.status_code}")
         else:
-            print(f"⚠ Could not get workflow status: {status_response.text}")
+            print(f"Could not get workflow status: {status_response.text}")
 
     def test_speech_to_text_multiple_departments(self, sample_audio_files):
         """Test multiple departments with different patient names - ONE AT A TIME."""
@@ -184,7 +187,7 @@ class TestRealEndpointWithHIPAAFilenames:
             audio_file = sample_audio_files[test_case["audio"]]
 
             if not audio_file.exists():
-                print(f"⚠ Skipping {test_case['audio']}: file not found")
+                print(f"Skipping {test_case['audio']}: file not found")
                 continue
 
             print(f"\n{'=' * 60}")
@@ -204,7 +207,7 @@ class TestRealEndpointWithHIPAAFilenames:
                 workflow_id = data.get("identifier") or data.get("workflow_id")
                 workflow_ids.append(workflow_id)
 
-                print(f"✓ Workflow started: {workflow_id}")
+                print(f"[OK] Workflow started: {workflow_id}")
 
                 # Verify HIPAA-compliant workflow ID
                 from app.patients.filename_utils import generate_patient_file_id
@@ -216,16 +219,16 @@ class TestRealEndpointWithHIPAAFilenames:
                 for name_part in test_case["patient"].split():
                     assert name_part.lower() not in workflow_id.lower()
 
-                print("✓ HIPAA-compliant workflow ID")
-                print("✓ Patient name protected")
+                print("[OK] HIPAA-compliant workflow ID")
+                print("[OK] Patient name protected")
             else:
-                print(f"✗ Upload failed: {response.status_code}")
+                print(f"Upload failed: {response.status_code}")
 
             # Wait before next upload to avoid overwhelming the server
             time.sleep(1)
 
         print(f"\n{'=' * 60}")
-        print(f"✅ Tested {len(workflow_ids)} workflows")
+        print(f"Tested {len(workflow_ids)} workflows")
         print(f"All workflow IDs: {workflow_ids}")
 
         assert len(workflow_ids) > 0, "No workflows were started"
@@ -239,8 +242,8 @@ class TestRealEndpointWithHIPAAFilenames:
 
         patient_name = "Jane Emily Doe"
 
-        print("\n📁 Testing workflow result filename")
-        print(f"👤 Patient: {patient_name}")
+        print("\nTesting workflow result filename")
+        print(f"Patient: {patient_name}")
 
         # Upload and start workflow with patient_name (in form body)
         with open(audio_file, "rb") as f:
@@ -255,7 +258,7 @@ class TestRealEndpointWithHIPAAFilenames:
         data = response.json()
         workflow_id = data.get("identifier") or data.get("workflow_id")
 
-        print(f"🔄 Workflow: {workflow_id}")
+        print(f"Workflow: {workflow_id}")
 
         # Wait for workflow to complete (or at least start processing)
         time.sleep(5)
@@ -265,7 +268,7 @@ class TestRealEndpointWithHIPAAFilenames:
 
         if status_response.status_code == 200:
             status_data = status_response.json()
-            print("✓ Workflow status retrieved")
+            print("[OK] Workflow status retrieved")
 
             # Check if result contains filename info
             result = status_data.get("result", {})
@@ -276,25 +279,25 @@ class TestRealEndpointWithHIPAAFilenames:
             assert "emily" not in result_str.lower()
             assert "doe" not in result_str.lower()
 
-            print("✓ Patient name NOT in workflow result")
+            print("[OK] Patient name NOT in workflow result")
 
     def test_check_uploaded_file_naming(self):
         """Test that uploaded files use HIPAA-compliant naming."""
         uploads_dir = Path("/tmp/uploads")
 
         if not uploads_dir.exists():
-            print("\n⚠ Uploads directory doesn't exist yet")
+            print("\nUploads directory doesn't exist yet")
             return
 
         files = list(uploads_dir.glob("*"))
-        print(f"\n📂 Found {len(files)} files in /tmp/uploads")
+        print(f"\nFound {len(files)} files in /tmp/uploads")
 
         # Sample some recent files
         recent_files = sorted(files, key=lambda f: f.stat().st_mtime, reverse=True)[:5]
 
         for f in recent_files:
             filename = f.name
-            print(f"  📄 {filename}")
+            print(f"  {filename}")
 
             # Should not contain obvious patient names
             # (This is a basic check - in production, would check against known names)
@@ -303,7 +306,7 @@ class TestRealEndpointWithHIPAAFilenames:
                 f"Filename should be UUID or HIPAA format: {filename}"
             )
 
-        print("✓ All filenames appear HIPAA-compliant")
+        print("[OK] All filenames appear HIPAA-compliant")
 
     def test_get_patient_latest_workflow(self):
         """Test getting latest workflow for a patient using patient hash."""
@@ -329,7 +332,7 @@ class TestRealEndpointWithHIPAAFilenames:
             assert "status" in data
             assert "patient_hash" in data
             assert data["patient_hash"] == patient_hash
-            print("Latest workflow endpoint OK")
+            print("[OK] Latest workflow endpoint OK")
 
         elif response.status_code == 404:
             print("No workflows found (expected for new patient)")

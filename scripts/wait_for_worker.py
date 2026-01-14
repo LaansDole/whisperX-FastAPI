@@ -29,17 +29,17 @@ def wait_for_worker(max_attempts=30, delay=2):
             sock.close()
             
             if result == 0:
-                print(f"✓ Temporal server is reachable (attempt {attempt + 1})")
+                print(f"[OK] Temporal server is reachable (attempt {attempt + 1})")
                 # Additional check to see if worker process is running
                 import subprocess
                 try:
                     result = subprocess.run(['pgrep', '-f', 'temporal.worker'],
                                           capture_output=True, text=True)
                     if result.returncode == 0:
-                        print("✓ Temporal worker process is running")
+                        print("[OK] Temporal worker process is running")
                         return True
                     else:
-                        print("✓ Temporal server reachable but worker not yet started")
+                        print("[OK] Temporal server reachable but worker not yet started")
                 except Exception:
                     pass
         except Exception:
@@ -48,7 +48,7 @@ def wait_for_worker(max_attempts=30, delay=2):
         print(f"Attempt {attempt + 1}/{max_attempts} - Temporal worker not ready yet...")
         time.sleep(delay)
     
-    print("✗ Temporal worker failed to start within timeout period")
+    print("[FAIL] Temporal worker failed to start within timeout period")
     return False
 
 if __name__ == "__main__":

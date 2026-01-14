@@ -1,7 +1,106 @@
 """Mock fixtures and test data for medical endpoint tests."""
 
+import time
+from typing import Tuple, Union
+
+import httpx
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+
+# =============================================================================
+# Shared Workflow Polling Helper
+# =============================================================================
+
+
+def wait_for_workflow_completion(
+    client: httpx.Client,
+    workflow_id: str,
+    max_wait: int = 300,
+    poll_interval: int = 30,
+    return_tuple: bool = False,
+    verbose: bool = True,
+) -> Union[dict, Tuple[str, dict], None]:
+    """
+    Poll Temporal workflow until completion.
+
+    This is the shared helper for all integration tests. Use consistent parameters
+    across tests to avoid request storms against the server.
+
+    Args:
+        client: HTTP client instance
+        workflow_id: Temporal workflow ID to poll
+        max_wait: Maximum wait time in seconds (default: 300s = 5 minutes)
+        poll_interval: Polling interval in seconds (default: 30s)
+        return_tuple: If True, return (status, result) tuple instead of just result
+        verbose: If True, print progress messages
+
+    Returns:
+        - If return_tuple=False: Workflow result dict if completed, None if timeout
+        - If return_tuple=True: Tuple of (status, result_or_error_dict)
+
+    Raises:
+        ValueError: If workflow fails and return_tuple=False
+        TimeoutError: If timeout and return_tuple=False
+    """
+    elapsed = 0
+
+    if verbose:
+        print(f"\nWaiting for workflow {workflow_id} to complete...")
+        print(f"   Polling: every {poll_interval}s, Max wait: {max_wait}s")
+
+    while elapsed < max_wait:
+        response = client.get(f"/temporal/workflow/{workflow_id}")
+
+        if response.status_code == 404:
+            if return_tuple:
+                return ("NOT_FOUND", {"error": f"Workflow not found: {workflow_id}"})
+            raise ValueError(f"Workflow not found: {workflow_id}")
+
+        if response.status_code == 200:
+            data = response.json()
+            status = data.get("status", "UNKNOWN")
+
+            if verbose:
+                print(f"  [{elapsed}s] Status: {status}")
+
+            if status == "COMPLETED":
+                # Fetch result
+                result_response = client.get(f"/temporal/workflow/{workflow_id}/result")
+                if result_response.status_code == 200:
+                    result = result_response.json()
+                    if verbose:
+                        print(f"[OK] Workflow completed in {elapsed}s")
+                    if return_tuple:
+                        return ("COMPLETED", result)
+                    return result
+                else:
+                    if verbose:
+                        print(f"  Error fetching result: {result_response.status_code}")
+                    time.sleep(5)
+                    elapsed += 5
+                    continue
+
+            elif status in ["FAILED", "TERMINATED", "TIMED_OUT", "CANCELED"]:
+                if return_tuple:
+                    return (status, data)
+                raise ValueError(f"Workflow {status.lower()}")
+
+            else:  # RUNNING, PENDING
+                time.sleep(poll_interval)
+                elapsed += poll_interval
+        else:
+            if verbose:
+                print(f"  [{elapsed}s] Error: HTTP {response.status_code}")
+            time.sleep(poll_interval)
+            elapsed += poll_interval
+
+    if verbose:
+        print(f"[TIMEOUT] Timeout after {max_wait}s")
+
+    if return_tuple:
+        return ("TIMEOUT", {"error": f"Workflow did not complete within {max_wait}s"})
+    raise TimeoutError(f"Workflow {workflow_id} did not complete within {max_wait}s")
 
 
 # Sample LM Studio responses for mocking
