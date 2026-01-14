@@ -1,6 +1,6 @@
 """Admin endpoints for patient workflow monitoring.
 
-⚠️  SECURITY WARNING - HIPAA COMPLIANCE REQUIRED ⚠️
+[WARN]️  SECURITY WARNING - HIPAA COMPLIANCE REQUIRED [WARN]️
 These endpoints expose Protected Health Information (PHI) including plain text patient names
 without authentication or authorization. DO NOT use in production without implementing:
 1. Authentication middleware (JWT, OAuth2, etc.)

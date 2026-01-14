@@ -63,18 +63,18 @@ install-dev-gpu:
 # Run all linting checks based on .pre-commit-config.yaml
 lint:
 	@echo "Running linting checks..."
-	@echo "✓ Running ruff linter (required)..."
+	@echo "[OK] Running ruff linter (required)..."
 	uv run ruff check app/ tests/ streamlit_app/ --config pyproject.toml
 	@echo ""
-	@echo "✓ Running optional linters..."
+	@echo "[OK] Running optional linters..."
 	@echo "  - yamllint (YAML files)..."
-	@uv run yamllint -d "{extends: relaxed, rules: {line-length: disable}}" -s . 2>/dev/null || echo "    ⚠ yamllint not installed (optional)"
+	@uv run yamllint -d "{extends: relaxed, rules: {line-length: disable}}" -s . 2>/dev/null || echo "    [WARN] yamllint not installed (optional)"
 	@echo "  - pydocstyle (docstrings)..."
-	@uv run pydocstyle app/ 2>/dev/null || echo "    ⚠ pydocstyle not installed (optional)"
+	@uv run pydocstyle app/ 2>/dev/null || echo "    [WARN] pydocstyle not installed (optional)"
 	@echo "  - codespell (spelling)..."
-	@uv run codespell app/ tests/ 2>/dev/null || echo "    ⚠ codespell not installed (optional)"
+	@uv run codespell app/ tests/ 2>/dev/null || echo "    [WARN] codespell not installed (optional)"
 	@echo ""
-	@echo "✅ All linting checks completed!"
+	@echo "[DONE] All linting checks completed!"
 
 # Format code with ruff
 format:
@@ -177,21 +177,21 @@ stop:
 
 # Clean Temporal data and start fresh
 temporal-fresh:
-	@echo "🧹 CLEANING TEMPORAL DATA FOR FRESH START"
+	@echo "CLEANING TEMPORAL DATA FOR FRESH START"
 	@echo "============================================"
 	@echo ""
 	@echo "1️⃣  Stopping all processes (workers, server, etc.)..."
 	$(MAKE) stop
 	@echo "   Ensuring Temporal server is completely stopped..."
 	@pkill -9 -f "temporal server" || true
-	@echo " ✓ All processes stopped (including workers)"
+	@echo " [OK] All processes stopped (including workers)"
 	@echo ""
 	@echo "2️⃣  Cleaning Temporal data directories..."
 	@echo "Removing controlled Temporal database: $(TEMPORAL_DB_PATH)..."
 	@if [ -f "$(TEMPORAL_DB_PATH)" ]; then \
 		echo "Removing database file: $(TEMPORAL_DB_PATH)"; \
 		rm -f "$(TEMPORAL_DB_PATH)"; \
-		echo " ✓ Temporal database removed"; \
+		echo " [OK] Temporal database removed"; \
 	else \
 		echo "Temporal database not found at $(TEMPORAL_DB_PATH)"; \
 	fi
@@ -202,14 +202,14 @@ temporal-fresh:
 	@if [ -d "/tmp/temporal" ]; then \
 		echo "Removing /tmp/temporal directory..."; \
 		rm -rf /tmp/temporal; \
-		echo " ✓ /tmp/temporal removed"; \
+		echo " [OK] /tmp/temporal removed"; \
 	else \
 		echo "/tmp/temporal directory not found"; \
 	fi
 	@if [ -d "~/.temporal" ]; then \
 		echo "Removing ~/.temporal directory..."; \
 		rm -rf ~/.temporal; \
-		echo " ✓ ~/.temporal removed"; \
+		echo " [OK] ~/.temporal removed"; \
 	else \
 		echo "~/.temporal directory not found"; \
 	fi
@@ -224,13 +224,13 @@ temporal-fresh:
 		echo "Removing main database: /var/db/temporal.db"; \
 		rm -f /var/db/temporal.db 2>/dev/null || true; \
 	fi
-	echo " ✓ Temporal database files cleaned"
+	echo " [OK] Temporal database files cleaned"
 	@echo ""
 	@echo "4️⃣  Cleaning Temporal logs..."
 	@if [ -d "./temporal_logs" ]; then \
 		echo "Removing ./temporal_logs directory..."; \
 		rm -rf ./temporal_logs; \
-		echo " ✓ Temporal logs removed"; \
+		echo " [OK] Temporal logs removed"; \
 	else \
 		echo "Temporal logs directory not found"; \
 	fi
@@ -239,7 +239,7 @@ temporal-fresh:
 	@if [ -f "./data/patient_mappings.db" ]; then \
 		echo "Removing patient database: ./data/patient_mappings.db"; \
 		rm -f ./data/patient_mappings.db; \
-		echo " ✓ Patient database removed"; \
+		echo " [OK] Patient database removed"; \
 	else \
 		echo "Patient database not found at ./data/patient_mappings.db"; \
 	fi
@@ -261,18 +261,18 @@ temporal-fresh:
 		echo "Clearing Temporal CLI namespace data..." && \
 		temporal operator namespace describe default > /dev/null 2>&1 && temporal workflow list --namespace default --limit 1 | grep -q . && \
 		temporal workflow list --namespace default | awk 'NR>1 {print $$2}' | xargs -I {} temporal workflow delete --namespace default --workflow-id {} 2>/dev/null || true && \
-		echo " ✓ Temporal CLI namespace cleared" || echo "Could not clear Temporal CLI namespace"; \
+		echo " [OK] Temporal CLI namespace cleared" || echo "Could not clear Temporal CLI namespace"; \
 	else \
 		echo "Temporal CLI not available"; \
 	fi
 	@echo ""
 	@echo "7️⃣  Starting fresh Temporal server..."
 	$(MAKE) start-temporal
-	@echo " ✓ Fresh Temporal server started"
+	@echo " [OK] Fresh Temporal server started"
 	@echo ""
 	@echo "8️⃣  Waiting for Temporal server to initialize..."
 	sleep 8
-	@echo " ✓ Temporal server should be ready"
+	@echo " [OK] Temporal server should be ready"
 	@echo ""
 	@echo "9️⃣  Opening Temporal UI in browser..."
 	@echo "Opening http://localhost:8233 (Temporal UI) in browser..."
@@ -280,10 +280,10 @@ temporal-fresh:
 	@echo ""
 	@echo "============================================"
 	@echo "TEMPORAL FRESH START COMPLETED!"
-	@echo " ✓ All old workflows cleared from Temporal UI"
-	@echo " ✓ All databases and logs cleaned (including patient mappings)"
-	@echo " ✓ Fresh Temporal server started with database at $(TEMPORAL_DB_PATH)"
-	@echo " ✓ Clean Temporal CLI namespace"
+	@echo " [OK] All old workflows cleared from Temporal UI"
+	@echo " [OK] All databases and logs cleaned (including patient mappings)"
+	@echo " [OK] Fresh Temporal server started with database at $(TEMPORAL_DB_PATH)"
+	@echo " [OK] Clean Temporal CLI namespace"
 
 	@echo "============================================"
 
@@ -306,8 +306,8 @@ unit-test:
 	@echo "========================================"
 	@uv run pytest tests/unit/ -v --tb=short --cov=app --cov-report=term-missing --cov-report=html
 	@echo ""
-	@echo "📊 Coverage report generated in htmlcov/index.html"
-	@echo "ℹ️  Open with: open htmlcov/index.html"
+	@echo "Coverage report generated in htmlcov/index.html"
+	@echo "Open with: open htmlcov/index.html"
 
 integration-test:
 	@echo "========================================"
