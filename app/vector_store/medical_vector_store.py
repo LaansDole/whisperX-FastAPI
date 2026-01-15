@@ -369,8 +369,10 @@ class MedicalDocumentVectorStore:
             # Normalize query
             query_normalized = query_embedding / np.linalg.norm(query_embedding)
 
-            # Search FAISS index (get more results for filtering)
-            k = min(limit * 3, self.index.ntotal) if self.index.ntotal > 0 else 0
+            # Search FAISS index (get ALL results for patient filtering)
+            # When filtering by patient, we need to search all vectors since
+            # the patient's vectors might not be in the top-k globally
+            k = self.index.ntotal if self.index.ntotal > 0 else 0
             if k == 0:
                 return []
 
@@ -389,15 +391,15 @@ class MedicalDocumentVectorStore:
                 if similarity < similarity_threshold:
                     continue
 
-                # Build query with optional patient filter
+                # Build query with optional patient filter using vector_id
                 query = """
                     SELECT consultation_id, patient_id_encrypted, provider_id,
                            encounter_date, transcript_hash, transcript_length,
                            created_at, metadata_json
                     FROM consultations
-                    WHERE rowid = ?
+                    WHERE vector_id = ?
                 """
-                params = [int(idx) + 1]  # Convert to 1-based rowid
+                params = [int(idx)]  # Use vector_id directly (0-based FAISS index)
 
                 if patient_id_encrypted:
                     query += " AND patient_id_encrypted = ?"

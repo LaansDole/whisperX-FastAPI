@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from ..config import Config
 from ..llm.lm_studio_client import LMStudioClient, LMStudioConfig
 from ..llm.medical_llm_service import MedicalLLMService
+from ..patients.filename_utils import generate_patient_file_id
 from ..llm.chatbot_service import MedicalChatbotService
 from ..hipaa.audit_logger import HIPAAAuditLogger
 from ..hipaa.access_control import HIPAAAccessControl, Permission
@@ -637,7 +638,6 @@ async def process_transcript(
     Returns:
         Comprehensive results with speaker-attributed entities, SOAP note, and storage confirmation
     """
-    import hashlib
     import numpy as np
     import uuid
 
@@ -649,7 +649,7 @@ async def process_transcript(
 
     # Generate consultation ID and encrypt patient ID
     consultation_id = f"cons_{uuid.uuid4().hex[:12]}"
-    patient_id_encrypted = hashlib.sha256(f"{patient_id}{Config.HIPAA_SALT}".encode()).hexdigest()[:32]
+    patient_id_encrypted = generate_patient_file_id(patient_id)
     encounter_date = encounter_date or datetime.now(Config.TIMEZONE).date().isoformat()
 
     # Log processing start
@@ -855,7 +855,6 @@ async def process_whisperx_result(
         HTTPException: If neither workflow_id nor whisperx_result provided,
                       or if any processing step fails critically
     """
-    import hashlib
     import numpy as np
     import uuid
     import httpx
@@ -880,7 +879,7 @@ async def process_whisperx_result(
 
     # Generate consultation ID and encrypt patient ID
     consultation_id = f"cons_{uuid.uuid4().hex[:12]}"
-    patient_id_encrypted = hashlib.sha256(f"{request.patient_id}{Config.HIPAA_SALT}".encode()).hexdigest()[:32]
+    patient_id_encrypted = generate_patient_file_id(request.patient_id)
     encounter_date = request.encounter_date or datetime.now(Config.TIMEZONE).date().isoformat()
 
     # Log processing start

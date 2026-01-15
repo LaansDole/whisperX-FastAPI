@@ -244,6 +244,28 @@ def test_chatbot_clear_session():
     assert session_id in data["message"]
 
 
+def test_chatbot_response_source_metadata():
+    """Test that chatbot response includes new source metadata fields (provider_id, soap_note, has_phi)."""
+    response = client.post(
+        "/medical/chat",
+        params={"query": "What is the patient's diagnosis?", "patient_id_encrypted": "test_encrypted_id_456"},
+    )
+
+    assert response.status_code in [200, 503]  # 503 if no data in vector store
+
+    if response.status_code == 200:
+        data = response.json()
+        assert "sources" in data
+
+        # If sources are present, verify new metadata fields
+        if data["sources"] and len(data["sources"]) > 0:
+            source = data["sources"][0]
+            # Verify new fields are present (even if None)
+            assert "provider_id" in source
+            assert "soap_note" in source
+            assert "has_phi" in source
+
+
 # ============================================================================
 # Statistics Endpoint Tests
 # ============================================================================
