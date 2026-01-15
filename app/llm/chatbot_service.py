@@ -209,7 +209,7 @@ Privacy Status: {phi_status}
                         "similarity_score": r.get("similarity_score"),
                         "provider_id": r.get("provider_id"),
                         "soap_note": r.get("soap_note"),
-                        "has_phi": r.get("metadata", {}).get("has_phi", False),
+                        "has_phi": (r.get("metadata") or {}).get("has_phi", False),
                     }
                     for r in additional_context
                 ],
