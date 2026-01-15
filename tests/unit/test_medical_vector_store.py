@@ -10,8 +10,6 @@ import pytest
 import numpy as np
 import tempfile
 import shutil
-from pathlib import Path
-from unittest.mock import patch
 
 from app.vector_store.medical_vector_store import MedicalDocumentVectorStore
 
