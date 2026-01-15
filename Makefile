@@ -373,9 +373,9 @@ up:
 	@$(MAKE) list-servers
 
 restart:
-	docker-compose restart
+	@$(MAKE) down
+	@$(MAKE) up
 	@echo "Docker services restarted"
-	@$(MAKE) list-servers
 
 down:
 	docker-compose down
