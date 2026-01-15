@@ -183,6 +183,13 @@ else:
                     result = api_client.medical_chat(
                         query=user_query, patient_hash=patient_hash, session_id=st.session_state.get("session_id")
                     )
+                    
+                    # DEBUG: Log what we received from the API
+                    # with st.expander("📊 API Response Debug", expanded=False):
+                    #     st.write(f"**Sources Count**: {len(result.get('sources', []))}")
+                    #     st.write(f"**Context Used**: {result.get('context_used', False)}")
+                    #     if 'error' in result:
+                    #         st.error(f"**Error**: {result['error']}")
 
                     # Store session ID
                     if "session_id" in result:
