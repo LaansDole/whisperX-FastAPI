@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # Temporal Server
   temporal:
     image: temporalio/auto-setup:latest
     ports:
@@ -12,6 +11,8 @@ services:
       - POSTGRES_USER=temporal
       - POSTGRES_PWD=temporal
       - POSTGRES_SEEDS=postgres
+      - DBNAME=temporal
+      - VISIBILITY_DBNAME=temporal_visibility
     depends_on:
       - postgres
     networks:
@@ -28,6 +29,7 @@ services:
     environment:
       - POSTGRES_PASSWORD=temporal
       - POSTGRES_USER=temporal
+      - POSTGRES_DB=temporal
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
@@ -110,6 +112,7 @@ services:
       dockerfile: Dockerfile
       args:
         - INSTALL_GPU=false
+    stop_grace_period: 30s
     environment:
       - HF_TOKEN=${HF_TOKEN:-}
       - ENVIRONMENT=${ENVIRONMENT:-production}
@@ -171,7 +174,6 @@ networks:
     driver: bridge
 
 volumes:
-  temporal-data:
   postgres-data:
   whisperx-huggingface-cache:
   whisperx-torch-cache:
