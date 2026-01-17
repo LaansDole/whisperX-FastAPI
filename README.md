@@ -11,6 +11,22 @@ Production-ready REST API for audio processing using WhisperX with Temporal work
 - **Web Interface** - Streamlit UI for live recording and transcription
 - **Local LLM Integration** - LM Studio support for medical AI
 
+## Prerequisites (macOS)
+
+- **Docker Desktop** - Container runtime ([download](https://www.docker.com/products/docker-desktop/))
+- **LM Studio** - Local LLM server for medical AI features ([download](https://lmstudio.ai/))
+- **Homebrew** - Package manager for macOS ([install](https://brew.sh/))
+
+**System Dependencies:**
+```bash
+brew install ffmpeg pkg-config make
+```
+
+**Python Package Manager:**
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
 ## Quick Start
 
 ### Docker (Recommended)
@@ -20,23 +36,26 @@ Production-ready REST API for audio processing using WhisperX with Temporal work
 cp .env.example .env
 # Edit .env with your HF_TOKEN
 
-# Start all services
-docker-compose up -d
+# Install dependencies
+make install
+
+# Build and start all services
+make build
 
 # Access services
 # API: http://localhost:8000/docs
 # Temporal UI: http://localhost:8233
-# Streamlit: http://localhost:8501
+# Web UI: http://localhost:8501
 ```
 
 ### Local Development
 
 ```bash
-# Install dependencies
-uv sync
-
 # Configure environment
 cp .env.example .env
+
+# Install dependencies
+make install
 
 # Start full application (FastAPI + Temporal + Streamlit)
 make dev
@@ -47,10 +66,10 @@ make dev
 | Service | URL | Description |
 |---------|-----|-------------|
 | FastAPI | http://localhost:8000 | REST API with Scalar/Swagger docs |
-| Streamlit UI | http://localhost:8501 | Web interface for audio processing |
+| Web UI | http://localhost:8501 | Web interface for audio processing |
 | Temporal UI | http://localhost:8233 | Workflow monitoring dashboard |
 
-## Streamlit UI Features
+## Web UI Features
 
 - Live audio recording from browser
 - Audio/video file upload
@@ -65,12 +84,6 @@ make dev
 - `POST /speech-to-text` - Full processing pipeline
 - `POST /speech-to-text-url` - Process from URL
 - `GET /tasks/{task_id}` - Check workflow status
-
-### Individual Services
-- `POST /asr` - Transcribe only
-- `POST /asr/align` - Align transcript
-- `POST /asr/diarize` - Diarize speakers
-- `POST /asr/combine` - Combine results
 
 ### Medical (requires LM Studio)
 - `POST /medical/process` - Full medical pipeline
@@ -102,11 +115,16 @@ make dev
 ### Commands
 
 ```bash
-# Start services
+# Start services with Docker
+make build            # Build all services
+make up               # Start all services
+make down             # Stop all services
+
+# Start services without Docker
 make dev              # Full application (API + Temporal + Streamlit)
 make server           # FastAPI only
 make worker           # Temporal + worker
-make streamlit        # Streamlit UI only
+make web              # Web UI only
 
 # Stop services
 make stop             # Stop all processes
@@ -119,7 +137,6 @@ make check-activities # Monitor running workflows
 make test             # All tests
 make unit-test        # Unit tests with coverage
 make integration-test # Integration tests
-make test-coverage    # Generate coverage report
 
 # Code quality
 make lint             # Run linters
@@ -148,12 +165,6 @@ cp .env.example .env
 
 # Start LM Studio server
 # Local Server tab → Select model → Start Server
-
-# Start application with Docker
-make build
-
-# Or start application with local Python
-make dev
 ```
 
 ### Features
