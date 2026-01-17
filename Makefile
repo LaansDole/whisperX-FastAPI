@@ -143,10 +143,10 @@ start-temporal:
 
 list-servers:
 	@echo "List of running servers:"
-	@echo "  FastAPI:   http://localhost:8000"
-	@echo "  Admin:     http://localhost:8000/admin"
-	@echo "  Streamlit: http://localhost:8501"
-	@echo "  Temporal:  http://localhost:8233"
+	@echo "  Backend Docs:   http://localhost:8000"
+	@echo "  Admin:          http://localhost:8000/admin"
+	@echo "  Frontend UI:    http://localhost:8501"
+	@echo "  Workflows UI:   http://localhost:8233"
 
 # Stop all running processes (FastAPI, Temporal, worker, etc.)
 stop:

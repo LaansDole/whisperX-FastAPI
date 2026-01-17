@@ -6,7 +6,6 @@ Consolidates functionality from Workflows, Patients, and Results pages.
 """
 
 import streamlit as st
-from streamlit_autorefresh import st_autorefresh
 import httpx
 import json
 import sys
@@ -26,46 +25,73 @@ st.markdown("Search workflows by ID or patient hash, track status, and view deta
 # Initialize API client
 api_client = get_api_client()
 
+# ============================================================================
+# Handle Navigation from Other Pages (BEFORE UI Rendering)
+# ============================================================================
+
+# Check if we're navigating from another page with a selected workflow/patient
+navigate_to_workflow = None
+navigate_to_patient = None
+
+if "selected_workflow" in st.session_state:
+    # User clicked "View Details" from Home or Patients page, OR "View Full Results" in list
+    navigate_to_workflow = st.session_state.selected_workflow
+    del st.session_state.selected_workflow
+    # Force switch to Workflow ID mode by setting the widget state key
+    st.session_state.search_mode_selector = "Workflow ID"
+
+elif "selected_patient" in st.session_state:
+    # User clicked "View All Workflows" from Patients page
+    navigate_to_patient = st.session_state.selected_patient
+    del st.session_state.selected_patient
+    # Force switch to Patient Hash mode by setting the widget state key
+    st.session_state.search_mode_selector = "Patient Hash"
+
 # Search mode selection
+# Note: key="search_mode_selector" allows us to programmaticly change the selection
 search_mode = st.radio(
     "Search by:",
-    options=["Workflow ID", "Patient Hash", "Recent Uploads"],
+    options=["Workflow ID", "Patient Hash"],
     horizontal=True,
     help="Choose how to search for workflows",
+    key="search_mode_selector",
 )
 
-# Auto-refresh configuration (only for Recent Uploads)
-if search_mode == "Recent Uploads":
-    auto_refresh_col, _ = st.columns([1, 3])
-    with auto_refresh_col:
-        auto_refresh = st.toggle("Auto-refresh", value=True, help="Refresh every 5 seconds")
-
-    if auto_refresh:
-        st_autorefresh(interval=5000, key="workflow_refresh")
-
-st.divider()
-
 # Search inputs based on mode
+workflow_id_input = None
+patient_hash_input = None
+search_button = False
+
 if search_mode == "Workflow ID":
     col1, col2 = st.columns([3, 1])
 
     with col1:
+        # Pre-populate with navigated workflow ID if present
+        default_workflow_id = navigate_to_workflow if navigate_to_workflow else ""
         workflow_id_input = st.text_input(
             "Workflow ID",
+            value=default_workflow_id,
             placeholder="whisperx-wf-pt_abc12345-20260108_...",
             help="Enter the complete workflow ID",
         )
 
     with col2:
         st.markdown("<br>", unsafe_allow_html=True)
-        search_button = st.button("🔍 Search", type="primary", use_container_width=True)
+        search_button = st.button("🔍 Search", type="primary", use_container_width=True, key="search_btn_workflow")
+
+    # Auto-trigger search if navigated from another page
+    if navigate_to_workflow:
+        search_button = True
 
 elif search_mode == "Patient Hash":
     col1, col2 = st.columns([3, 1])
 
     with col1:
+        # Pre-populate with navigated patient hash if present
+        default_patient_hash = navigate_to_patient if navigate_to_patient else ""
         patient_hash_input = st.text_input(
             "Patient Hash",
+            value=default_patient_hash,
             placeholder="abc12345",
             help="Enter the 8-character patient hash",
             max_chars=8,
@@ -73,7 +99,11 @@ elif search_mode == "Patient Hash":
 
     with col2:
         st.markdown("<br>", unsafe_allow_html=True)
-        search_button = st.button("🔍 Search", type="primary", use_container_width=True)
+        search_button = st.button("🔍 Search", type="primary", use_container_width=True, key="search_btn_patient")
+
+    # Auto-trigger search if navigated from another page
+    if navigate_to_patient:
+        search_button = True
 
     # Filters
     if patient_hash_input and len(patient_hash_input.strip()) > 0:
@@ -103,8 +133,73 @@ elif search_mode == "Patient Hash":
 # ============================================================================
 
 
+def display_patient_context(workflow_id: str, result=None):
+    """Display patient and workflow metadata information panel."""
+    try:
+        # Fetch patient info for this workflow
+        patient_response = api_client.get_patient_by_workflow_id(workflow_id)
+
+        if patient_response and "patient_hash" in patient_response:
+            patient_hash = patient_response["patient_hash"]
+            patient_name = patient_response.get("patient_name", "Unknown Patient")
+
+            # Extract workflow metadata from result if available
+            audio_file = "N/A"
+            workflow_type = "N/A"
+            started_at = "N/A"
+
+            if result:
+                # Extract audio filename from audio_path
+                audio_path = result.get("audio_path", "")
+                if audio_path:
+                    # Extract just the filename from the full path
+                    import os
+
+                    audio_file = os.path.basename(audio_path)
+
+                # Get workflow type and started time
+                workflow_type = result.get("workflow_type", "N/A")
+                started_at_raw = result.get("started_at", "")
+                if started_at_raw:
+                    # Format the timestamp nicely
+                    try:
+                        from datetime import datetime
+
+                        dt = datetime.fromisoformat(started_at_raw.replace("Z", "+00:00"))
+                        started_at = dt.strftime("%Y-%m-%d %H:%M:%S")
+                    except Exception:
+                        started_at = started_at_raw
+
+            # Create workflow metadata info panel
+            with st.container():
+                st.markdown("---")
+
+                # Patient information
+                st.markdown(f"**Patient:** {patient_name} (`{patient_hash}`)")
+
+                # Workflow metadata in columns
+                col1, col2, col3 = st.columns(3)
+
+                with col1:
+                    st.caption(f"**Audio File:** {audio_file}")
+
+                with col2:
+                    st.caption(f"**Workflow Type:** {workflow_type}")
+
+                with col3:
+                    st.caption(f"**Started:** {started_at}")
+
+                st.markdown("---")
+
+    except Exception:
+        # Silently skip patient context if not available
+        # (e.g., admin endpoint not available or workflow not found in DB)
+        pass
+
+
 def display_workflow_detail(workflow_id: str):
     """Display detailed workflow results with tabs."""
+
     try:
         # Get workflow status first
         status_response = api_client.get_workflow_status(workflow_id)
@@ -115,6 +210,9 @@ def display_workflow_detail(workflow_id: str):
         if status == "COMPLETED":
             # Fetch full results
             result = api_client.get_workflow_result(workflow_id)
+
+            # Display patient context panel with workflow metadata
+            display_patient_context(workflow_id, result)
 
             # Check if medical processing was enabled
             workflow_type = result.get("workflow_type", "")
@@ -441,6 +539,13 @@ def display_medical_results(result: dict):
             st.info("Vector storage not configured or disabled.")
 
 
+def on_view_workflow(workflow_id: str):
+    """Callback for View Full Results button to handle navigation."""
+    st.session_state.selected_workflow = workflow_id
+    # Force the search mode to switch immediately
+    st.session_state.search_mode_selector = "Workflow ID"
+
+
 def display_workflow_list(workflows: list):
     """Display list of workflows with expandable details."""
     for idx, workflow in enumerate(workflows):
@@ -455,9 +560,13 @@ def display_workflow_list(workflows: list):
                 st.markdown(f"**Created**: {format_timestamp(workflow.get('created_at', 'N/A'))}")
 
             with col2:
-                if st.button("📄 View Full Results", key=f"view_{idx}"):
-                    st.session_state.switch_to_workflow = workflow_id
-                    st.rerun()
+                # Use callback for reliable navigation state update
+                st.button(
+                    "📄 View Full Results",
+                    key=f"view_{idx}",
+                    on_click=on_view_workflow,
+                    args=(workflow_id,),
+                )
 
             # Quick preview from whisperx_final
             if status == "COMPLETED":
@@ -478,13 +587,6 @@ def display_workflow_list(workflows: list):
 # ============================================================================
 # Main Logic
 # ============================================================================
-
-# Handle workflow switch from list view
-if "switch_to_workflow" in st.session_state:
-    workflow_id_input = st.session_state.switch_to_workflow
-    search_mode = "Workflow ID"
-    search_button = True
-    del st.session_state.switch_to_workflow
 
 # Execute search based on mode
 if search_mode == "Workflow ID":
@@ -537,7 +639,6 @@ elif search_mode == "Patient Hash":
                                     st.session_state.page_offset += limit
                                     st.rerun()
                     else:
-                        st.warning(f"No workflows found for patient: `{patient_hash_input.strip()}`")
                         if status_filter != "All":
                             st.info("Try removing the status filter to see all workflows.")
 
@@ -551,23 +652,6 @@ elif search_mode == "Patient Hash":
                 st.error(f"Unexpected error: {str(e)}")
         else:
             st.warning("Patient hash must be exactly 8 characters")
-
-elif search_mode == "Recent Uploads":
-    if "recent_uploads" in st.session_state and st.session_state.recent_uploads:
-        st.subheader("📝 Your Recent Uploads")
-
-        for upload in st.session_state.recent_uploads[:5]:
-            display_workflow_detail(upload["workflow_id"])
-    else:
-        st.info("""
-        **No recent uploads to display.**
-
-        - Use Workflow ID or Patient Hash search above
-        - Or go to the **Upload** page to start a new transcription
-        """)
-
-        if st.button("Go to Upload Page", type="primary"):
-            st.switch_page("pages/1_📤_Upload.py")
 
 # Help section
 with st.expander("ℹ️ Help & Tips"):
@@ -584,16 +668,10 @@ with st.expander("ℹ️ Help & Tips"):
     - Paginate through results
     - Click "View Full Results" for detailed view
 
-    **Recent Uploads:**
-    - See workflows from your current session
-    - Auto-refresh to monitor progress
-    - Limited to 5 most recent uploads
-
     **Performance:**
     - Processing: ~1-2 min per 10 min of audio
     - Medical processing: +15-30 seconds
-    - Auto-refresh recommended for tracking
     """)
 
 # Footer
-st.caption("💡 **Tip**: Enable auto-refresh in Recent Uploads mode to monitor running workflows in real-time.")
+st.caption("💡 **Tip**: Use the Home page to view recent activity and navigate to workflow details.")
