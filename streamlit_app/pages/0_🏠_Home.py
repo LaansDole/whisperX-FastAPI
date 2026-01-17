@@ -143,7 +143,7 @@ try:
                     st.markdown(f"{status_emoji} **{display_id}**")
 
                     # Protected patient name
-                    render_protected_name(patient_hash, patient_name, inline=True)
+                    render_protected_name(patient_hash, patient_name, workflow_id, inline=True)
 
                     # Timestamp
                     st.caption(f"Created: {format_time_ago(created_at)}")
