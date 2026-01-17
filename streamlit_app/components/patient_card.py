@@ -49,7 +49,7 @@ def render_patient_card(patient_data: dict, index: int, api_client):
 
     with st.expander(f"Patient {patient_hash}", expanded=False):
         # Protected patient name
-        render_protected_name(patient_hash, patient_name, inline=False)
+        render_protected_name(patient_hash, patient_name, str(index), inline=False)
 
         st.divider()
 

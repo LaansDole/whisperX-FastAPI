@@ -8,13 +8,15 @@ Complies with HIPAA requirements by hiding PHI by default.
 import streamlit as st
 
 
-def render_protected_name(patient_hash: str, patient_name: str = None, inline: bool = True):
+def render_protected_name(patient_hash: str, patient_name: str, unique_id: str, inline: bool = True):
     """
     Display patient name with click-to-reveal protection.
 
     Args:
         patient_hash: 8-character patient hash (always visible)
         patient_name: Plain text patient name (PHI - protected)
+        unique_id: Unique identifier (e.g., workflow_id or index) to ensure unique keys
+                   when the same patient appears multiple times. REQUIRED to prevent duplicate keys.
         inline: If True, display inline. If False, display as separate rows.
 
     Behavior:
@@ -23,8 +25,9 @@ def render_protected_name(patient_hash: str, patient_name: str = None, inline: b
         - Name revealed inline permanently (until page refresh)
         - State stored in st.session_state
     """
-    # Session state key for this patient's reveal status
-    reveal_key = f"reveal_{patient_hash}"
+    # Generate unique keys using the provided unique_id
+    button_key = f"btn_reveal_{unique_id}"
+    reveal_key = f"reveal_{unique_id}"
 
     # Initialize state if not exists
     if reveal_key not in st.session_state:
@@ -43,7 +46,7 @@ def render_protected_name(patient_hash: str, patient_name: str = None, inline: b
         if inline:
             col1, col2 = st.columns([1, 3])
             with col1:
-                if st.button("🔓 Show Name", key=f"btn_reveal_{patient_hash}", help="Click to reveal patient name"):
+                if st.button("🔓 Show Name", key=button_key, help="Click to reveal patient name"):
                     st.session_state[reveal_key] = True
                     st.rerun()
             with col2:
@@ -51,7 +54,7 @@ def render_protected_name(patient_hash: str, patient_name: str = None, inline: b
         else:
             if st.button(
                 "🔓 Show Name",
-                key=f"btn_reveal_{patient_hash}",
+                key=button_key,
                 use_container_width=True,
                 help="Click to reveal patient name",
             ):
