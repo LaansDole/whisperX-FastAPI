@@ -1,5 +1,5 @@
-.PHONY: help install-prod install-prod-gpu install-dev install-dev-gpu \
-	dev server worker streamlit start-temporal lint format \
+.PHONY: help install install-prod-gpu install-dev install-dev-gpu \
+	dev server worker web start-temporal lint format \
 	stop-temporal stop temporal-fresh check-activities \
 	test unit-test integration-test \
 	docker-build docker-up docker-start docker-restart docker-down down
@@ -7,14 +7,14 @@
 # Default target - show help
 help:
 	@echo "Available targets:"
-	@echo "  install-prod         	- Install production dependencies (CPU only)"
+	@echo "  install              	- Install uv and production dependencies with verbose output"
 	@echo "  install-prod-gpu     	- Install production dependencies with GPU support"
 	@echo "  install-dev          	- Install development dependencies (CPU only)"
 	@echo "  install-dev-gpu      	- Install development dependencies with GPU support"
 	@echo "  dev                  	- Start worker + FastAPI server + Streamlit UI"
 	@echo "  server            		- Start FastAPI server only"
 	@echo "  worker           		- Start Temporal server + worker"
-	@echo "  streamlit        		- Start Streamlit UI only"
+	@echo "  web        		- Start Streamlit UI only"
 	@echo "  start-temporal     	- Start local Temporal server"
 	@echo "  stop-temporal      	- Stop local Temporal server"
 	@echo "  stop              		- Stop all running processes (pkill)"
@@ -44,8 +44,26 @@ help:
 # Installation targets
 # ============================================================================
 
-install-prod:
-	uv sync --no-dev
+# Install uv and production dependencies with verbose output
+install:
+	@echo "Checking for uv installation..."
+	@if ! command -v uv >/dev/null 2>&1; then \
+		echo "uv not found. Installing uv..."; \
+		echo "Running: curl -LsSf https://astral.sh/uv/install.sh | sh"; \
+		curl -LsSf https://astral.sh/uv/install.sh | sh; \
+		echo "uv installed successfully"; \
+		echo "Please run 'source $$HOME/.cargo/env' or restart your shell"; \
+		echo "Then run 'make install' again"; \
+		exit 1; \
+	else \
+		echo "uv is already installed: $$(command -v uv)"; \
+		echo "Version: $$(uv --version)"; \
+	fi
+	@echo ""
+	@echo "Running: uv sync --no-dev --verbose"
+	@uv sync --no-dev --verbose
+	@echo ""
+	@echo "Installation complete!"
 
 install-prod-gpu:
 	uv sync --no-dev --extra gpu
@@ -96,12 +114,12 @@ dev:
 	$(MAKE) server
 	@echo "Waiting for server to start..."
 	uv run python scripts/wait_for_server.py
-	$(MAKE) streamlit
+	$(MAKE) web
 	@echo "Full application started"
 	@$(MAKE) list-servers
 
 # Start Streamlit UI only
-streamlit:
+web:
 	uv run streamlit run streamlit_app/app.py --server.port 8501 &
 	@echo "Streamlit UI started at http://localhost:8501"
 
@@ -143,10 +161,10 @@ start-temporal:
 
 list-servers:
 	@echo "List of running servers:"
-	@echo "  FastAPI:   http://localhost:8000"
-	@echo "  Admin:     http://localhost:8000/admin"
-	@echo "  Streamlit: http://localhost:8501"
-	@echo "  Temporal:  http://localhost:8233"
+	@echo "  Backend Docs:   http://localhost:8000"
+	@echo "  Admin:          http://localhost:8000/admin"
+	@echo "  Frontend UI:    http://localhost:8501"
+	@echo "  Workflows UI:   http://localhost:8233"
 
 # Stop all running processes (FastAPI, Temporal, worker, etc.)
 stop:

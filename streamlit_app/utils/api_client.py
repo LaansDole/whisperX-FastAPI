@@ -206,6 +206,102 @@ class WhisperXAPIClient:
             response.raise_for_status()
             return response.json()
 
+    # Admin endpoints for patient management and monitoring
+
+    def get_all_patients(self) -> Dict[str, Any]:
+        """
+        List all patients with workflow counts (Admin endpoint).
+
+        Returns:
+            Dictionary with total_patients count and list of patients with stats.
+            Each patient includes: patient_hash, patient_name, total_workflows, workflows list.
+
+        Raises:
+            httpx.HTTPError: If request fails
+
+        Example response:
+            {
+                "total_patients": 42,
+                "patients": [
+                    {
+                        "patient_hash": "154c26a1",
+                        "patient_name": "John Michael Smith",
+                        "total_workflows": 5,
+                        "workflows": [...]
+                    },
+                    ...
+                ]
+            }
+        """
+        with httpx.Client(timeout=self.timeout) as client:
+            response = client.get(f"{self.base_url}/admin/patients")
+            response.raise_for_status()
+            return response.json()
+
+    def get_patient_info_by_hash(self, patient_hash: str) -> Dict[str, Any]:
+        """
+        Get patient information and all workflows by hash (Admin endpoint).
+
+        Args:
+            patient_hash: 8-character patient hash
+
+        Returns:
+            Dictionary with patient info and all associated workflows.
+            Includes: patient_hash, patient_name, total_workflows, workflows list.
+
+        Raises:
+            httpx.HTTPError: If request fails (404 if patient not found)
+
+        Example response:
+            {
+                "patient_hash": "154c26a1",
+                "patient_name": "John Michael Smith",
+                "total_workflows": 5,
+                "workflows": [
+                    {
+                        "workflow_id": "whisperx-wf-pt_154c26a1-20260117_143022",
+                        "created_at": "2026-01-17T14:30:22",
+                        "file_path": "/path/to/audio.mp3",
+                        ...
+                    },
+                    ...
+                ]
+            }
+        """
+        with httpx.Client(timeout=self.timeout) as client:
+            response = client.get(f"{self.base_url}/admin/patient/hash/{patient_hash}")
+            response.raise_for_status()
+            return response.json()
+
+    def get_patient_by_workflow_id(self, workflow_id: str) -> Dict[str, Any]:
+        """
+        Get patient information for a specific workflow (Admin reverse lookup).
+
+        Args:
+            workflow_id: Temporal workflow ID
+
+        Returns:
+            Dictionary with patient info for the workflow.
+            Includes: patient_hash, patient_name, workflow_id, created_at, etc.
+
+        Raises:
+            httpx.HTTPError: If request fails (404 if workflow not found)
+
+        Example response:
+            {
+                "patient_hash": "154c26a1",
+                "patient_name": "John Michael Smith",
+                "workflow_id": "whisperx-wf-pt_154c26a1-20260117_143022",
+                "created_at": "2026-01-17T14:30:22",
+                "file_path": "/path/to/audio.mp3",
+                ...
+            }
+        """
+        with httpx.Client(timeout=self.timeout) as client:
+            response = client.get(f"{self.base_url}/admin/workflow/{workflow_id}/patient")
+            response.raise_for_status()
+            return response.json()
+
 
 @st.cache_resource
 def get_api_client() -> WhisperXAPIClient:
