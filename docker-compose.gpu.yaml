@@ -13,6 +13,8 @@ services:
       - POSTGRES_SEEDS=postgres
       - DBNAME=temporal
       - VISIBILITY_DBNAME=temporal_visibility
+      # Workflow retention: 7 days (168 hours)
+      - DEFAULT_NAMESPACE_RETENTION=168h
     depends_on:
       - postgres
     networks:
