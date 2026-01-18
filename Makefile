@@ -160,6 +160,7 @@ start-temporal:
 # ============================================================================
 
 list-servers:
+	@echo ""
 	@echo "List of running servers:"
 	@echo "  Backend Docs:   http://localhost:8000"
 	@echo "  Admin:          http://localhost:8000/admin"

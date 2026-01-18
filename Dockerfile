@@ -1,5 +1,5 @@
 # Multi-stage build for WhisperX-FastAPI
-FROM python:3.11-slim AS base
+FROM python:3.11.11-slim-bookworm AS base
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
@@ -7,7 +7,8 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     UV_HTTP_TIMEOUT=120 \
-    UV_LINK_MODE=copy
+    UV_LINK_MODE=copy \
+    UV_COMPILE_BYTECODE=1
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
