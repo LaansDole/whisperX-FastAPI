@@ -160,11 +160,15 @@ start-temporal:
 # ============================================================================
 
 list-servers:
+	@echo ""
 	@echo "List of running servers:"
 	@echo "  Backend Docs:   http://localhost:8000"
 	@echo "  Admin:          http://localhost:8000/admin"
 	@echo "  Frontend UI:    http://localhost:8501"
 	@echo "  Workflows UI:   http://localhost:8233"
+	@echo ""
+	@echo "Workflow Configuration in Docker Environment:"
+	@echo "  Completed workflows auto-delete after 7 days (168h)"
 
 # Stop all running processes (FastAPI, Temporal, worker, etc.)
 stop:
