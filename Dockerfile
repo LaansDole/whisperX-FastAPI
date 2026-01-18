@@ -1,5 +1,5 @@
 # Multi-stage build for WhisperX-FastAPI
-FROM python:3.11.11-slim-bookworm AS base
+FROM python:3.11.14-slim-bookworm AS base
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
