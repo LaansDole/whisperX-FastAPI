@@ -166,9 +166,8 @@ list-servers:
 	@echo "  Frontend UI:    http://localhost:8501"
 	@echo "  Workflows UI:   http://localhost:8233"
 	@echo ""
-	@echo "Temporal Configuration:"
-	@echo "  Workflow Retention: 7 days (168h)"
-	@echo "  Completed workflows auto-delete after 7 days"
+	@echo "Workflow Configuration in Docker Environment:"
+	@echo "  Completed workflows auto-delete after 7 days (168h)"
 
 # Stop all running processes (FastAPI, Temporal, worker, etc.)
 stop:
