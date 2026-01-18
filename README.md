@@ -11,13 +11,19 @@ Production-ready REST API for audio processing using WhisperX with Temporal work
 - **Web Interface** - Streamlit UI for live recording and transcription
 - **Local LLM Integration** - LM Studio support for medical AI
 
-## Prerequisites (macOS)
+## Requirements
 
-- **Docker Desktop** - Container runtime ([download](https://www.docker.com/products/docker-desktop/))
-- **LM Studio** - Local LLM server for medical AI features ([download](https://lmstudio.ai/))
-- **Homebrew** - Package manager for macOS ([install](https://brew.sh/))
+- Python: 3.11+
+- HF_TOKEN: Required for model downloads (get from [HuggingFace](https://huggingface.co/settings/tokens))
+
+**Software Dependencies:**
+- Docker Desktop - Container runtime ([download](https://www.docker.com/products/docker-desktop/))
+- LM Studio - Local LLM server for medical AI features ([download](https://lmstudio.ai/))
+
+### Prerequisites (macOS)
 
 **System Dependencies:**
+Homebrew - Package manager for macOS ([install](https://brew.sh/))
 ```bash
 brew install ffmpeg pkg-config make
 ```
@@ -50,6 +56,8 @@ make build
 
 ### Local Development
 
+Temporal CLI: Required for local development (install from [GitHub releases](https://github.com/temporalio/cli/releases))
+
 ```bash
 # Configure environment
 cp .env.example .env
@@ -69,14 +77,15 @@ make dev
 | Web UI | http://localhost:8501 | Web interface for audio processing |
 | Temporal UI | http://localhost:8233 | Workflow monitoring dashboard |
 
-## Web UI Features
+## Architecture
 
-- Live audio recording from browser
-- Audio/video file upload
-- Real-time transcription display
-- Speaker diarization visualization
-- Patient workflow management
-- Medical processing (PHI, SOAP notes, entities)
+```
+Client → FastAPI → Temporal → Activities (Transcribe → Align → Diarize)
+                    ↓
+                 Patient DB (SQLite)
+                    ↓
+              Medical LLM (LM Studio)
+```
 
 ## API Endpoints
 
@@ -143,12 +152,6 @@ make lint             # Run linters
 make format           # Format code
 ```
 
-### Requirements
-
-- **Python:** 3.10+
-- **Temporal CLI:** Required for local development (install from [GitHub releases](https://github.com/temporalio/cli/releases))
-- **HF_TOKEN:** Required for model downloads (get from [HuggingFace](https://huggingface.co/settings/tokens))
-
 ## Medical RAG with LM Studio
 
 ### Setup
@@ -178,16 +181,6 @@ cp .env.example .env
 
 **GPU (RTX 4090/A10):** ~15-25s per consultation
 **CPU:** ~50-90s per consultation
-
-## Architecture
-
-```
-Client → FastAPI → Temporal → Activities (Transcribe → Align → Diarize)
-                    ↓
-                 Patient DB (SQLite)
-                    ↓
-              Medical LLM (LM Studio)
-```
 
 ## Documentation
 
