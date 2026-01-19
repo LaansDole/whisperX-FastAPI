@@ -26,3 +26,29 @@
 **/*.jpg
 **/*.jpeg
 **/*.gif
+
+# Data directories (mounted as volumes, not needed in image)
+temporal_data/
+vector_storage/
+data/
+audit_logs/
+uploads/
+
+# Temporal logs
+temporal_logs/
+
+# Testing
+.tox/
+.hypothesis/
+*.cover
+
+# Model caches (mounted as volumes)
+.cache/
+models/
+
+# Misc
+*.bak
+*.tmp
+.tmp/
+temp/
+*.egg-info/
