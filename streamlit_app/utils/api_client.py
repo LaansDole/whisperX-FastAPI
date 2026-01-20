@@ -313,11 +313,6 @@ def get_api_client() -> WhisperXAPIClient:
     """
     import os
 
-    # Try to get from secrets, fall back to environment variable, then default
-    try:
-        base_url = st.secrets.get("WHISPERX_API_URL", os.getenv("WHISPERX_API_URL", "http://localhost:8000"))
-    except Exception:
-        # If secrets.toml doesn't exist, use environment variable or default
-        base_url = os.getenv("WHISPERX_API_URL", "http://localhost:8000")
+    base_url = os.getenv("WHISPERX_API_URL", "http://localhost:8000")
 
     return WhisperXAPIClient(base_url=base_url)

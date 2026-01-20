@@ -152,8 +152,6 @@ dependencies = [
     "passlib[bcrypt]>=1.7.4",
     "pytest-env>=1.1.5",
     "scalar-fastapi>=1.5.0",
-    "streamlit>=1.52.2",
-    "streamlit-autorefresh>=1.0.1",
     "sqladmin>=0.22.0",
 ]
 
@@ -164,6 +162,11 @@ dev = [
     "pytest==8.4.0",
     "pytest-cov==6.1.1",
     "ruff==0.11.13",
+]
+streamlit = [
+    "streamlit>=1.52.2",
+    "streamlit-autorefresh>=1.0.1",
+    "httpx==0.28.1",
 ]
 gpu = [
     "nvidia-cublas-cu12==12.6.4.1",
